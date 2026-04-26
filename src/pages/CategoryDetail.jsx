@@ -6,6 +6,7 @@ import { StarOutlined } from '@ant-design/icons';
 import BackButton from '../components/BackButton';
 import { ThemeContext } from '../App';
 import axios from 'axios';
+import { getDefaultSource, saveNovelCache } from '../utils/novelConfig';
 
 const categoryCache = new Map();
 
@@ -14,21 +15,12 @@ const getCacheKey = (categoryId, sort, page) =>
 
 const { Title, Text } = Typography;
 
-const bookSource = {
-  url: 'http://api.jmlldsc.com',
-  headers: {
-    'User-Agent': 'okhttp/4.9.2',
-    'client-device': '2d37f6b5b6b2605373092c3dc65a3b39',
-    'client-brand': 'Redmi',
-    'client-version': '2.3.0',
-    'client-name': 'app.maoyankanshu.novel',
-    'client-source': 'android',
-    'Authorization': 'bearereyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9hcGkuanhndHp4Yy5jb21cL2F1dGhcL3RoaXJkIiwiaWF0IjoxNjgzODkxNjUyLCJleHAiOjE3NzcyMDM2NTIsIm5iZiI6MTY4Mzg5MTY1MiwianRpIjoiR2JxWmI4bGZkbTVLYzBIViIsInN1YiI6Njg3ODYyLCJwcnYiOiJhMWNiMDM3MTgwMjk2YzZhMTkzOGVmMzBiNDM3OTQ2NzJkZDAxNmM1In0.mMxaC2SVyZKyjC6rdUqFVv5d9w_X36o0AdKD7szvE_Q'
-  }
-};
-
 const MAX_PAGES = 10;
 const PAGE_SIZE = 15;
+
+function parseHeaders(headerStr) {
+  try { return headerStr ? JSON.parse(headerStr.replace(/'/g, '"')) : {}; } catch { return {}; }
+}
 
 const CategoryDetail = () => {
   const { channel, sort, categoryId, categoryName } = useParams();
@@ -60,14 +52,15 @@ const CategoryDetail = () => {
     fetchingRef.current = true;
     setLoading(true);
     try {
-      let url = `${bookSource.url}/novel?sort=1&page=${page}&categoryId=${categoryId}`;
+      const ds = getDefaultSource();
+      let url = `${ds.bookSourceUrl}/novel?sort=1&page=${page}&categoryId=${categoryId}`;
       if (sortNum === 2) {
         url += '&isComplete=1';
       } else if (sortNum === 3) {
         url += '&isComplete=0';
       }
 
-      const response = await axios.get(url, { headers: bookSource.headers });
+      const response = await axios.get(url, { headers: parseHeaders(ds.header) });
 
       if (response.data && response.data.code === 200 && response.data.data) {
         const rawData = response.data.data;
@@ -144,7 +137,21 @@ const CategoryDetail = () => {
         transition={{ duration: 0.2 }}
         onHoverStart={() => setIsHovered(true)}
         onHoverEnd={() => setIsHovered(false)}
-        onClick={() => navigate(`/novel/${novel.id}?from=category`)}
+        onClick={() => {
+            const ds = getDefaultSource();
+            const novelId = String(novel.id || novel.novelId || '');
+            const bookUrlTemplate = ds.ruleSearch?.bookUrl || '';
+            let bookUrl = novelId;
+            if (bookUrlTemplate && bookUrlTemplate.includes('{{')) {
+              bookUrl = bookUrlTemplate.replace(/\{\{\$?\.?novelId\}\}/g, novelId);
+            }
+            saveNovelCache(novel, ds.bookSourceUrl, bookUrl);
+            const p = new URLSearchParams();
+            p.set('sourceUrl', ds.bookSourceUrl);
+            p.set('bookUrl', bookUrl);
+            p.set('from', 'category');
+            navigate(`/novel/${novel.id}?${p.toString()}`);
+          }}
         style={{ cursor: 'pointer' }}
       >
         <Card

@@ -24,6 +24,7 @@ import {
   StarOutlined
 } from '@ant-design/icons';
 import { NovelContext, ThemeContext } from '../App';
+import { getDefaultSource, saveNovelCache, simpleHash } from '../utils/novelConfig';
 
 const { Title, Text } = Typography;
 
@@ -31,13 +32,32 @@ const NovelCard = ({ novel, index, color }) => {
   const [isHovered, setIsHovered] = useState(false);
   const navigate = useNavigate();
   
+  const handleClick = () => {
+    const ds = getDefaultSource();
+    const sourceUrl = ds.bookSourceUrl;
+    const novelId = String(novel.id || novel.novelId || '');
+    const bookUrlTemplate = ds.ruleSearch?.bookUrl || '';
+    let bookUrl = novelId;
+    if (bookUrlTemplate && bookUrlTemplate.includes('{{')) {
+      bookUrl = bookUrlTemplate.replace(/\{\{\$?\.?novelId\}\}/g, novelId);
+    } else if (bookUrlTemplate && !bookUrlTemplate.includes('{{')) {
+      bookUrl = bookUrlTemplate;
+    }
+    saveNovelCache(novel, sourceUrl, bookUrl);
+
+    const params = new URLSearchParams();
+    params.set('sourceUrl', sourceUrl);
+    params.set('bookUrl', bookUrl);
+    navigate(`/novel/${novel.id}?${params.toString()}`);
+  };
+  
   return (
     <motion.div
       whileHover={{ scale: 1.03, y: -5 }}
       transition={{ duration: 0.2 }}
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
-      onClick={() => navigate(`/novel/${novel.id}`)}
+      onClick={handleClick}
       style={{ cursor: 'pointer' }}
     >
       <Card

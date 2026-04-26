@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button, Spin, Select, Divider, Slider, Modal, message, Tooltip } from 'antd';
 import { 
@@ -10,61 +10,49 @@ import {
 } from '@ant-design/icons';
 import BackButton from '../components/BackButton';
 import { ThemeContext, AuthContext } from '../App';
-import { decryptMaoyanContent } from '../utils/decrypt';
-import { saveReadingProgress, getReadingProgress } from '../utils/storage';
-import axios from 'axios';
+import { saveReadingProgress } from '../utils/storage';
+import { getTocAPI, getContentAPI } from '../utils/apiClient';
+import { getBookSources, getDefaultSource as getDefaultSourceFromManager } from '../utils/bookSourceManager';
+import { loadReaderCache, simpleHash, isDefaultSource } from '../utils/novelConfig';
 
 const cache = {
   chapters: new Map(),
   content: new Map(),
   expireTime: 24 * 60 * 60 * 1000,
   isExpired: (timestamp) => Date.now() - timestamp > cache.expireTime,
-  setChapters: (novelId, chapters) => { cache.chapters.set(novelId, { data: chapters, timestamp: Date.now() }); },
-  getChapters: (novelId) => {
-    const cached = cache.chapters.get(novelId);
+  setChapters: (key, chapters) => { cache.chapters.set(key, { data: chapters, timestamp: Date.now() }); },
+  getChapters: (key) => {
+    const cached = cache.chapters.get(key);
     if (cached && !cache.isExpired(cached.timestamp)) return cached.data;
-    cache.chapters.delete(novelId);
+    cache.chapters.delete(key);
     return null;
   },
-  setContent: (path, content) => { cache.content.set(path, { data: content, timestamp: Date.now() }); },
-  getContent: (path) => {
-    const cached = cache.content.get(path);
+  setContent: (chapterUrl, content) => { cache.content.set(chapterUrl, { data: content, timestamp: Date.now() }); },
+  getContent: (chapterUrl) => {
+    const cached = cache.content.get(chapterUrl);
     if (cached && !cache.isExpired(cached.timestamp)) return cached.data;
-    cache.content.delete(path);
+    cache.content.delete(chapterUrl);
     return null;
-  }
-};
-
-const bookSource = {
-  url: 'http://api.jmlldsc.com',
-  headers: {
-    'User-Agent': 'okhttp/4.9.2',
-    'client-device': '2d37f6b5b6b2605373092c3dc65a3b39',
-    'client-brand': 'Redmi',
-    'client-version': '2.3.0',
-    'client-name': 'app.maoyankanshu.novel',
-    'client-source': 'android',
-    'Authorization': 'bearereyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9hcGkuanhndHp4Yy5jb21cL2F1dGhcL3RoaXJkIiwiaWF0IjoxNjgzODkxNjUyLCJleHAiOjE3NzcyMDM2NTIsIm5iZiI6MTY4Mzg5MTY1MiwianRpIjoiR2JxWmI4bGZkbTVLYzBIViIsInN1YiI6Njg3ODYyLCJwcnYiOiJhMWNiMDM3MTgwMjk2YzZhMTkzOGVmMzBiNDM3OTQ2NzJkZDAxNmM1In0.mMxaC2SVyZKyjC6rdUqFVv5d9w_X36o0AdKD7szvE_Q'
   }
 };
 
 const bgPresets = [
-    { name: '默认白', color: '#ffffff', textColor: '#333333' },
-    { name: '护眼绿', color: '#c7edcc', textColor: '#333333' },
-    { name: '护眼黄', color: '#f5f5dc', textColor: '#333333' },
-    { name: '淡灰', color: '#e8e8e8', textColor: '#333333' },
-    { name: '暗夜', color: '#1a1a2e', textColor: '#e0e0e0' },
-    { name: '深黑', color: '#0d0d0d', textColor: '#cccccc' },
-    { name: '羊皮纸', color: '#f1e7d0', textColor: '#5b4636' },
-    { name: '淡蓝', color: '#d6eaf8', textColor: '#2c3e50' },
-  ];
+  { name: '默认白', color: '#ffffff', textColor: '#333333' },
+  { name: '护眼绿', color: '#c7edcc', textColor: '#333333' },
+  { name: '护眼黄', color: '#f5f5dc', textColor: '#333333' },
+  { name: '淡灰', color: '#e8e8e8', textColor: '#333333' },
+  { name: '暗夜', color: '#1a1a2e', textColor: '#e0e0e0' },
+  { name: '深黑', color: '#0d0d0d', textColor: '#cccccc' },
+  { name: '羊皮纸', color: '#f1e7d0', textColor: '#5b4636' },
+  { name: '淡蓝', color: '#d6eaf8', textColor: '#2c3e50' },
+];
 
 const Reader = () => {
-  const { novelId, chapterId } = useParams();
+  const { novelId } = useParams();
   const navigate = useNavigate();
-  const { currentTheme, themeConfigs, isDarkMode } = useContext(ThemeContext);
+  const [searchParams] = useSearchParams();
+  const { currentTheme, themeConfigs } = useContext(ThemeContext);
   const { isLoggedIn, userInfo } = useContext(AuthContext);
-  const [novel, setNovel] = useState(null);
   const [chapters, setChapters] = useState([]);
   const [currentChapter, setCurrentChapter] = useState(null);
   const [content, setContent] = useState('');
@@ -74,6 +62,10 @@ const Reader = () => {
   const [showScrollButtons, setShowScrollButtons] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [bookUrl, setBookUrl] = useState('');
+  const [tocUrl, setTocUrl] = useState('');
+  const [bookData, setBookData] = useState(null);
   const pageRef = useRef(null);
   const pendingColorRef = useRef({ textColor: '', bgColor: '' });
   const isSwitchingChapterRef = useRef(false);
@@ -94,15 +86,8 @@ const Reader = () => {
       };
     } catch {
       return {
-        fontSize: 16,
-        fontWeight: 400,
-        lineHeight: 2,
-        paragraphSpacing: 16,
-        indent: 2,
-        letterSpacing: 0,
-        bgColor: '#ffffff',
-        textColor: '#333333',
-        bgImage: ''
+        fontSize: 16, fontWeight: 400, lineHeight: 2, paragraphSpacing: 16,
+        indent: 2, letterSpacing: 0, bgColor: '#ffffff', textColor: '#333333', bgImage: ''
       };
     }
   });
@@ -110,9 +95,29 @@ const Reader = () => {
   const color = themeConfigs[currentTheme].colors[0];
 
   useEffect(() => {
+    const urlSource = searchParams.get('sourceUrl') || '';
+    const urlBookUrl = searchParams.get('bookUrl') || '';
+    const urlTocUrl = searchParams.get('tocUrl') || '';
+    const chapterIdx = parseInt(searchParams.get('chapterIndex') || '0', 10);
+    setSourceUrl(urlSource);
+    setBookUrl(urlBookUrl);
+    setTocUrl(urlTocUrl);
+    setCurrentChapterIndex(chapterIdx);
+
+    const readerCache = loadReaderCache(urlSource, urlBookUrl);
+    if (readerCache) {
+      setBookData(readerCache.bookData);
+      if (readerCache.chapters && readerCache.chapters.length > 0) {
+        const cacheKey = simpleHash(urlSource + '_' + urlBookUrl);
+        cache.setChapters(cacheKey, readerCache.chapters);
+      }
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     try {
       localStorage.setItem('reader_settings', JSON.stringify(readerSettings));
-    } catch {}
+    } catch (e) { console.warn('Failed to save reader settings:', e); }
   }, [readerSettings]);
 
   useEffect(() => {
@@ -134,158 +139,134 @@ const Reader = () => {
   const scrollToTop = () => { window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const scrollToBottom = () => { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); };
 
-  const getUrlParam = (name) => {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get(name);
-  };
+  const getSource = useCallback(() => {
+    if (sourceUrl && isDefaultSource(sourceUrl)) {
+      return getDefaultSourceFromManager();
+    }
+    if (sourceUrl) {
+      const allSources = getBookSources();
+      const found = allSources.find(s => s.bookSourceUrl === sourceUrl);
+      if (found) return found;
+    }
+    return getDefaultSourceFromManager();
+  }, [sourceUrl]);
 
   useEffect(() => {
     const fetchChapters = async () => {
-      if (!novelId) return;
+      if (!sourceUrl && !bookUrl) return;
       if (isSwitchingChapterRef.current) {
         isSwitchingChapterRef.current = false;
         return;
       }
       setLoading(true);
       try {
-        const from = getUrlParam('from');
-        const shouldRestoreProgress = from === 'shelf';
-        const cachedChapters = cache.getChapters(novelId);
+        const cacheKey = simpleHash(sourceUrl + '_' + bookUrl);
+        const cachedChapters = cache.getChapters(cacheKey);
         if (cachedChapters) {
-          const chapterList = cachedChapters;
+          const chapterList = cachedChapters.map((ch, i) => ({
+            ...ch,
+            index: i,
+            chapterName: ch.chapterName || ch.name || ch.title || `第${i + 1}章`,
+            chapterUrl: ch.chapterUrl || ch.url || ch.path || '',
+          }));
           setChapters(chapterList);
-          let index = 0;
-          if (shouldRestoreProgress && isLoggedIn && userInfo) {
-            const savedProgress = await getReadingProgress(userInfo.username, novelId);
-            if (savedProgress && savedProgress.chapterId) {
-              index = chapterList.findIndex(chapter => chapter.chapterId === savedProgress.chapterId);
-              if (index === -1) index = 0;
-            } else if (chapterId) {
-              index = chapterList.findIndex(chapter => chapter.chapterId === chapterId);
-              if (index === -1) index = 0;
-            }
-          } else if (chapterId) {
-            index = chapterList.findIndex(chapter => chapter.chapterId === chapterId);
-            if (index === -1) index = 0;
-          }
-          setCurrentChapterIndex(index);
-          setCurrentChapter(chapterList[index]);
-          fetchChapterContent(chapterList[index].path);
+          const idx = Math.min(currentChapterIndex, chapterList.length - 1);
+          setCurrentChapterIndex(idx);
+          setCurrentChapter(chapterList[idx]);
+          await fetchChapterContent(chapterList[idx]);
         } else {
-          const response = await axios.get(`/api/novel/${novelId}/chapters?readNum=1`, {
-            headers: bookSource.headers
-          });
-          if (response.data && response.data.data) {
-            const chapterList = response.data.data.list;
-            cache.setChapters(novelId, chapterList);
+          const source = getSource();
+          const effectiveTocUrl = tocUrl || bookUrl;
+          const result = await getTocAPI(source, effectiveTocUrl, bookData);
+
+          if (result.success && result.chapters && result.chapters.length > 0) {
+            const chapterList = result.chapters.map((ch, i) => ({
+              ...ch,
+              index: i,
+              chapterName: ch.name || ch.chapterName || ch.title || `第${i + 1}章`,
+              chapterUrl: ch.url || ch.chapterUrl || ch.path || '',
+            }));
+            cache.setChapters(cacheKey, chapterList);
             setChapters(chapterList);
-            let index = 0;
-            if (shouldRestoreProgress && isLoggedIn && userInfo) {
-              const savedProgress = await getReadingProgress(userInfo.username, novelId);
-              if (savedProgress && savedProgress.chapterId) {
-                index = chapterList.findIndex(chapter => chapter.chapterId === savedProgress.chapterId);
-                if (index === -1) index = 0;
-              } else if (chapterId) {
-                index = chapterList.findIndex(chapter => chapter.chapterId === chapterId);
-                if (index === -1) index = 0;
-              }
-            } else if (chapterId) {
-              index = chapterList.findIndex(chapter => chapter.chapterId === chapterId);
-              if (index === -1) index = 0;
-            }
-            setCurrentChapterIndex(index);
-            setCurrentChapter(chapterList[index]);
-            fetchChapterContent(chapterList[index].path);
+            const idx = Math.min(currentChapterIndex, chapterList.length - 1);
+            setCurrentChapterIndex(idx);
+            setCurrentChapter(chapterList[idx]);
+            await fetchChapterContent(chapterList[idx]);
+          } else {
+            setError('获取章节列表失败');
           }
         }
-      } catch (error) {
-        console.error('获取章节列表失败:', error);
+      } catch (err) {
+        console.error('获取章节列表失败:', err);
         setError('获取章节列表失败');
       } finally {
         setLoading(false);
       }
     };
     fetchChapters();
-  }, [novelId, chapterId, isLoggedIn, userInfo]);
+  }, [sourceUrl, bookUrl, tocUrl, currentChapterIndex, getSource, bookData]);
 
-  const fetchChapterContent = async (path) => {
+  const fetchChapterContent = useCallback(async (chapter) => {
+    if (!chapter) return;
     setLoading(true);
     try {
-      const cachedContent = cache.getContent(path);
+      const chapterUrl = chapter.chapterUrl || chapter.url || chapter.path || '';
+      const cachedContent = cache.getContent(chapterUrl);
       if (cachedContent) {
         setContent(cachedContent);
       } else {
-        const decryptedPath = decryptMaoyanContent(path);
-        if (!decryptedPath) throw new Error('解密失败');
-        let contentUrl;
-        if (decryptedPath?.startsWith('http')) {
-          contentUrl = `/proxy?target=${encodeURIComponent(decryptedPath)}`;
-        }
-        try {
-          const response = await axios.get(contentUrl, { headers: bookSource.headers });
-          let chapterContent;
-          if (response.data) {
-            if (response.data.data && response.data.data.content) {
-              chapterContent = response.data.data.content || '';
-            } else if (response.data.content) {
-              chapterContent = response.data.content || '';
-            } else {
-              chapterContent = '获取章节内容失败，内容为空！';
-            }
-          } else {
-            chapterContent = '获取章节内容失败，内容为空！';
-          }
-          cache.setContent(path, chapterContent);
+        const source = getSource();
+        const result = await getContentAPI(source, chapterUrl, bookData, {
+          index: chapter.index,
+          title: chapter.chapterName,
+          url: chapterUrl,
+        });
+
+        if (result.success && result.content) {
+          const chapterContent = String(result.content);
+          cache.setContent(chapterUrl, chapterContent);
           setContent(chapterContent);
-        } catch (error) {
-          console.error('获取章节内容失败:', error);
-          const mockContent = '这是章节内容的模拟数据，实际项目中需要解密获取真实内容。\n\n这是第二行内容，用于测试换行显示。\n\n这是第三行内容，展示多段文本的效果正常。'
-          cache.setContent(path, mockContent);
-          setContent(mockContent);
+        } else {
+          const fallback = result.message || '获取章节内容失败，内容为空！';
+          setContent(fallback);
         }
       }
-    } catch (error) {
-      console.error('获取章节内容失败:', error);
-      setError('获取章节内容失败');
-      const mockContent = '这是章节内容的模拟数据，实际项目中需要解密获取真实内容。\n\n这是第二行内容，用于测试换行显示。\n\n这是第三行内容，展示多段文本的效果正常。'
-      cache.setContent(path, mockContent);
-      setContent(mockContent);
+    } catch (err) {
+      console.error('获取章节内容失败:', err);
+      setContent('获取章节内容失败，请稍后重试。');
     } finally {
       setLoading(false);
     }
-  };
+  }, [getSource, bookData]);
+
+  const saveProgress = useCallback(() => {
+    if (!isLoggedIn || !userInfo || !currentChapter || chapters.length === 0) return;
+    const progressBookId = bookUrl || novelId;
+    const progress = ((currentChapterIndex + 1) / chapters.length) * 100;
+    saveReadingProgress(userInfo.username, progressBookId, currentChapterIndex, progress);
+  }, [isLoggedIn, userInfo, currentChapter, chapters.length, bookUrl, novelId, currentChapterIndex]);
 
   const switchChapter = (index) => {
     if (index >= 0 && index < chapters.length) {
-      if (isLoggedIn && userInfo && currentChapter) {
-        const from = getUrlParam('from');
-        if (from === 'shelf') {
-          const progress = ((currentChapterIndex + 1) / chapters.length) * 100;
-          saveReadingProgress(userInfo.username, novelId, currentChapter.chapterId, progress);
-        }
-      }
-      
+      saveProgress();
+
       isSwitchingChapterRef.current = true;
       setCurrentChapterIndex(index);
       const chapter = chapters[index];
       setCurrentChapter(chapter);
-      fetchChapterContent(chapter.path);
-      const fromParam = getUrlParam('from');
-      const targetPath = fromParam 
-        ? `/reader/${novelId}/${chapter.chapterId}?from=${fromParam}`
-        : `/reader/${novelId}/${chapter.chapterId}`;
-      navigate(targetPath, { replace: true });
+      fetchChapterContent(chapter);
+
+      const readerParams = new URLSearchParams(searchParams);
+      readerParams.set('chapterIndex', String(index));
+      navigate(`/reader/${novelId}?${readerParams.toString()}`, { replace: true });
       window.scrollTo({ top: 0 });
     }
   };
 
   const handleBack = () => {
-    const from = getUrlParam('from');
-    if (from === 'shelf' && isLoggedIn && userInfo && currentChapter && chapters.length > 0) {
-      const progress = ((currentChapterIndex + 1) / chapters.length) * 100;
-      saveReadingProgress(userInfo.username, novelId, currentChapter.chapterId, progress);
-    }
-    
+    saveProgress();
+
+    const from = searchParams.get('from');
     if (from === 'shelf') {
       navigate('/shelf');
     } else {
@@ -366,7 +347,6 @@ const Reader = () => {
 
   return (
     <div ref={pageRef} style={{ position: 'relative', minHeight: '100vh', '--reader-text-color': readerSettings.textColor, ...bgStyle }}>
-      {/* 顶部工具栏 */}
       <div data-reader-header style={{
         position: 'sticky',
         top: 0,
@@ -411,7 +391,6 @@ const Reader = () => {
         padding: '0 20px',
         color: 'var(--reader-text-color)'
       }}>
-        {/* 顶部章节导航 */}
         <div style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -428,7 +407,8 @@ const Reader = () => {
             type="text"
             style={{ color: 'var(--reader-text-color)', flexShrink: 0 }}
           >
-            上一章          </Button>
+            上一章
+          </Button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 auto', justifyContent: 'center' }}>
             <span style={{ color: 'var(--reader-text-color)', fontSize: '14px', flexShrink: 0 }}>目录</span>
             <Select
@@ -451,10 +431,10 @@ const Reader = () => {
             type="text"
             style={{ color: 'var(--reader-text-color)', flexShrink: 0 }}
           >
-            下一章          </Button>
+            下一章
+          </Button>
         </div>
 
-        {/* 正文内容 */}
         <div style={{ padding: '24px 0 40px' }}>
           {content ? (
             content.split('\n').map((paragraph, index) => (
@@ -482,7 +462,6 @@ const Reader = () => {
           )}
         </div>
 
-        {/* 底部章节导航 */}
         <Divider style={{ borderColor: `${readerSettings.textColor}22` }} />
         <div style={{ 
           display: 'flex', 
@@ -499,7 +478,8 @@ const Reader = () => {
             type="text"
             style={{ color: 'var(--reader-text-color)', flexShrink: 0 }}
           >
-            上一章          </Button>
+            上一章
+          </Button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 auto', justifyContent: 'center' }}>
             <span style={{ color: 'var(--reader-text-color)', fontSize: '14px', flexShrink: 0 }}>目录</span>
             <Select
@@ -522,11 +502,11 @@ const Reader = () => {
             type="text"
             style={{ color: 'var(--reader-text-color)', flexShrink: 0 }}
           >
-            下一章          </Button>
+            下一章
+          </Button>
         </div>
       </div>
 
-      {/* 悬浮的上下箭头按钮 */}
       {showScrollButtons && (
         <motion.div
           initial={{ opacity: 0, x: 30, scale: 0.8 }}
@@ -571,7 +551,6 @@ const Reader = () => {
         </motion.div>
       )}
 
-      {/* 设置面板 */}
       <Modal
         title="阅读设置"
         open={showSettings}
@@ -586,137 +565,85 @@ const Reader = () => {
           flexDirection: windowWidth >= 1200 ? 'row' : 'column',
           gap: windowWidth >= 1200 ? 24 : 16
         }}>
-          {/* 左列/上部分：文字设置 */}
           <div style={{
             flex: windowWidth >= 1200 ? '1 1 50%' : '1 1 auto',
             display: 'flex',
             flexDirection: 'column',
             gap: windowWidth >= 768 ? 16 : 12
           }}>
-            {/* 字体大小 */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <FontSizeOutlined />
                 <span style={{ fontWeight: 500, fontSize: windowWidth < 768 ? 13 : 14 }}>字体大小</span>
                 <span style={{ marginLeft: 'auto', color: '#999', fontSize: windowWidth < 768 ? 12 : 13 }}>{readerSettings.fontSize}px</span>
               </div>
-              <Slider
-                min={12} max={28} step={1}
-                value={readerSettings.fontSize}
-                onChange={(v) => setReaderSettings(prev => ({ ...prev, fontSize: v }))}
-              />
+              <Slider min={12} max={28} step={1} value={readerSettings.fontSize} onChange={(v) => setReaderSettings(prev => ({ ...prev, fontSize: v }))} />
             </div>
 
-            {/* 字体粗细 */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <BoldOutlined />
                 <span style={{ fontWeight: 500, fontSize: windowWidth < 768 ? 13 : 14 }}>字体粗细</span>
                 <span style={{ marginLeft: 'auto', color: '#999', fontSize: windowWidth < 768 ? 12 : 13 }}>{readerSettings.fontWeight}</span>
               </div>
-              <Slider
-                min={300} max={700} step={100}
-                value={readerSettings.fontWeight}
-                onChange={(v) => setReaderSettings(prev => ({ ...prev, fontWeight: v }))}
-                marks={windowWidth >= 768 ? { 300: '细', 400: '常规', 500: '中等', 700: '粗' } : { 300: '细', 700: '粗' }}
-              />
+              <Slider min={300} max={700} step={100} value={readerSettings.fontWeight} onChange={(v) => setReaderSettings(prev => ({ ...prev, fontWeight: v }))} marks={windowWidth >= 768 ? { 300: '细', 400: '常规', 500: '中等', 700: '粗' } : { 300: '细', 700: '粗' }} />
             </div>
 
-            {/* 段落缩进 */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <ColumnWidthOutlined />
                 <span style={{ fontWeight: 500, fontSize: windowWidth < 768 ? 13 : 14 }}>段落缩进</span>
                 <span style={{ marginLeft: 'auto', color: '#999', fontSize: windowWidth < 768 ? 12 : 13 }}>{readerSettings.indent}字符</span>
               </div>
-              <Slider
-                min={0} max={4} step={1}
-                value={readerSettings.indent}
-                onChange={(v) => setReaderSettings(prev => ({ ...prev, indent: v }))}
-              />
+              <Slider min={0} max={4} step={1} value={readerSettings.indent} onChange={(v) => setReaderSettings(prev => ({ ...prev, indent: v }))} />
             </div>
 
-            {/* 行距 */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <LineHeightOutlined />
                 <span style={{ fontWeight: 500, fontSize: windowWidth < 768 ? 13 : 14 }}>行距</span>
                 <span style={{ marginLeft: 'auto', color: '#999', fontSize: windowWidth < 768 ? 12 : 13 }}>{readerSettings.lineHeight}</span>
               </div>
-              <Slider
-                min={1.2} max={3} step={0.1}
-                value={readerSettings.lineHeight}
-                onChange={(v) => setReaderSettings(prev => ({ ...prev, lineHeight: v }))}
-              />
+              <Slider min={1.2} max={3} step={0.1} value={readerSettings.lineHeight} onChange={(v) => setReaderSettings(prev => ({ ...prev, lineHeight: v }))} />
             </div>
 
-            {/* 段落间距 */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <span style={{ fontWeight: 500, fontSize: windowWidth < 768 ? 13 : 14 }}>段落间距</span>
                 <span style={{ marginLeft: 'auto', color: '#999', fontSize: windowWidth < 768 ? 12 : 13 }}>{readerSettings.paragraphSpacing}px</span>
               </div>
-              <Slider
-                min={4} max={40} step={2}
-                value={readerSettings.paragraphSpacing}
-                onChange={(v) => setReaderSettings(prev => ({ ...prev, paragraphSpacing: v }))}
-              />
+              <Slider min={4} max={40} step={2} value={readerSettings.paragraphSpacing} onChange={(v) => setReaderSettings(prev => ({ ...prev, paragraphSpacing: v }))} />
             </div>
 
-            {/* 字间距 */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <span style={{ fontWeight: 500, fontSize: windowWidth < 768 ? 13 : 14 }}>字间距</span>
                 <span style={{ marginLeft: 'auto', color: '#999', fontSize: windowWidth < 768 ? 12 : 13 }}>{readerSettings.letterSpacing}px</span>
               </div>
-              <Slider
-                min={0} max={5} step={0.5}
-                value={readerSettings.letterSpacing}
-                onChange={(v) => setReaderSettings(prev => ({ ...prev, letterSpacing: v }))}
-              />
+              <Slider min={0} max={5} step={0.5} value={readerSettings.letterSpacing} onChange={(v) => setReaderSettings(prev => ({ ...prev, letterSpacing: v }))} />
             </div>
           </div>
 
-          {/* 右列/下部分：颜色和背景设置 */}
           <div style={{
             flex: windowWidth >= 1200 ? '1 1 50%' : '1 1 auto',
             display: 'flex',
             flexDirection: 'column',
             gap: windowWidth >= 768 ? 16 : 12
           }}>
-            {/* 字体颜色 */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <span style={{ fontWeight: 500, fontSize: windowWidth < 768 ? 13 : 14 }}>字体颜色</span>
                 <span style={{ marginLeft: 'auto', color: '#999', fontSize: windowWidth < 768 ? 12 : 13 }}>{readerSettings.textColor}</span>
               </div>
-              <input
-                type="color"
-                value={readerSettings.textColor}
-                onChange={handleTextColorChange}
-                onBlur={() => handleColorPickerClose('text')}
-                style={{
-                  width: windowWidth < 768 ? '100%' : 60,
-                  height: 32,
-                  border: '1px solid #d9d9d9',
-                  borderRadius: 6,
-                  cursor: 'pointer'
-                }}
-              />
+              <input type="color" value={readerSettings.textColor} onChange={handleTextColorChange} onBlur={() => handleColorPickerClose('text')} style={{ width: windowWidth < 768 ? '100%' : 60, height: 32, border: '1px solid #d9d9d9', borderRadius: 6, cursor: 'pointer' }} />
             </div>
 
-            {/* 背景设置 */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <BgColorsOutlined />
                 <span style={{ fontWeight: 500, fontSize: windowWidth < 768 ? 13 : 14 }}>背景设置</span>
               </div>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: windowWidth >= 768 ? 8 : 6,
-                marginBottom: 12
-              }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: windowWidth >= 768 ? 8 : 6, marginBottom: 12 }}>
                 {bgPresets.map((preset) => (
                   <div
                     key={preset.name}
@@ -741,20 +668,11 @@ const Reader = () => {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: windowWidth < 768 ? 12 : 13, color: '#666' }}>自定义颜色：</span>
-                <input
-                  type="color"
-                  value={readerSettings.bgColor}
-                  onChange={handleBgColorChange}
-                  onBlur={() => handleColorPickerClose('bg')}
-                  style={{ width: 40, height: 30, border: '1px solid #d9d9d9', borderRadius: 4, cursor: 'pointer' }}
-                />
+                <input type="color" value={readerSettings.bgColor} onChange={handleBgColorChange} onBlur={() => handleColorPickerClose('bg')} style={{ width: 40, height: 30, border: '1px solid #d9d9d9', borderRadius: 4, cursor: 'pointer' }} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: windowWidth < 768 ? 12 : 13, color: '#666' }}>背景图片</span>
-                <label style={{
-                  padding: '4px 12px', borderRadius: 6, border: '1px solid #d9d9d9',
-                  cursor: 'pointer', fontSize: windowWidth < 768 ? 12 : 13, transition: 'all 0.2s'
-                }}>
+                <label style={{ padding: '4px 12px', borderRadius: 6, border: '1px solid #d9d9d9', cursor: 'pointer', fontSize: windowWidth < 768 ? 12 : 13, transition: 'all 0.2s' }}>
                   选择图片
                   <input type="file" accept="image/*" onChange={handleBgImageUpload} style={{ display: 'none' }} />
                 </label>
@@ -766,7 +684,6 @@ const Reader = () => {
               </div>
             </div>
 
-            {/* 重置按钮 */}
             <Button
               onClick={() => {
                 setReaderSettings({

@@ -1,21 +1,172 @@
 const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
+const iconv = require("iconv-lite");
 const {
   parseSearchResults,
+  parseExplore,
+  parseExploreUrl,
   parseBookInfo,
   parseToc,
   parseContent,
   parseHeaders,
   buildSearchConfig,
   getSourceCompatibility,
+  executeJsRule,
+  classifyError,
 } = require("./ruleEngine");
 
 const app = express();
-app.use(cors());
+
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || "http://localhost:5173,http://localhost:3000").split(",");
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: "10mb" }));
 
+const PROXY_BLOCKED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "::1", "10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.", "192.168."];
+
+function isProxyUrlAllowed(url) {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname;
+    return !PROXY_BLOCKED_HOSTS.some(blocked => hostname === blocked || hostname.startsWith(blocked));
+  } catch {
+    return false;
+  }
+}
+
+const rateLimitMap = new Map();
+function rateLimitMiddleware(maxRequests = 60, windowMs = 60000) {
+  return (req, res, next) => {
+    const key = req.ip || req.connection.remoteAddress;
+    const now = Date.now();
+    const record = rateLimitMap.get(key) || { count: 0, startTime: now };
+    if (now - record.startTime > windowMs) {
+      record.count = 1;
+      record.startTime = now;
+    } else {
+      record.count++;
+    }
+    rateLimitMap.set(key, record);
+    if (record.count > maxRequests) {
+      return res.status(429).json({ error: "Too many requests" });
+    }
+    next();
+  };
+}
+
 const PORT = process.env.PORT || 3001;
+
+const MAOYAN_AUTH_CONFIG = {
+  baseUrl: "http://api.jmlldsc.com",
+  authEndpoint: "/auth/third",
+  deviceId: "2d37f6b5b6b2605373092c3dc65a3b39",
+  loginType: 1,
+  clientHeaders: {
+    "User-Agent": "okhttp/4.9.2",
+    "client-device": "2d37f6b5b6b2605373092c3dc65a3b39",
+    "client-brand": "Redmi",
+    "client-version": "2.3.0",
+    "client-name": "app.maoyankanshu.novel",
+    "client-source": "android",
+    "Content-Type": "application/json",
+  },
+};
+
+let maoyanTokenCache = {
+  token: null,
+  expiresAt: 0,
+  refreshing: false,
+};
+
+async function refreshMaoyanToken() {
+  if (maoyanTokenCache.refreshing) {
+    while (maoyanTokenCache.refreshing) {
+      await sleep(100);
+    }
+    return maoyanTokenCache.token;
+  }
+
+  if (maoyanTokenCache.token && Date.now() < maoyanTokenCache.expiresAt) {
+    return maoyanTokenCache.token;
+  }
+
+  maoyanTokenCache.refreshing = true;
+  try {
+    console.log("[MAOYAN-AUTH] Refreshing token...");
+    const resp = await axios.post(
+      MAOYAN_AUTH_CONFIG.baseUrl + MAOYAN_AUTH_CONFIG.authEndpoint,
+      { openid: MAOYAN_AUTH_CONFIG.deviceId, type: MAOYAN_AUTH_CONFIG.loginType },
+      { headers: MAOYAN_AUTH_CONFIG.clientHeaders, timeout: 10000 },
+    );
+
+    const data = resp.data;
+    if (data.code === 200 && data.data && data.data.tokens) {
+      const tokens = data.data.tokens;
+      maoyanTokenCache.token = tokens.tokenType + tokens.token;
+      maoyanTokenCache.expiresAt = Date.now() + (tokens.expiresIn - 86400) * 1000;
+      console.log(`[MAOYAN-AUTH] Token refreshed, expires in ${Math.round((tokens.expiresIn - 86400) / 86400)} days`);
+      return maoyanTokenCache.token;
+    } else {
+      console.error("[MAOYAN-AUTH] Refresh failed:", data.msg);
+      return null;
+    }
+  } catch (e) {
+    console.error("[MAOYAN-AUTH] Refresh error:", e.message);
+    return null;
+  } finally {
+    maoyanTokenCache.refreshing = false;
+  }
+}
+
+function isMaoyanApi(url) {
+  if (!url || typeof url !== "string") return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname === "api.jmlldsc.com" || parsed.hostname === "api.jxgtzxc.com";
+  } catch {
+    return false;
+  }
+}
+
+function updateHeaderToken(headerStr, newToken) {
+  if (!headerStr || !newToken) return headerStr;
+  return headerStr.replace(
+    /(['"]Authorization['"]\s*:\s*['"])(bearer[^'"]*)(['"])/i,
+    `$1${newToken}$3`,
+  );
+}
+
+async function fetchWithMaoyanAuth(config, source) {
+  const result = await fetchWithConfig(config);
+
+  if (isMaoyanApi(config.url) && typeof result === "string") {
+    try {
+      const parsed = JSON.parse(result);
+      if (parsed.code === 4005 || parsed.code === 4006) {
+        console.log(`[MAOYAN-AUTH] Detected auth failure (code ${parsed.code}), refreshing token...`);
+        const newToken = await refreshMaoyanToken();
+        if (newToken && source && source.header) {
+          const updatedHeader = updateHeaderToken(source.header, newToken);
+          const newHeaders = parseHeaders(updatedHeader);
+          const retryConfig = { ...config, headers: newHeaders };
+          console.log(`[MAOYAN-AUTH] Retrying with new token...`);
+          return await fetchWithConfig(retryConfig);
+        }
+      }
+    } catch {}
+  }
+
+  return result;
+}
 
 const RETRYABLE_ERRORS = [
   "ECONNRESET",
@@ -81,8 +232,7 @@ async function fetchWithConfig(config) {
       "Upgrade-Insecure-Requests": "1",
       ...headers,
     },
-    responseType: "text",
-    transformResponse: [(data) => data],
+    responseType: "arraybuffer",
     decompress: true,
     validateStatus: (status) => status >= 200 && status < 400,
   };
@@ -121,7 +271,27 @@ async function fetchWithConfig(config) {
         }
       }
 
-      const data = response.data;
+      const buf = Buffer.from(response.data);
+      let charset = "utf-8";
+      const contentType = response.headers["content-type"] || "";
+      const ctCharsetMatch = contentType.match(/charset=([^\s;]+)/i);
+      if (ctCharsetMatch) {
+        charset = ctCharsetMatch[1].trim().replace(/['"]/g, "");
+      }
+      if (charset.toLowerCase() === "utf-8" || charset.toLowerCase() === "utf8") {
+        const headSample = buf.slice(0, Math.min(buf.length, 2048)).toString("utf-8");
+        const metaCharsetMatch = headSample.match(/charset=["']?([^"'\s>]+)/i);
+        if (metaCharsetMatch && !/utf-?8/i.test(metaCharsetMatch[1])) {
+          charset = metaCharsetMatch[1].trim();
+        }
+      }
+      let data;
+      if (/utf-?8/i.test(charset)) {
+        data = buf.toString("utf-8");
+      } else {
+        data = iconv.decode(buf, charset);
+      }
+
       if (typeof data === "string" && maxRedirects > 0) {
         const redirectUrl = extractRedirectUrl(data);
         if (redirectUrl && redirectUrl !== url) {
@@ -170,6 +340,54 @@ async function fetchWithConfig(config) {
   throw lastError;
 }
 
+function parseDataUrl(url) {
+  if (!url || typeof url !== 'string' || !url.startsWith('data:')) return null;
+
+  const rest = url.slice(5);
+  const base64Idx = rest.indexOf(';base64,');
+  if (base64Idx === -1) return null;
+
+  const urlHint = rest.slice(0, base64Idx);
+  const afterBase64 = rest.slice(base64Idx + 8);
+
+  let base64End = afterBase64.length;
+  let jsonOptions = null;
+
+  for (let i = 0; i < afterBase64.length; i++) {
+    if (afterBase64[i] === ',' && afterBase64[i + 1] === '{') {
+      try {
+        jsonOptions = JSON.parse(afterBase64.slice(i + 1));
+        base64End = i;
+        break;
+      } catch {}
+    }
+  }
+
+  const base64Data = afterBase64.slice(0, base64End);
+
+  let decodedData;
+  try {
+    decodedData = Buffer.from(base64Data, 'base64').toString('utf-8');
+  } catch {
+    return null;
+  }
+
+  let parsedData;
+  try {
+    parsedData = JSON.parse(decodedData);
+  } catch {
+    parsedData = decodedData;
+  }
+
+  return {
+    urlHint,
+    data: parsedData,
+    rawDecoded: decodedData,
+    options: jsonOptions,
+    isDataUrl: true,
+  };
+}
+
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
@@ -178,10 +396,12 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-app.get("/api/proxy", async (req, res) => {
+app.get("/api/proxy", rateLimitMiddleware(30, 60000), async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl)
     return res.status(400).json({ error: "Missing url parameter" });
+  if (!isProxyUrlAllowed(targetUrl))
+    return res.status(403).json({ error: "Target URL not allowed" });
 
   try {
     const data = await fetchWithConfig({
@@ -199,13 +419,15 @@ app.get("/api/proxy", async (req, res) => {
     res.set("Content-Type", contentType);
     res.send(data);
   } catch (e) {
-    res.status(502).json({ error: "Proxy failed", message: e.message });
+    res.status(502).json({ error: "Proxy failed" });
   }
 });
 
-app.post("/api/proxy", async (req, res) => {
+app.post("/api/proxy", rateLimitMiddleware(30, 60000), async (req, res) => {
   const { url, method, headers, body } = req.body;
   if (!url) return res.status(400).json({ error: "Missing url" });
+  if (!isProxyUrlAllowed(url))
+    return res.status(403).json({ error: "Target URL not allowed" });
 
   try {
     const data = await fetchWithConfig({
@@ -216,12 +438,12 @@ app.post("/api/proxy", async (req, res) => {
     });
     res.json({ success: true, data });
   } catch (e) {
-    res.status(502).json({ error: "Proxy failed", message: e.message });
+    res.status(502).json({ error: "Proxy failed" });
   }
 });
 
 app.post("/api/test-source", async (req, res) => {
-  const { source, keyword = "人", page = 1 } = req.body;
+  const { source, keyword = "人", page = 1, fullTest = false } = req.body;
 
   if (!source || !source.bookSourceUrl) {
     return res.status(400).json({ error: "Invalid source" });
@@ -247,40 +469,20 @@ app.post("/api/test-source", async (req, res) => {
       method: config.method,
       hasBody: !!config.body,
     };
+
     try {
       responseData = await fetchWithConfig(config);
     } catch (e) {
-      const errorCode = e.code || "";
-      let errorType = "network";
-      let userMessage = e.message;
-
-      if (errorCode === "ECONNRESET" || userMessage.includes("ECONNRESET")) {
-        errorType = "connection_reset";
-        userMessage =
-          "连接被服务器重置(ECONNRESET)，服务器可能拒绝了请求，请检查书源地址是否正确";
-      } else if (errorCode === "ETIMEDOUT" || userMessage.includes("timeout")) {
-        errorType = "timeout";
-        userMessage = "请求超时，服务器响应时间过长";
-      } else if (errorCode === "ECONNREFUSED") {
-        errorType = "connection_refused";
-        userMessage = "连接被拒绝，服务器可能已关闭或地址错误";
-      } else if (e.response) {
-        errorType = "http_error";
-        userMessage = `HTTP错误 ${e.response.status}: ${e.response.statusText || "服务器返回错误"}`;
-      } else if (errorCode === "EPROTO" || userMessage.includes("SSL")) {
-        errorType = "ssl_error";
-        userMessage = "SSL/TLS握手失败，服务器证书可能有问题";
-      }
-
+      const classified = classifyError(e);
       console.error(
-        `[TEST ERROR] ${source.bookSourceName}: ${errorCode} - ${e.message}`,
+        `[TEST ERROR] ${source.bookSourceName}: ${e.code || ''} - ${e.message}`,
       );
       return res.json({
         success: false,
-        message: userMessage,
-        errorType,
+        message: classified.message,
+        errorType: classified.type,
         requestInfo,
-        errorCode,
+        errorCode: e.code || '',
       });
     }
 
@@ -293,10 +495,22 @@ app.post("/api/test-source", async (req, res) => {
       });
     }
 
-    const results = await parseSearchResults(source, responseData, {
-      key: keyword,
-      page,
-    });
+    let results;
+    try {
+      results = await parseSearchResults(source, responseData, {
+        key: keyword,
+        page,
+      });
+    } catch (e) {
+      const classified = classifyError(e);
+      return res.json({
+        success: false,
+        message: `搜索解析失败: ${classified.message}`,
+        errorType: classified.type,
+        requestInfo,
+      });
+    }
+
     const compat = getSourceCompatibility(source);
 
     const isHtml =
@@ -305,14 +519,188 @@ app.post("/api/test-source", async (req, res) => {
     const isJson =
       typeof responseData === "string" && responseData.trim().startsWith("{");
 
+    if (!fullTest) {
+      return res.json({
+        success: results.length > 0,
+        message:
+          results.length > 0
+            ? `连接成功，找到 ${results.length} 条结果`
+            : isHtml
+              ? "连接成功但未解析到结果，可能需要调整解析规则"
+              : "连接成功但无搜索结果",
+        resultCount: results.length,
+        sample: results.slice(0, 3),
+        compatibility: compat,
+        rawLength: typeof responseData === "string" ? responseData.length : 0,
+        responseType: isHtml ? "html" : isJson ? "json" : "unknown",
+        requestInfo,
+      });
+    }
+
+    const stages = {
+      search: { success: results.length > 0, resultCount: results.length, sampleBook: null, error: null },
+      bookInfo: { success: false, fields: {}, error: null },
+      toc: { success: false, chapterCount: 0, error: null },
+      content: { success: false, contentLength: 0, sampleContent: '', error: null },
+    };
+
+    if (results.length > 0) {
+      const sampleBook = results[0];
+      stages.search.sampleBook = {
+        name: sampleBook.name,
+        author: sampleBook.author,
+        bookUrl: sampleBook._sourceUrl || sampleBook.bookUrl || sampleBook.url || '',
+      };
+    } else {
+      stages.search.error = '搜索无结果';
+      const allPass = false;
+      return res.json({
+        success: allPass,
+        stages,
+        overallSuccess: allPass,
+        failedStage: 'search',
+        resultCount: results.length,
+        sample: results.slice(0, 3),
+        compatibility: compat,
+        rawLength: typeof responseData === "string" ? responseData.length : 0,
+        responseType: isHtml ? "html" : isJson ? "json" : "unknown",
+        requestInfo,
+      });
+    }
+
+    let bookInfoResult = null;
+    const sampleBook = results[0];
+    const bookUrl = sampleBook._sourceUrl || sampleBook.bookUrl || sampleBook.url;
+
+    try {
+      let bookInfoData;
+      if (bookUrl && bookUrl.startsWith('data:')) {
+        bookInfoData = bookUrl;
+      } else if (bookUrl) {
+        const headers = parseHeaders(source.header);
+        bookInfoData = await fetchWithMaoyanAuth({ url: bookUrl, method: "GET", headers }, source);
+      }
+      if (bookInfoData) {
+        bookInfoResult = await parseBookInfo(source, bookInfoData, { book: sampleBook });
+        stages.bookInfo.success = true;
+        stages.bookInfo.fields = {
+          name: bookInfoResult.name || '',
+          author: bookInfoResult.author || '',
+          coverUrl: bookInfoResult.coverUrl || '',
+        };
+      } else {
+        stages.bookInfo.error = '无法获取详情页数据';
+      }
+    } catch (e) {
+      const classified = classifyError(e);
+      stages.bookInfo.error = `${classified.message}: ${e.message}`;
+    }
+
+    if (!stages.bookInfo.success) {
+      const allPass = false;
+      return res.json({
+        success: allPass,
+        stages,
+        overallSuccess: allPass,
+        failedStage: 'bookInfo',
+        resultCount: results.length,
+        sample: results.slice(0, 3),
+        compatibility: compat,
+        rawLength: typeof responseData === "string" ? responseData.length : 0,
+        responseType: isHtml ? "html" : isJson ? "json" : "unknown",
+        requestInfo,
+      });
+    }
+
+    const tocUrl = bookInfoResult?.tocUrl || bookInfoResult?._tocUrl || sampleBook.tocUrl;
+    let tocResult = null;
+
+    try {
+      if (tocUrl) {
+        let tocData;
+        if (tocUrl.startsWith('data:')) {
+          tocData = tocUrl;
+        } else {
+          const headers = parseHeaders(source.header);
+          tocData = await fetchWithMaoyanAuth({ url: tocUrl, method: "GET", headers }, source);
+        }
+        tocResult = await parseToc(source, tocData, { book: bookInfoResult || sampleBook });
+        if (tocResult && tocResult.length > 0) {
+          stages.toc.success = true;
+          stages.toc.chapterCount = tocResult.length;
+        } else {
+          stages.toc.error = '目录解析结果为空';
+        }
+      } else {
+        stages.toc.error = '无法获取目录URL';
+      }
+    } catch (e) {
+      const classified = classifyError(e);
+      stages.toc.error = `${classified.message}: ${e.message}`;
+    }
+
+    if (!stages.toc.success) {
+      const allPass = false;
+      return res.json({
+        success: allPass,
+        stages,
+        overallSuccess: allPass,
+        failedStage: 'toc',
+        resultCount: results.length,
+        sample: results.slice(0, 3),
+        compatibility: compat,
+        rawLength: typeof responseData === "string" ? responseData.length : 0,
+        responseType: isHtml ? "html" : isJson ? "json" : "unknown",
+        requestInfo,
+      });
+    }
+
+    let contentResult = null;
+    try {
+      const sampleChapter = tocResult[0];
+      const chapterUrl = sampleChapter.url || sampleChapter.chapterUrl;
+      if (chapterUrl) {
+        let contentData;
+        if (chapterUrl.startsWith('data:')) {
+          contentData = chapterUrl;
+        } else {
+          const headers = parseHeaders(source.header);
+          contentData = await fetchWithMaoyanAuth({ url: chapterUrl, method: "GET", headers }, source);
+        }
+        contentResult = await parseContent(source, contentData, {
+          book: bookInfoResult || sampleBook,
+          chapter: sampleChapter,
+        });
+        const contentStr = typeof contentResult === 'object'
+          ? contentResult.content || String(contentResult || '')
+          : String(contentResult || '');
+        if (contentStr && contentStr.trim().length > 0) {
+          stages.content.success = true;
+          stages.content.contentLength = contentStr.length;
+          stages.content.sampleContent = contentStr.slice(0, 100);
+        } else {
+          stages.content.error = '正文内容为空';
+        }
+      } else {
+        stages.content.error = '无法获取章节URL';
+      }
+    } catch (e) {
+      const classified = classifyError(e);
+      stages.content.error = `${classified.message}: ${e.message}`;
+    }
+
+    const allPass = stages.search.success && stages.bookInfo.success && stages.toc.success && stages.content.success;
+    const failedStage = !stages.search.success ? 'search'
+      : !stages.bookInfo.success ? 'bookInfo'
+      : !stages.toc.success ? 'toc'
+      : !stages.content.success ? 'content'
+      : null;
+
     res.json({
-      success: results.length > 0,
-      message:
-        results.length > 0
-          ? `连接成功，找到 ${results.length} 条结果`
-          : isHtml
-            ? "连接成功但未解析到结果，可能需要调整解析规则"
-            : "连接成功但无搜索结果",
+      success: allPass,
+      stages,
+      overallSuccess: allPass,
+      failedStage,
       resultCount: results.length,
       sample: results.slice(0, 3),
       compatibility: compat,
@@ -361,7 +749,33 @@ app.post("/api/search", async (req, res) => {
     });
   } catch (e) {
     console.error("[SEARCH ERROR]", e.message);
-    res.json({ success: false, results: [], message: e.message });
+    const classified = classifyError(e);
+    res.json({ success: false, results: [], message: classified.message, errorType: classified.type });
+  }
+});
+
+app.post("/api/explore", async (req, res) => {
+  const { source, exploreUrl } = req.body;
+
+  if (!source || !exploreUrl) {
+    return res.status(400).json({ error: "Missing source or exploreUrl" });
+  }
+
+  try {
+    let url = exploreUrl;
+    if (!url.startsWith("http")) {
+      const base = (source.bookSourceUrl || "").replace(/\/+$/, "");
+      url = base + (url.startsWith("/") ? "" : "/") + url;
+    }
+    const headers = parseHeaders(source.header);
+    console.log(`[EXPLORE] ${source.bookSourceName} -> ${url}`);
+    const responseData = await fetchWithConfig({ url, method: "GET", headers });
+    const books = await parseExplore(source, responseData, {});
+    res.json({ success: true, books });
+  } catch (e) {
+    console.error("[EXPLORE ERROR]", e.message);
+    const classified = classifyError(e);
+    res.json({ success: false, books: [], message: classified.message, errorType: classified.type });
   }
 });
 
@@ -373,17 +787,29 @@ app.post("/api/book-info", async (req, res) => {
   }
 
   try {
-    let responseData = bookData;
+    let responseData;
 
-    if (bookUrl) {
+    if (bookUrl && bookUrl.startsWith('data:')) {
+      console.log(`[BOOK-INFO] ${source.bookSourceName} -> data: URL detected`);
+      responseData = bookUrl;
+    } else if (bookUrl) {
       const headers = parseHeaders(source.header);
+      let requestUrl = bookUrl;
+      if (source.ruleBookInfo && source.ruleBookInfo.bookInfoUrl) {
+        requestUrl = source.ruleBookInfo.bookInfoUrl.replace('{{bookUrl}}', bookUrl);
+      }
+      if (!requestUrl.startsWith('http')) {
+        requestUrl = source.bookSourceUrl + (requestUrl.startsWith('/') ? '' : '/') + requestUrl;
+      }
       const config = {
-        url: bookUrl,
+        url: requestUrl,
         method: "GET",
         headers,
       };
-      console.log(`[BOOK-INFO] ${source.bookSourceName} -> ${bookUrl}`);
-      responseData = await fetchWithConfig(config);
+      console.log(`[BOOK-INFO] ${source.bookSourceName} -> ${requestUrl}`);
+      responseData = await fetchWithMaoyanAuth(config, source);
+    } else {
+      responseData = bookData;
     }
 
     const bookInfo = await parseBookInfo(source, responseData, {
@@ -393,61 +819,86 @@ app.post("/api/book-info", async (req, res) => {
     res.json({ success: true, bookInfo });
   } catch (e) {
     console.error("[BOOK-INFO ERROR]", e.message);
-    res.json({ success: false, message: e.message });
+    const classified = classifyError(e);
+    res.json({ success: false, message: classified.message, errorType: classified.type });
   }
 });
 
 app.post("/api/toc", async (req, res) => {
-  const { source, tocUrl } = req.body;
+  const { source, tocUrl, book } = req.body;
 
   if (!source || !tocUrl) {
     return res.status(400).json({ error: "Missing source or tocUrl" });
   }
 
   try {
-    const headers = parseHeaders(source.header);
-    console.log(`[TOC] ${source.bookSourceName} -> ${tocUrl}`);
-    const responseData = await fetchWithConfig({
-      url: tocUrl,
-      method: "GET",
-      headers,
-    });
-    const chapters = await parseToc(source, responseData);
+    let responseData;
+
+    if (tocUrl.startsWith('data:')) {
+      console.log(`[TOC] ${source.bookSourceName} -> data: URL detected`);
+      responseData = tocUrl;
+    } else {
+      const headers = parseHeaders(source.header);
+      let requestUrl = tocUrl;
+      if (source.ruleToc && source.ruleToc.chapterListUrl) {
+        requestUrl = source.ruleToc.chapterListUrl.replace('{{tocUrl}}', tocUrl);
+      }
+      if (!requestUrl.startsWith('http')) {
+        requestUrl = source.bookSourceUrl + (requestUrl.startsWith('/') ? '' : '/') + requestUrl;
+      }
+      console.log(`[TOC] ${source.bookSourceName} -> ${requestUrl}`);
+      responseData = await fetchWithMaoyanAuth({
+        url: requestUrl,
+        method: "GET",
+        headers,
+      }, source);
+    }
+
+    const chapters = await parseToc(source, responseData, { book });
 
     res.json({ success: true, chapters });
   } catch (e) {
     console.error("[TOC ERROR]", e.message);
-    res.json({ success: false, chapters: [], message: e.message });
+    const classified = classifyError(e);
+    res.json({ success: false, chapters: [], message: classified.message, errorType: classified.type });
   }
 });
 
 app.post("/api/content", async (req, res) => {
-  const { source, chapterUrl } = req.body;
+  const { source, chapterUrl, book, chapter } = req.body;
 
   if (!source || !chapterUrl) {
     return res.status(400).json({ error: "Missing source or chapterUrl" });
   }
 
   try {
-    const headers = parseHeaders(source.header);
-    console.log(`[CONTENT] ${source.bookSourceName} -> ${chapterUrl}`);
-    const responseData = await fetchWithConfig({
-      url: chapterUrl,
-      method: "GET",
-      headers,
-    });
-    const content = await parseContent(source, responseData);
+    let responseData;
+
+    if (chapterUrl.startsWith('data:')) {
+      console.log(`[CONTENT] ${source.bookSourceName} -> data: URL detected`);
+      responseData = chapterUrl;
+    } else {
+      const headers = parseHeaders(source.header);
+      console.log(`[CONTENT] ${source.bookSourceName} -> ${chapterUrl}`);
+      responseData = await fetchWithMaoyanAuth({
+        url: chapterUrl,
+        method: "GET",
+        headers,
+      }, source);
+    }
+
+    const content = await parseContent(source, responseData, { book, chapter });
 
     res.json({
       success: true,
-      content:
-        typeof content === "object"
-          ? content.content || content
-          : String(content || ""),
+      content: typeof content === "object"
+        ? content.content || content
+        : String(content || ""),
     });
   } catch (e) {
     console.error("[CONTENT ERROR]", e.message);
-    res.json({ success: false, content: "", message: e.message });
+    const classified = classifyError(e);
+    res.json({ success: false, content: "", message: classified.message, errorType: classified.type });
   }
 });
 
@@ -548,11 +999,12 @@ app.listen(PORT, () => {
   console.log(`  GET  /api/health`);
   console.log(`  GET  /api/proxy?url=...`);
   console.log(`  POST /api/proxy { url, method, headers, body }`);
-  console.log(`  POST /api/test-source { source, keyword, page }`);
+  console.log(`  POST /api/test-source { source, keyword, page, fullTest }`);
   console.log(`  POST /api/search { source, keyword, page }`);
+  console.log(`  POST /api/explore { source, exploreUrl }`);
   console.log(`  POST /api/book-info { source, bookUrl, bookData }`);
-  console.log(`  POST /api/toc { source, tocUrl }`);
-  console.log(`  POST /api/content { source, chapterUrl }`);
+  console.log(`  POST /api/toc { source, tocUrl, book }`);
+  console.log(`  POST /api/content { source, chapterUrl, book, chapter }`);
   console.log(`  GET  /api/import-from-url?url=...`);
   console.log(`  POST /api/import-from-json { json }`);
   console.log(`\nSupported rule types:`);
@@ -564,5 +1016,9 @@ app.listen(PORT, () => {
   console.log(`  ✅ Rule chains (||, &&, ##, @put/@get)`);
   console.log(`  ✅ JS library (jsLib)`);
   console.log(`  ✅ Full java shim (ajax, crypto, etc.)`);
+  console.log(`  ✅ data: URL protocol`);
+  console.log(`  ✅ Multi-stage alive testing`);
   console.log("");
 });
+
+module.exports = { fetchWithConfig, parseDataUrl };

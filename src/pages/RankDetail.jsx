@@ -6,27 +6,13 @@ import { FireOutlined, TrophyOutlined, RiseOutlined, CheckCircleOutlined, ClockC
 import BackButton from '../components/BackButton';
 import { ThemeContext } from '../App';
 import axios from 'axios';
+import { getDefaultSource, saveNovelCache } from '../utils/novelConfig';
 
 // 缓存机制
 const rankCache = new Map();
 
 const { Title, Text } = Typography;
 
-// 书源信息
-const bookSource = {
-  url: 'http://api.jmlldsc.com',
-  headers: {
-    'User-Agent': 'okhttp/4.9.2',
-    'client-device': '2d37f6b5b6b2605373092c3dc65a3b39',
-    'client-brand': 'Redmi',
-    'client-version': '2.3.0',
-    'client-name': 'app.maoyankanshu.novel',
-    'client-source': 'android',
-    'Authorization': 'bearereyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9hcGkuanhndHp4Yy5jb21cL2F1dGhcL3RoaXJkIiwiaWF0IjoxNjgzODkxNjUyLCJleHAiOjE3NzcyMDM2NTIsIm5iZiI6MTY4Mzg5MTY1MiwianRpIjoiR2JxWmI4bGZkbTVLYzBIViIsInN1YiI6Njg3ODYyLCJwcnYiOiJhMWNiMDM3MTgwMjk2YzZhMTkzOGVmMzBiNDM3OTQ2NzJkZDAxNmM1In0.mMxaC2SVyZKyjC6rdUqFVv5d9w_X36o0AdKD7szvE_Q'
-  }
-};
-
-// 榜单配置
 const rankConfig = {
   mustRead: { title: '必读热门推荐', icon: TrophyOutlined, type: 1 },
   potential: { title: '潜力榜', icon: RiseOutlined, type: 5 },
@@ -72,8 +58,10 @@ const RankDetail = () => {
       
       setLoading(true);
       try {
-        const response = await axios.get(`${bookSource.url}/module/rank?type=${config.type}&channel=1&page=${currentPage}`, {
-          headers: bookSource.headers
+        const ds = getDefaultSource();
+        const headers = (() => { try { return JSON.parse((ds.header || '{}').replace(/'/g, '"')); } catch { return {}; } })();
+        const response = await axios.get(`${ds.bookSourceUrl}/module/rank?type=${config.type}&channel=1&page=${currentPage}`, {
+          headers
         });
         
         if (response.data && response.data.data) {
@@ -165,7 +153,20 @@ const RankDetail = () => {
             </div>
           }
           bodyStyle={{ padding: 12 }}
-          onClick={() => navigate(`/novel/${novel.id}`)}
+          onClick={() => {
+            const ds = getDefaultSource();
+            const novelId = String(novel.id || novel.novelId || '');
+            const bookUrlTemplate = ds.ruleSearch?.bookUrl || '';
+            let bookUrl = novelId;
+            if (bookUrlTemplate && bookUrlTemplate.includes('{{')) {
+              bookUrl = bookUrlTemplate.replace(/\{\{\$?\.?novelId\}\}/g, novelId);
+            }
+            saveNovelCache(novel, ds.bookSourceUrl, bookUrl);
+            const p = new URLSearchParams();
+            p.set('sourceUrl', ds.bookSourceUrl);
+            p.set('bookUrl', bookUrl);
+            navigate(`/novel/${novel.id}?${p.toString()}`);
+          }}
         >
           <div style={{ height: 80, display: 'flex', flexDirection: 'column' }}>
             <Text strong style={{ 

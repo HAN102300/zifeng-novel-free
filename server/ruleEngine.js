@@ -1,11 +1,12 @@
 const cheerio = require("cheerio");
-const { resolveLegadoSelector, isLegadoSelector } = require("./selectors");
+const { resolveLegadoSelector, isLegadoSelector, resolveXPath } = require("./selectors");
 const {
   createJavaShim,
   createSourceShim,
   createCookieShim,
   createCacheShim,
   createBookShim,
+  createChapterShim,
 } = require("./javaShim");
 
 const ruleVariables = new Map();
@@ -131,12 +132,13 @@ function resolveTemplate(template, data) {
 async function executeJsRule(code, resultValue, context) {
   if (!code || typeof code !== "string") return resultValue;
 
-  const { baseUrl, source, book, key, page } = context;
-  const java = createJavaShim(baseUrl, source);
+  const { baseUrl, source, book, key, page, chapter } = context;
+  const java = createJavaShim(baseUrl, source, context);
   const sourceShim = createSourceShim(source);
   const cookieShim = createCookieShim();
   const cacheShim = createCacheShim();
   const bookShim = createBookShim(book || {});
+  const chapterShim = createChapterShim(chapter || {});
 
   let jsLibCode = "";
   if (source && source.jsLib) {
@@ -147,6 +149,159 @@ async function executeJsRule(code, resultValue, context) {
     const AsyncFunction = Object.getPrototypeOf(
       async function () {},
     ).constructor;
+
+    let wrappedCode = code.trim();
+    const hasVarDecl = /\b(var|let|const)\s+/.test(wrappedCode);
+    if (hasVarDecl || wrappedCode.endsWith(";")) {
+      if (!wrappedCode.includes("return ") && !wrappedCode.includes("return\t")) {
+        const trimmed = wrappedCode.trim();
+        const semiPositions = [];
+        let depth = 0;
+        for (let i = 0; i < trimmed.length; i++) {
+          const ch = trimmed[i];
+          if (ch === '{' || ch === '(' || ch === '[') depth++;
+          if (ch === '}' || ch === ')' || ch === ']') depth--;
+          if (ch === ';' && depth === 0) semiPositions.push(i);
+        }
+        if (semiPositions.length >= 2) {
+          const secondLastSemiPos = semiPositions[semiPositions.length - 2];
+          const lastSemiPos = semiPositions[semiPositions.length - 1];
+          const lastStatement = trimmed.slice(secondLastSemiPos + 1, lastSemiPos).trim();
+          if (lastStatement && !/^\b(var|let|const|if|for|while|switch|try|function|else|do)\b/.test(lastStatement)) {
+            wrappedCode = trimmed.slice(0, secondLastSemiPos + 1) + " return " + lastStatement + ";";
+          } else {
+            const afterLastBrace = trimmed.match(/\}\s*([^{};]+);?\s*$/);
+            if (afterLastBrace && afterLastBrace[1]) {
+              const tailExpr = afterLastBrace[1].trim();
+              if (tailExpr && !/^\b(var|let|const|if|for|while|switch|try|function|else|do)\b/.test(tailExpr)) {
+                wrappedCode = trimmed.slice(0, trimmed.lastIndexOf(afterLastBrace[1])) + "return " + tailExpr + ";";
+              }
+            }
+          }
+        } else if (semiPositions.length === 1) {
+          const lastSemiPos = semiPositions[0];
+          const beforeSemi = trimmed.slice(0, lastSemiPos).trim();
+          const afterSemi = trimmed.slice(lastSemiPos + 1).trim();
+          if (afterSemi === "" && beforeSemi && !/^\b(var|let|const|if|for|while|switch|try|function|else|do)\b/.test(beforeSemi)) {
+            wrappedCode = "return " + beforeSemi + ";";
+          } else if (afterSemi && !/^\b(var|let|const|if|for|while|switch|try|function|else|do)\b/.test(afterSemi)) {
+            wrappedCode = trimmed.slice(0, lastSemiPos + 1) + " return " + afterSemi + ";";
+          }
+        }
+        if (!wrappedCode.startsWith("{")) {
+          wrappedCode = "{ " + wrappedCode + " }";
+        }
+      }
+    } else if (!wrappedCode.startsWith("{") && !wrappedCode.includes("return ") && !wrappedCode.includes("return\t")) {
+      if (wrappedCode.includes(";") || wrappedCode.includes("\n")) {
+        const statements = [];
+        let current = "";
+        let depth = 0;
+        for (let i = 0; i < wrappedCode.length; i++) {
+          const ch = wrappedCode[i];
+          if (ch === '{' || ch === '(' || ch === '[') depth++;
+          if (ch === '}' || ch === ')' || ch === ']') depth--;
+          if ((ch === ';' || ch === '\n') && depth === 0) {
+            const stmt = current.trim();
+            if (stmt) statements.push(stmt);
+            current = "";
+          } else {
+            current += ch;
+          }
+        }
+        const lastStmt = current.trim();
+        if (lastStmt) statements.push(lastStmt);
+        if (statements.length > 1) {
+          const last = statements[statements.length - 1];
+          if (!/^\b(var|let|const|if|for|while|switch|try|function|else|do)\b/.test(last)) {
+            statements[statements.length - 1] = "return " + last;
+          }
+          wrappedCode = "{ " + statements.join("; ") + "; }";
+        } else {
+          wrappedCode = `return (${wrappedCode});`;
+        }
+      } else {
+        wrappedCode = `return (${wrappedCode});`;
+      }
+    }
+
+    const cheerio = require("cheerio");
+
+    const wrapElements = ($, selection) => {
+      const arr = [];
+      selection.each((i, el) => {
+        arr.push(wrapElement($, $(el)));
+      });
+      return arr;
+    };
+
+    const wrapElement = ($, $el) => {
+      return {
+        attr: (name) => $el.attr(name) || "",
+        text: () => $el.text().trim(),
+        html: () => $el.html() || "",
+        outerHtml: () => $.html($el) || "",
+        select: (selector) => {
+          const sub = $el.find(selector);
+          return wrapElements($, sub);
+        },
+        selectFirst: (selector) => {
+          const sub = $el.find(selector).first();
+          if (sub.length === 0) return null;
+          return wrapElement($, sub);
+        },
+        children: () => wrapElements($, $el.children()),
+        parent: () => {
+          const p = $el.parent();
+          if (p.length === 0) return null;
+          return wrapElement($, p);
+        },
+        tagName: () => ($el.get(0) ? $el.get(0).tagName : ""),
+        id: () => $el.attr("id") || "",
+        className: () => $el.attr("class") || "",
+        hasClass: (cls) => $el.hasClass(cls),
+        toString: () => $el.text().trim(),
+      };
+    };
+
+    const orgShim = {
+      jsoup: {
+        Jsoup: {
+          parse: (html) => {
+            if (!html || typeof html !== "string") html = "";
+            const $ = cheerio.load(html);
+            const body = $("body").length > 0 ? $("body") : $.root();
+            return {
+              select: (selector) => {
+                const selection = $(selector);
+                return wrapElements($, selection);
+              },
+              selectFirst: (selector) => {
+                const selection = $(selector).first();
+                if (selection.length === 0) return null;
+                return wrapElement($, selection);
+              },
+              text: () => $.root().text().trim(),
+              html: () => $.html(),
+              title: () => $("title").text().trim(),
+              head: () => wrapElement($, $("head")),
+              body: () => wrapElement($, $("body")),
+            };
+          },
+          connect: (url) => ({
+            get: async () => {
+              const html = await java.ajax(url);
+              return orgShim.jsoup.Jsoup.parse(html);
+            },
+            post: async () => {
+              const html = await java.ajax(url);
+              return orgShim.jsoup.Jsoup.parse(html);
+            },
+          }),
+        },
+      },
+    };
+
     const fn = new AsyncFunction(
       "result",
       "java",
@@ -155,12 +310,20 @@ async function executeJsRule(code, resultValue, context) {
       "cookie",
       "cache",
       "book",
+      "chapter",
       "key",
       "page",
       "CryptoJS",
+      "org",
       `"use strict";
+       const require = undefined;
+       const process = undefined;
+       const global = undefined;
+       const globalThis = undefined;
+       const __filename = undefined;
+       const __dirname = undefined;
        ${jsLibCode}
-       ${code.trim()}`,
+       ${wrappedCode}`,
     );
 
     const cryptoShim = {
@@ -191,9 +354,11 @@ async function executeJsRule(code, resultValue, context) {
       cookieShim,
       cacheShim,
       bookShim,
+      chapterShim,
       key || "",
       page || 1,
       cryptoShim,
+      orgShim,
     );
     return execResult !== undefined ? execResult : resultValue;
   } catch (e) {
@@ -361,12 +526,16 @@ async function resolveRuleValue(data, rule, context) {
 
       const value = await resolveSingleRule(data, trimmedPart, context);
       if (value != null) {
-        partResults.push(String(value));
+        partResults.push(value);
       }
     }
 
     if (partResults.length > 0) {
-      result = partResults.join("\n");
+      if (partResults.length === 1 && typeof partResults[0] === "object") {
+        result = partResults[0];
+      } else {
+        result = partResults.map((v) => (typeof v === "object" ? JSON.stringify(v) : String(v))).join("\n");
+      }
       break;
     }
   }
@@ -434,6 +603,12 @@ async function resolveSingleRule(data, rule, context) {
     return resolveTemplate(rule, data);
   }
 
+  if (rule.startsWith("@XPath:")) {
+    const xpathExpr = rule.slice(7).trim();
+    const htmlStr = typeof data === "string" ? data : data?._html || JSON.stringify(data);
+    return resolveXPath(htmlStr, xpathExpr);
+  }
+
   if (isLegadoSelector(rule)) {
     const htmlStr =
       typeof data === "string" ? data : data?._html || JSON.stringify(data);
@@ -455,12 +630,13 @@ async function resolveSingleRule(data, rule, context) {
   return rule;
 }
 
-async function parseSearchResults(source, responseData, context = {}) {
+async function parseBookListFromRules(source, responseData, rules, context = {}) {
   if (!responseData) return [];
+  if (!rules) return [];
 
-  const rules = source.ruleSearch || {};
   const bookListRule = rules.bookList || "$.data";
-  const ctx = { baseUrl: source.bookSourceUrl, source, ...context };
+  const htmlStr = typeof responseData === "string" ? responseData : JSON.stringify(responseData);
+  const ctx = { baseUrl: source.bookSourceUrl, source, contextHtml: htmlStr, ...context };
 
   let bookList;
   let isHtmlSource = false;
@@ -564,14 +740,30 @@ async function parseSearchResults(source, responseData, context = {}) {
         rules.wordCount,
       );
     } else {
-      name = await resolveRuleValue(item, rules.name, ctx);
-      author = await resolveRuleValue(item, rules.author, ctx);
-      bookUrl = await resolveRuleValue(item, rules.bookUrl, ctx);
-      coverUrl = await resolveRuleValue(item, rules.coverUrl, ctx);
-      intro = await resolveRuleValue(item, rules.intro, ctx);
-      kind = await resolveRuleValue(item, rules.kind, ctx);
-      lastChapter = await resolveRuleValue(item, rules.lastChapter, ctx);
-      wordCount = await resolveRuleValue(item, rules.wordCount, ctx);
+      const searchFields = ['name', 'author', 'bookUrl', 'coverUrl', 'intro', 'kind', 'lastChapter', 'wordCount'];
+      for (const field of searchFields) {
+        try {
+          const value = await resolveRuleValue(item, rules[field], ctx);
+          if (field === 'name') name = value;
+          else if (field === 'author') author = value;
+          else if (field === 'bookUrl') bookUrl = value;
+          else if (field === 'coverUrl') coverUrl = value;
+          else if (field === 'intro') intro = value;
+          else if (field === 'kind') kind = value;
+          else if (field === 'lastChapter') lastChapter = value;
+          else if (field === 'wordCount') wordCount = value;
+        } catch (e) {
+          console.error(`[PARSE ERROR] ruleSearch.${field} failed: rule="${rules[field]}", error="${e.message}"`);
+          if (field === 'name') name = '';
+          else if (field === 'author') author = '';
+          else if (field === 'bookUrl') bookUrl = '';
+          else if (field === 'coverUrl') coverUrl = '';
+          else if (field === 'intro') intro = '';
+          else if (field === 'kind') kind = '';
+          else if (field === 'lastChapter') lastChapter = '';
+          else if (field === 'wordCount') wordCount = '';
+        }
+      }
     }
 
     name = name || "未知书名";
@@ -628,6 +820,37 @@ async function parseSearchResults(source, responseData, context = {}) {
   return results.filter((item) => item.name && item.name !== "未知书名");
 }
 
+async function parseSearchResults(source, responseData, context = {}) {
+  return parseBookListFromRules(source, responseData, source.ruleSearch, context);
+}
+
+async function parseExplore(source, responseData, context = {}) {
+  if (!source.ruleExplore) return [];
+  return parseBookListFromRules(source, responseData, source.ruleExplore, context);
+}
+
+function parseExploreUrl(exploreUrl) {
+  if (!exploreUrl || typeof exploreUrl !== 'string') return [];
+  exploreUrl = exploreUrl.trim();
+  if (!exploreUrl) return [];
+  try {
+    const parsed = JSON.parse(exploreUrl);
+    if (Array.isArray(parsed)) {
+      return parsed.map(item => ({
+        title: item.title || '',
+        url: item.url || ''
+      })).filter(item => item.title && item.url);
+    }
+  } catch {}
+  return exploreUrl.split('\n').map(line => line.trim()).filter(line => line).map(line => {
+    const idx = line.indexOf('::');
+    if (idx !== -1) {
+      return { title: line.slice(0, idx).trim(), url: line.slice(idx + 2).trim() };
+    }
+    return null;
+  }).filter(item => item && item.title && item.url);
+}
+
 function resolveLegadoSelectorForElement($, $el, rule) {
   if (!rule) return null;
   const { parseLegadoSelector } = require("./selectors");
@@ -637,7 +860,8 @@ function resolveLegadoSelectorForElement($, $el, rule) {
 
 async function parseBookInfo(source, responseData, context = {}) {
   const rules = source.ruleBookInfo || {};
-  const ctx = { baseUrl: source.bookSourceUrl, source, ...context };
+  const htmlStr = typeof responseData === "string" ? responseData : JSON.stringify(responseData);
+  const ctx = { baseUrl: source.bookSourceUrl, source, contextHtml: htmlStr, ...context };
 
   let data = responseData;
   if (typeof data === "string") {
@@ -650,16 +874,47 @@ async function parseBookInfo(source, responseData, context = {}) {
     data = await resolveRuleValue(data, rules.init, ctx);
   }
 
-  const bookInfo = {
-    name: await resolveRuleValue(data, rules.name, ctx),
-    author: await resolveRuleValue(data, rules.author, ctx),
-    coverUrl: await resolveRuleValue(data, rules.coverUrl, ctx),
-    intro: await resolveRuleValue(data, rules.intro, ctx),
-    kind: await resolveRuleValue(data, rules.kind, ctx),
-    lastChapter: await resolveRuleValue(data, rules.lastChapter, ctx),
-    tocUrl: await resolveRuleValue(data, rules.tocUrl, ctx),
-    wordCount: await resolveRuleValue(data, rules.wordCount, ctx),
-  };
+  if (Array.isArray(data) && data.length > 0) {
+    data = data[0];
+  }
+
+  const bookInfo = {};
+  const fields = ['name', 'author', 'coverUrl', 'intro', 'kind', 'lastChapter', 'tocUrl', 'wordCount'];
+  for (const field of fields) {
+    try {
+      bookInfo[field] = await resolveRuleValue(data, rules[field], ctx);
+    } catch (e) {
+      console.error(`[PARSE ERROR] ruleBookInfo.${field} failed: rule="${rules[field]}", error="${e.message}"`);
+      bookInfo[field] = '';
+    }
+  }
+  bookInfo.score = '';
+  bookInfo.chapterCount = '';
+  bookInfo.lastUpdateTime = '';
+  if (rules.score) {
+    try {
+      bookInfo.score = await resolveRuleValue(data, rules.score, ctx);
+    } catch (e) {
+      console.error(`[PARSE ERROR] ruleBookInfo.score failed: rule="${rules.score}", error="${e.message}"`);
+      bookInfo.score = '';
+    }
+  }
+  if (rules.chapterCount) {
+    try {
+      bookInfo.chapterCount = await resolveRuleValue(data, rules.chapterCount, ctx);
+    } catch (e) {
+      console.error(`[PARSE ERROR] ruleBookInfo.chapterCount failed: rule="${rules.chapterCount}", error="${e.message}"`);
+      bookInfo.chapterCount = '';
+    }
+  }
+  if (rules.lastUpdateTime) {
+    try {
+      bookInfo.lastUpdateTime = await resolveRuleValue(data, rules.lastUpdateTime, ctx);
+    } catch (e) {
+      console.error(`[PARSE ERROR] ruleBookInfo.lastUpdateTime failed: rule="${rules.lastUpdateTime}", error="${e.message}"`);
+      bookInfo.lastUpdateTime = '';
+    }
+  }
 
   const ensureString = (v) => {
     if (Array.isArray(v)) return v[0] || "";
@@ -698,7 +953,8 @@ async function parseBookInfo(source, responseData, context = {}) {
 
 async function parseToc(source, responseData, context = {}) {
   const rules = source.ruleToc || {};
-  const ctx = { baseUrl: source.bookSourceUrl, source, ...context };
+  const htmlStr = typeof responseData === "string" ? responseData : JSON.stringify(responseData);
+  const ctx = { baseUrl: source.bookSourceUrl, source, contextHtml: htmlStr, ...context };
 
   let data = responseData;
   if (typeof data === "string") {
@@ -714,11 +970,25 @@ async function parseToc(source, responseData, context = {}) {
   const tocBaseUrl = (source.bookSourceUrl || "").replace(/\/+$/, "");
 
   for (const item of chapterList) {
-    const chapterName = await resolveRuleValue(item, rules.chapterName, ctx);
-    let chapterUrl = await resolveRuleValue(item, rules.chapterUrl, ctx);
-    const isVip = await resolveRuleValue(item, rules.isVip, ctx);
-    const isPay = await resolveRuleValue(item, rules.isPay, ctx);
-    const updateTime = await resolveRuleValue(item, rules.updateTime, ctx);
+    let chapterName, chapterUrl, isVip, isPay, updateTime;
+    const tocFields = ['chapterName', 'chapterUrl', 'isVip', 'isPay', 'updateTime'];
+    for (const field of tocFields) {
+      try {
+        const value = await resolveRuleValue(item, rules[field], ctx);
+        if (field === 'chapterName') chapterName = value;
+        else if (field === 'chapterUrl') chapterUrl = value;
+        else if (field === 'isVip') isVip = value;
+        else if (field === 'isPay') isPay = value;
+        else if (field === 'updateTime') updateTime = value;
+      } catch (e) {
+        console.error(`[PARSE ERROR] ruleToc.${field} failed: rule="${rules[field]}", error="${e.message}"`);
+        if (field === 'chapterName') chapterName = '';
+        else if (field === 'chapterUrl') chapterUrl = '';
+        else if (field === 'isVip') isVip = '';
+        else if (field === 'isPay') isPay = '';
+        else if (field === 'updateTime') updateTime = '';
+      }
+    }
 
     if (Array.isArray(chapterUrl)) chapterUrl = chapterUrl[0] || "";
     if (chapterUrl && !String(chapterUrl).startsWith("http")) {
@@ -746,7 +1016,8 @@ async function parseToc(source, responseData, context = {}) {
 
 async function parseContent(source, responseData, context = {}) {
   const rules = source.ruleContent || {};
-  const ctx = { baseUrl: source.bookSourceUrl, source, ...context };
+  const htmlStr = typeof responseData === "string" ? responseData : JSON.stringify(responseData);
+  const ctx = { baseUrl: source.bookSourceUrl, source, contextHtml: htmlStr, ...context };
 
   let data = responseData;
   if (typeof data === "string") {
@@ -755,20 +1026,55 @@ async function parseContent(source, responseData, context = {}) {
     } catch {}
   }
 
-  let content = await resolveRuleValue(data, rules.content, ctx);
+  let content;
+  try {
+    content = await resolveRuleValue(data, rules.content, ctx);
+  } catch (e) {
+    console.error(`[PARSE ERROR] ruleContent.content failed: rule="${rules.content}", error="${e.message}"`);
+    content = '';
+  }
 
   if (content && rules.replaceRegex) {
     content = applyReplaceRegex(content, rules.replaceRegex);
   }
 
   if (rules.nextContentUrl) {
-    const nextUrl = await resolveRuleValue(data, rules.nextContentUrl, ctx);
-    if (nextUrl) {
-      content = {
-        content: String(content || ""),
-        nextContentUrl: String(nextUrl),
-      };
+    const maxPages = 10;
+    let pageCount = 0;
+    let currentData = data;
+    let allContent = content ? String(content) : "";
+
+    while (pageCount < maxPages) {
+      const nextUrl = await resolveRuleValue(currentData, rules.nextContentUrl, ctx);
+      if (!nextUrl || typeof nextUrl !== 'string' || !nextUrl.startsWith('http')) break;
+
+      try {
+        const { fetchWithConfig } = require("./index");
+        const headers = parseHeaders(source.header);
+        const nextResponseData = await fetchWithConfig({
+          url: nextUrl,
+          method: "GET",
+          headers,
+        });
+
+        let nextData = nextResponseData;
+        if (typeof nextData === "string") {
+          try { nextData = JSON.parse(nextData); } catch {}
+        }
+
+        const nextContent = await resolveRuleValue(nextData, rules.content, ctx);
+        if (!nextContent) break;
+
+        allContent += "\n" + String(nextContent);
+        currentData = nextData;
+        pageCount++;
+      } catch (e) {
+        console.warn("[nextContentUrl] fetch failed:", e.message);
+        break;
+      }
     }
+
+    content = allContent;
   }
 
   return content;
@@ -806,11 +1112,52 @@ async function buildSearchConfig(source, keyword, page) {
   let body = null;
   let headers = parseHeaders(source.header);
 
-  if (rawUrl.includes("<js>") || rawUrl.includes("@js:")) {
-    const jsCode = rawUrl
+  if (rawUrl.startsWith("<js>")) {
+    const jsEnd = rawUrl.indexOf("</js>");
+    if (jsEnd !== -1) {
+      const jsCode = rawUrl.slice(4, jsEnd);
+      const remainingUrl = rawUrl.slice(jsEnd + 5).trim();
+      const ctx = { baseUrl: source.bookSourceUrl, source, key: keyword, page };
+      try {
+        const result = await executeJsRule(jsCode, null, ctx);
+        if (result && typeof result === "string") {
+          rawUrl = result;
+        } else if (result && typeof result === "object") {
+          if (result.url) rawUrl = result.url;
+          if (result.method) method = result.method.toUpperCase();
+          if (result.body) body = result.body;
+          if (result.headers) headers = { ...headers, ...result.headers };
+          if (!rawUrl && remainingUrl) rawUrl = remainingUrl;
+        } else {
+          rawUrl = remainingUrl;
+        }
+      } catch (e) {
+        console.warn("JS searchUrl execution failed:", e.message);
+        rawUrl = remainingUrl;
+      }
+    }
+  } else if (rawUrl.includes("<js>") || rawUrl.includes("@js:")) {
+    let jsCode = rawUrl
       .replace(/^<js>/, "")
       .replace(/<\/js>$/, "")
       .replace(/^@js:/, "");
+
+    jsCode = jsCode
+      .replace(/\{\{java\.encodeURI\(key\)\}\}/g, encodeURIComponent(keyword))
+      .replace(/\{\{java\.encodeURIComponent\(key\)\}\}/g, encodeURIComponent(keyword))
+      .replace(/\{\{key\}\}/g, keyword.replace(/'/g, "\\'"))
+      .replace(/\{\{keyword\}\}/g, keyword.replace(/'/g, "\\'"))
+      .replace(/\{\{page\}\}/g, String(page))
+      .replace(/\{\{\(([^)]+)\)\}\}/g, (_, expr) => {
+        try {
+          const safeExpr = expr.replace(/page/g, String(page)).replace(/key/g, `"${keyword}"`);
+          return String(new Function("return " + safeExpr)());
+        } catch { return _; }
+      })
+      .replace(/\{\{cookie\.\w+\([^)]*\)\}\}/g, "")
+      .replace(/\{\{source\.\w+\([^)]*\)\}\}/g, source.bookSourceUrl || "")
+      .replace(/\n/g, ";\n");
+
     const ctx = { baseUrl: source.bookSourceUrl, source, key: keyword, page };
     try {
       const result = await executeJsRule(jsCode, null, ctx);
@@ -880,8 +1227,45 @@ async function buildSearchConfig(source, keyword, page) {
     .replace(/\{\{keyword\}\}/g, encodeURIComponent(keyword))
     .replace(/\{\{keyRaw\}\}/g, keyword)
     .replace(/\{\{keywordRaw\}\}/g, keyword)
+    .replace(/\{\{keyEncoded\}\}/g, encodeURIComponent(keyword))
+    .replace(/\{\{keywordEncoded\}\}/g, encodeURIComponent(keyword))
     .replace(/\{\{\(page-1\)\}\}/g, String(page - 1))
     .replace(/\{\{\(page\)\}\}/g, String(page));
+
+  url = url.replace(/\{\{cookie\.removeCookie\([^)]*\)\}\}/g, "");
+  url = url.replace(/\{\{cookie\.\w+\([^)]*\)\}\}/g, "");
+  url = url.replace(/\{\{source\.getKey\(\)\}\}/g, source.bookSourceUrl || "");
+  url = url.replace(/\{\{source\.getVariable\(\)\}\}/g, "");
+  url = url.replace(/\{\{source\.getVar\([^)]*\)\}\}/g, "");
+  url = url.replace(/\{\{java\.\w+\([^)]*\)\}\}/g, (match) => {
+    try {
+      const inner = match.slice(2, -2);
+      if (inner.startsWith("java.encodeURI(")) {
+        const arg = inner.slice(15, -1);
+        if (arg === "key") return encodeURIComponent(keyword);
+      }
+      if (inner.startsWith("java.encodeURIComponent(")) {
+        const arg = inner.slice(25, -1);
+        if (arg === "key") return encodeURIComponent(keyword);
+      }
+    } catch {}
+    return "";
+  });
+
+  url = url.replace(/\{\{[^{}]*\}\}/g, (match) => {
+    const inner = match.slice(2, -2).trim();
+    if (inner.startsWith("$.")) {
+      try {
+        const val = resolveJsonPath(source, inner);
+        return val != null ? String(val) : "";
+      } catch {
+        return "";
+      }
+    }
+    return "";
+  });
+
+  url = url.replace(/[\r\n]+/g, "").trim();
 
   if (!url.startsWith("http")) {
     const base = (source.bookSourceUrl || "").replace(/\/+$/, "");
@@ -990,12 +1374,24 @@ function getSourceCompatibility(source) {
   };
 }
 
+function classifyError(error) {
+  const msg = error.message || String(error);
+  if (error.code === 'ECONNABORTED' || msg.includes('timeout')) return { type: 'timeout', message: '请求超时' };
+  if (error.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' || msg.includes('SSL')) return { type: 'ssl', message: 'SSL证书错误' };
+  if (msg.includes('403') || msg.includes('Forbidden') || msg.includes('WAF') || msg.includes('cloudflare')) return { type: 'waf', message: 'WAF防护/访问被拒' };
+  if (msg.includes('401') || msg.includes('Unauthorized')) return { type: 'auth', message: '需要认证' };
+  if (msg.includes('ENOTFOUND') || msg.includes('ECONNREFUSED') || msg.includes('network')) return { type: 'network', message: '网络错误' };
+  return { type: 'parse', message: '解析错误' };
+}
+
 module.exports = {
   resolveJsonPath,
   resolveTemplate,
   resolveRuleValue,
   executeJsRule,
   parseSearchResults,
+  parseExplore,
+  parseExploreUrl,
   parseBookInfo,
   parseToc,
   parseContent,
@@ -1003,5 +1399,6 @@ module.exports = {
   buildSearchConfig,
   getSourceCompatibility,
   applyReplaceRegex,
+  classifyError,
   ruleVariables,
 };

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, createContext, useCallback } from 'react';
+import React, { useState, useEffect, createContext, useCallback, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
-import { ConfigProvider, theme, Layout, Menu, Input, Button, Switch, Card, Row, Col, Tag, Typography, Space, Divider, Tooltip } from 'antd';
+import { ConfigProvider, theme, Layout, Menu, Input, Button, Switch, Card, Row, Col, Tag, Typography, Space, Divider, Tooltip, Spin } from 'antd';
 import { 
   HomeOutlined, 
   AppstoreOutlined, 
@@ -25,16 +25,61 @@ import Home from './pages/Home';
 import Category from './pages/Category';
 import Shelf from './pages/Shelf';
 import Setting from './pages/Setting';
-import NovelDetail from './pages/NovelDetail';
-import RankDetail from './pages/RankDetail';
-import CategoryDetail from './pages/CategoryDetail';
 import Login from './pages/Login';
-import ResetPassword from './pages/ResetPassword';
-import UserCenter from './pages/UserCenter';
-import Reader from './pages/Reader';
-import SearchResult from './pages/SearchResult';
-import BookSourceManager from './pages/BookSourceManager';
+
+const NovelDetail = lazy(() => import('./pages/NovelDetail'));
+const RankDetail = lazy(() => import('./pages/RankDetail'));
+const CategoryDetail = lazy(() => import('./pages/CategoryDetail'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const UserCenter = lazy(() => import('./pages/UserCenter'));
+const Reader = lazy(() => import('./pages/Reader'));
+const SearchResult = lazy(() => import('./pages/SearchResult'));
+const BookSourceManager = lazy(() => import('./pages/BookSourceManager'));
+
 import { getUserInfo, saveUserInfo, clearUserInfo } from './utils/storage';
+import { getDefaultSource } from './utils/novelConfig';
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('ErrorBoundary caught:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 40, textAlign: 'center' }}>
+          <h2>页面加载出错</h2>
+          <p style={{ color: '#999' }}>{this.state.error?.message || '未知错误'}</p>
+          <Button type="primary" onClick={() => window.location.reload()}>刷新页面</Button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const LazyLoad = ({ children }) => (
+  <ErrorBoundary>
+    <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}><Spin size="large" tip="加载中..." /></div>}>
+      {children}
+    </Suspense>
+  </ErrorBoundary>
+);
+
+function parseHeaders(headerStr) {
+  try {
+    return headerStr ? JSON.parse(headerStr) : {};
+  } catch {
+    return {};
+  }
+}
+
 import './App.css';
 
 const { Header, Content } = Layout;
@@ -46,21 +91,8 @@ const NovelContext = createContext();
 const ThemeContext = createContext();
 export const AuthContext = createContext();
 
-// 书源信息
-const bookSource = {
-  url: 'http://api.jmlldsc.com',
-  headers: {
-    'User-Agent': 'okhttp/4.9.2',
-    'client-device': '2d37f6b5b6b2605373092c3dc65a3b39',
-    'client-brand': 'Redmi',
-    'client-version': '2.3.0',
-    'client-name': 'app.maoyankanshu.novel',
-    'client-source': 'android',
-    'Authorization': 'bearereyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9hcGkuanhndHp4Yy5jb21cL2F1dGhcL3RoaXJkIiwiaWF0IjoxNjgzODkxNjUyLCJleHAiOjE3NzcyMDM2NTIsIm5iZiI6MTY4Mzg5MTY1MiwianRpIjoiR2JxWmI4bGZkbTVLYzBIViIsInN1YiI6Njg3ODYyLCJwcnYiOiJhMWNiMDM3MTgwMjk2YzZhMTkzOGVmMzBiNDM3OTQ2NzJkZDAxNmM1In0.mMxaC2SVyZKyjC6rdUqFVv5d9w_X36o0AdKD7szvE_Q'
-  }
-};
+const defaultSource = getDefaultSource();
 
-// 榜单URL
 const rankUrls = {
   mustRead: '/module/rank?type=1&channel=1&page=1',
   potential: '/module/rank?type=5&channel=1&page=1',
@@ -192,8 +224,8 @@ function App() {
   // 获取榜单数据
   const fetchRankData = async (url, key, limit) => {
     try {
-      const response = await axios.get(`${bookSource.url}${url}`, {
-        headers: bookSource.headers
+      const response = await axios.get(`${defaultSource.bookSourceUrl}${url}`, {
+        headers: parseHeaders(defaultSource.header)
       });
       
       if (response.data && response.data.data) {
@@ -360,12 +392,13 @@ const AppLayout = ({ currentThemeConfig, isDarkMode, isLoggedIn, userInfo, setIs
   const location = useLocation();
   const isReaderPage = location.pathname.startsWith('/reader');
   const isSearchPage = location.pathname.startsWith('/search');
+  const isBookSourcePage = location.pathname.startsWith('/booksource');
 
   return (
     <AuthContext.Provider value={{ isLoggedIn, userInfo, setIsLoggedIn, setUserInfo }}>
     <Layout className="app-layout" style={{ minHeight: '100vh' }}>
-      {!isReaderPage && !isSearchPage && (
-        <Navbar 
+      {!isReaderPage && !isSearchPage && !isBookSourcePage && (
+        <Navbar
           currentThemeConfig={currentThemeConfig}
           isDarkMode={isDarkMode}
           isLoggedIn={isLoggedIn}
@@ -376,8 +409,8 @@ const AppLayout = ({ currentThemeConfig, isDarkMode, isLoggedIn, userInfo, setIs
           glassMode={glassMode}
         />
       )}
-      <Content style={{ padding: isReaderPage ? 0 : '24px 20px', background: isDarkMode ? '#000000' : '#f0f2f5', position: 'relative' }}>
-        {glassMode && !isReaderPage && (
+      <Content style={{ padding: (isReaderPage || isBookSourcePage) ? 0 : '24px 20px', background: isDarkMode ? '#000000' : '#f0f2f5', position: 'relative' }}>
+        {glassMode && !isReaderPage && !isBookSourcePage && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: '5%', right: '-3%', width: 500, height: 500, borderRadius: '50%', background: `radial-gradient(circle, ${currentThemeConfig.primaryColor}10 0%, transparent 70%)`, filter: 'blur(80px)' }} />
             <div style={{ position: 'absolute', bottom: '10%', left: '-3%', width: 400, height: 400, borderRadius: '50%', background: `radial-gradient(circle, ${currentThemeConfig.colors ? currentThemeConfig.colors[2] + '0c' : currentThemeConfig.primaryColor + '08'} 0%, transparent 70%)`, filter: 'blur(80px)' }} />
@@ -429,87 +462,47 @@ const AppLayout = ({ currentThemeConfig, isDarkMode, isLoggedIn, userInfo, setIs
                 </motion.div>
               } />
               <Route path="/novel/:novelId" element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
+                <LazyLoad><motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
                   <NovelDetail />
-                </motion.div>
+                </motion.div></LazyLoad>
               } />
               <Route path="/rank/:rankType" element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
+                <LazyLoad><motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
                   <RankDetail />
-                </motion.div>
+                </motion.div></LazyLoad>
               } />
               <Route path="/category-detail/:channel/:sort/:categoryId/:categoryName" element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
+                <LazyLoad><motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
                   <CategoryDetail />
-                </motion.div>
+                </motion.div></LazyLoad>
               } />
               <Route path="/login" element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
                   <Login setIsLoggedIn={setIsLoggedIn} setUserInfo={setUserInfo} />
                 </motion.div>
               } />
               <Route path="/reset-password" element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
+                <LazyLoad><motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
                   <ResetPassword />
-                </motion.div>
+                </motion.div></LazyLoad>
               } />
               <Route path="/user" element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
+                <LazyLoad><motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
                   <UserCenter setIsLoggedIn={setIsLoggedIn} setUserInfo={setUserInfo} />
-                </motion.div>
+                </motion.div></LazyLoad>
               } />
-              <Route path="/reader/:novelId/:chapterId" element={
-                <Reader />
+              <Route path="/reader/:novelId" element={
+                <LazyLoad><Reader /></LazyLoad>
               } />
               <Route path="/search" element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
+                <LazyLoad><motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
                   <SearchResult />
-                </motion.div>
+                </motion.div></LazyLoad>
               } />
               <Route path="/booksource" element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
+                <LazyLoad><motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
                   <BookSourceManager />
-                </motion.div>
+                </motion.div></LazyLoad>
               } />
             </Routes>
           </AnimatePresence>

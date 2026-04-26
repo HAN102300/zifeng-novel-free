@@ -7,9 +7,10 @@ import BackButton from '../components/BackButton';
 import SummaryText from '../components/SummaryText';
 import { ThemeContext } from '../App';
 import {
-  getBookSources, getActiveSource, setActiveSource as setActiveSourceUtil
+  getBookSources, getActiveSource
 } from '../utils/bookSourceManager';
 import { searchBooksAPI } from '../utils/apiClient';
+import { saveNovelCache, simpleHash } from '../utils/novelConfig';
 
 const { Text } = Typography;
 
@@ -41,7 +42,6 @@ const SearchResult = () => {
   const handleSourceChange = (url) => {
     const source = availableSources.find(s => s.bookSourceUrl === url);
     if (source) {
-      setActiveSourceUtil(url);
       setActiveSourceState(source);
       setResults([]);
       setPage(1);
@@ -163,17 +163,18 @@ const SearchResult = () => {
   };
 
   const navigateToDetail = (book) => {
+    const sourceUrl = activeSource.bookSourceUrl;
+    const bookUrl = book._sourceUrl || book.bookUrl || book.url || String(book.id || '');
+    saveNovelCache(book, sourceUrl, bookUrl);
+
     const searchQuery = new URLSearchParams();
     searchQuery.set('from', 'search');
     searchQuery.set('keyword', keyword);
-    if (book._sourceUrl) {
-      searchQuery.set('sourceUrl', book._sourceUrl);
-    }
-    if (book.id) {
-      navigate(`/novel/${book.id}?${searchQuery.toString()}`);
-    } else if (book._sourceUrl) {
-      navigate(`/novel/external?${searchQuery.toString()}`);
-    }
+    searchQuery.set('sourceUrl', sourceUrl);
+    searchQuery.set('bookUrl', bookUrl);
+
+    const bookKey = simpleHash(sourceUrl + '_' + bookUrl);
+    navigate(`/novel/${bookKey}?${searchQuery.toString()}`);
   };
 
   const handleBack = () => {

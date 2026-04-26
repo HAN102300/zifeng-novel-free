@@ -7,22 +7,11 @@ import { ThemeContext } from '../App';
 import { AuthContext } from '../App';
 import { getBookShelf, getReadHistory, removeFromBookShelf, clearReadHistory, removeSingleFromReadHistory, getReadingProgress } from '../utils/storage';
 import SummaryText from '../components/SummaryText';
-import axios from 'axios';
+import { getTocAPI } from '../utils/apiClient';
+import { getDefaultSource, saveReaderCache, simpleHash } from '../utils/novelConfig';
+import { getBookSources } from '../utils/bookSourceManager';
 
 const { Title, Text } = Typography;
-
-const bookSource = {
-  url: 'http://api.jmlldsc.com',
-  headers: {
-    'User-Agent': 'okhttp/4.9.2',
-    'client-device': '2d37f6b5b6b2605373092c3dc65a3b39',
-    'client-brand': 'Redmi',
-    'client-version': '2.3.0',
-    'client-name': 'app.maoyankanshu.novel',
-    'client-source': 'android',
-    'Authorization': 'bearereyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9hcGkuanhndHp4Yy5jb21cL2F1dGhcL3RoaXJkIiwiaWF0IjoxNjgzODkxNjUyLCJleHAiOjE3NzcyMDM2NTIsIm5iZiI6MTY4Mzg5MTY1MiwianRpIjoiR2JxWmI4bGZkbTVLYzBIViIsInN1YiI6Njg3ODYyLCJwcnYiOiJhMWNiMDM3MTgwMjk2YzZhMTkzOGVmMzBiNDM3OTQ2NzJkZDAxNmM1In0.mMxaC2SVyZKyjC6rdUqFVv5d9w_X36o0AdKD7szvE_Q'
-  }
-};
 
 const Shelf = () => {
   const navigate = useNavigate();
@@ -45,9 +34,16 @@ const Shelf = () => {
     const loadUserData = async () => {
       if (isLoggedIn && userInfo && userInfo.username) {
         try {
+          const ds = getDefaultSource();
+          const bookUrlTemplate = ds.ruleSearch?.bookUrl || '';
+
           const history = await getReadHistory(userInfo.username);
           const historyWithProgress = await Promise.all(history.map(async (book) => {
-            const progressData = await getReadingProgress(userInfo.username, book.id);
+            let progressKey = String(book.id);
+            if (bookUrlTemplate && bookUrlTemplate.includes('{{')) {
+              progressKey = bookUrlTemplate.replace(/\{\{\$?\.?novelId\}\}/g, String(book.id));
+            }
+            const progressData = await getReadingProgress(userInfo.username, progressKey);
             return {
               ...book,
               progress: progressData?.progress || 0
@@ -57,7 +53,11 @@ const Shelf = () => {
           
           const shelf = await getBookShelf(userInfo.username);
           const shelfWithProgress = await Promise.all(shelf.map(async (book) => {
-            const progressData = await getReadingProgress(userInfo.username, book.id);
+            let progressKey = String(book.id);
+            if (bookUrlTemplate && bookUrlTemplate.includes('{{')) {
+              progressKey = bookUrlTemplate.replace(/\{\{\$?\.?novelId\}\}/g, String(book.id));
+            }
+            const progressData = await getReadingProgress(userInfo.username, progressKey);
             return {
               ...book,
               progress: progressData?.progress || 0
@@ -104,12 +104,73 @@ const Shelf = () => {
   const navigateToReader = async (bookId) => {
     setNavigatingBookId(bookId);
     try {
-      const response = await axios.get(`/api/novel/${bookId}/chapters?readNum=1`, {
-        headers: bookSource.headers
-      });
-      if (response.data && response.data.data && response.data.data.list.length > 0) {
-        const firstChapter = response.data.data.list[0];
-        navigate(`/reader/${bookId}/${firstChapter.chapterId}?from=shelf`);
+      const novelId = String(bookId);
+
+      let sourceUrl = '';
+      let bookUrl = novelId;
+      let sourceName = '';
+      let matchedBook = null;
+
+      const shelfBook = favoriteBooks.find(b => String(b.id) === novelId);
+      if (shelfBook) {
+        matchedBook = shelfBook;
+      } else {
+        const historyBook = readingBooks.find(b => String(b.id) === novelId);
+        if (historyBook) {
+          matchedBook = historyBook;
+        }
+      }
+
+      if (matchedBook) {
+        sourceUrl = matchedBook.sourceUrl || '';
+        bookUrl = matchedBook.bookUrl || novelId;
+        sourceName = matchedBook.sourceName || '';
+      }
+
+      let effectiveSource = null;
+      if (sourceUrl) {
+        const allSources = getBookSources();
+        effectiveSource = allSources.find(s => s.bookSourceUrl === sourceUrl);
+      }
+      if (!effectiveSource) {
+        const ds = getDefaultSource();
+        effectiveSource = ds;
+        sourceUrl = ds.bookSourceUrl;
+      }
+
+      const tocUrlTemplate = effectiveSource.ruleBookInfo?.tocUrl || '';
+      let tocUrl = bookUrl;
+      if (tocUrlTemplate && tocUrlTemplate.includes('{{')) {
+        tocUrl = tocUrlTemplate.replace(/\{\{\$?\.?novelId\}\}/g, novelId);
+      }
+
+      const bookData = { id: bookId, novelId: bookId, name: matchedBook?.name || '', author: matchedBook?.author || '', sourceUrl, sourceName, bookUrl };
+
+      let savedChapterIndex = 0;
+      if (isLoggedIn && userInfo) {
+        const progressData = await getReadingProgress(userInfo.username, bookUrl);
+        if (progressData && typeof progressData.chapterId === 'number') {
+          savedChapterIndex = progressData.chapterId;
+        }
+      }
+
+      const result = await getTocAPI(effectiveSource, tocUrl, bookData);
+      if (result.success && result.chapters && result.chapters.length > 0) {
+        const chapters = result.chapters;
+        if (savedChapterIndex >= chapters.length) {
+          savedChapterIndex = chapters.length - 1;
+        }
+        saveReaderCache(bookData, sourceUrl, bookUrl, tocUrl, chapters);
+
+        const readerParams = new URLSearchParams();
+        readerParams.set('sourceUrl', sourceUrl);
+        readerParams.set('bookUrl', bookUrl);
+        readerParams.set('tocUrl', tocUrl);
+        readerParams.set('chapterIndex', String(savedChapterIndex));
+        readerParams.set('from', 'shelf');
+
+        const bookKey = simpleHash(sourceUrl + '_' + bookUrl);
+        navigate(`/reader/${bookKey}?${readerParams.toString()}`);
       } else {
         message.error('获取章节列表失败');
       }
@@ -300,8 +361,8 @@ const Shelf = () => {
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: shelfLayout === 'grid'
-                  ? 'repeat(auto-fill, minmax(160px, 1fr))'
-                  : 'repeat(auto-fill, minmax(400px, 1fr))',
+                  ? 'repeat(auto-fill, minmax(170px, 1fr))'
+                  : 'repeat(auto-fill, minmax(450px, 1fr))',
                 gap: 16
               }}>
                 {favoriteBooks.map((book, index) => (
@@ -611,8 +672,8 @@ const Shelf = () => {
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: historyLayout === 'grid'
-                  ? 'repeat(auto-fill, minmax(160px, 1fr))'
-                  : 'repeat(auto-fill, minmax(400px, 1fr))',
+                  ? 'repeat(auto-fill, minmax(170px, 1fr))'
+                  : 'repeat(auto-fill, minmax(450px, 1fr))',
                 gap: 16
               }}>
                 {readingBooks.map((book, index) => (

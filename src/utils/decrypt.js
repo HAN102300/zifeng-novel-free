@@ -1,17 +1,11 @@
-// 解密工具类
 import CryptoJS from 'crypto-js';
+import CRYPTO_CONFIG from './cryptoConfig';
 
-// AES解密函数
 export const aesDecrypt = (ciphertext, key, iv) => {
   try {
-    // 从Base64解码
     const encryptedData = CryptoJS.enc.Base64.parse(ciphertext);
-    
-    // 配置解密参数
     const decrypted = CryptoJS.AES.decrypt(
-      {
-        ciphertext: encryptedData
-      },
+      { ciphertext: encryptedData },
       CryptoJS.enc.Utf8.parse(key),
       {
         iv: CryptoJS.enc.Utf8.parse(iv),
@@ -19,8 +13,6 @@ export const aesDecrypt = (ciphertext, key, iv) => {
         padding: CryptoJS.pad.Pkcs7
       }
     );
-    
-    // 转换为UTF8字符串
     return decrypted.toString(CryptoJS.enc.Utf8);
   } catch (error) {
     console.error('解密失败:', error);
@@ -28,13 +20,6 @@ export const aesDecrypt = (ciphertext, key, iv) => {
   }
 };
 
-// 猫眼看书专用解密函数
 export const decryptMaoyanContent = (path) => {
-  // 从path中提取加密数据
-  const encryptedData = path;
-  // 密钥和IV
-  const key = 'f041c49714d39908';
-  const iv = '0123456789abcdef';
-  
-  return aesDecrypt(encryptedData, key, iv);
+  return aesDecrypt(path, CRYPTO_CONFIG.MAOYAN_KEY, CRYPTO_CONFIG.MAOYAN_IV);
 };

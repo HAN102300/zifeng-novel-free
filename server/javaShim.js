@@ -1,9 +1,70 @@
 const axios = require("axios");
 const crypto = require("crypto");
+const iconv = require("iconv-lite");
+const OpenCC = require("opencc-js");
+const t2sConverter = OpenCC.Converter({ from: 'tw', to: 'cn' });
 
 const sourceVariables = new Map();
 const cookieStore = new Map();
 const cacheStore = new Map();
+
+const MAX_MAP_SIZE = 1000;
+const MAP_CLEANUP_INTERVAL = 30 * 60 * 1000;
+
+function cleanupMap(map, maxAge = 2 * 60 * 60 * 1000) {
+  if (map.size <= MAX_MAP_SIZE) return;
+  const now = Date.now();
+  for (const [key, value] of map) {
+    if (value && value._timestamp && (now - value._timestamp > maxAge)) {
+      map.delete(key);
+    }
+  }
+  if (map.size > MAX_MAP_SIZE * 2) {
+    const keys = [...map.keys()].slice(0, map.size - MAX_MAP_SIZE);
+    keys.forEach(k => map.delete(k));
+  }
+}
+
+setInterval(() => {
+  cleanupMap(sourceVariables);
+  cleanupMap(cookieStore);
+  cleanupMap(cacheStore);
+}, MAP_CLEANUP_INTERVAL);
+
+let _browserInstance = null;
+let _browserLaunchPromise = null;
+
+async function getBrowserInstance() {
+  if (_browserInstance && _browserInstance.connected) {
+    return _browserInstance;
+  }
+  if (_browserLaunchPromise) {
+    return _browserLaunchPromise;
+  }
+  _browserLaunchPromise = (async () => {
+    try {
+      const puppeteer = require("puppeteer");
+      _browserInstance = await puppeteer.launch({
+        headless: "new",
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+        ],
+      });
+      _browserInstance.on("disconnected", () => {
+        _browserInstance = null;
+      });
+      return _browserInstance;
+    } catch (e) {
+      console.warn("[PUPPETEER] Failed to launch browser:", e.message);
+      _browserLaunchPromise = null;
+      throw e;
+    }
+  })();
+  return _browserLaunchPromise;
+}
 
 function simpleJsonPath(data, path) {
   if (!path || data == null) return "";
@@ -35,40 +96,158 @@ function isAjaxRetryableError(error) {
   );
 }
 
-function createJavaShim(baseUrl, sourceData = {}) {
-  const sourceVars =
-    sourceVariables.get(sourceData.bookSourceUrl || baseUrl) || new Map();
+function parseSourceHeaders(headerStr) {
+  if (!headerStr) return {};
+  if (headerStr.includes("<js>")) return {};
+  try {
+    const cleaned = headerStr.replace(/'/g, '"');
+    return JSON.parse(cleaned);
+  } catch {
+    try {
+      const headers = {};
+      const pairs = headerStr.replace(/[{}'"]/g, "").split(",");
+      for (const pair of pairs) {
+        const colonIdx = pair.indexOf(":");
+        if (colonIdx > 0) {
+          const key = pair.slice(0, colonIdx).trim();
+          const value = pair.slice(colonIdx + 1).trim();
+          if (key) headers[key] = value;
+        }
+      }
+      return headers;
+    } catch {
+      return {};
+    }
+  }
+}
+
+function createJavaShim(baseUrl, sourceData = {}, requestContext = {}) {
+  const requestVars = requestContext._ruleVariables || new Map();
+  const contextHtml = requestContext.contextHtml || '';
+
+  const put = (key, value) => {
+    requestVars.set(key, value);
+    if (requestContext._ruleVariables) {
+      requestContext._ruleVariables = requestVars;
+    }
+  };
+
+  const get = (key) => {
+    if (requestVars.has(key)) return requestVars.get(key);
+    return sourceVariables.get(key) || '';
+  };
+
+  const sourceHeaders = parseSourceHeaders(sourceData.header);
 
   const ajax = async (url, headers) => {
     let fullUrl = url;
+    let ajaxOptions = {};
+    let useWebView = false;
+    let customCharset = "";
+    let customMethod = "GET";
+    let customBody = "";
+    let customHeaders = {};
+
+    if (typeof fullUrl === "string" && fullUrl.includes(",")) {
+      const commaIdx = fullUrl.indexOf(",");
+      const urlPart = fullUrl.slice(0, commaIdx).trim();
+      const optionStr = fullUrl.slice(commaIdx + 1).trim();
+      fullUrl = urlPart;
+      try {
+        const parsed = JSON.parse(optionStr.replace(/'/g, '"'));
+        ajaxOptions = parsed;
+        if (parsed.webView) useWebView = true;
+        if (parsed.charset) customCharset = parsed.charset;
+        if (parsed.method) customMethod = parsed.method;
+        if (parsed.body) customBody = parsed.body;
+        if (parsed.headers) customHeaders = parsed.headers;
+      } catch {}
+    }
+
     if (!fullUrl.startsWith("http")) {
       fullUrl = baseUrl + (fullUrl.startsWith("/") ? "" : "/") + fullUrl;
     }
 
+    if (useWebView) {
+      try {
+        const browser = await getBrowserInstance();
+        const page = await browser.newPage();
+        await page.setUserAgent(
+          "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+        );
+        if (customHeaders["Referer"]) {
+          await page.setExtraHTTPHeaders({ Referer: customHeaders["Referer"] });
+        }
+        await page.goto(fullUrl, { waitUntil: "networkidle2", timeout: 30000 });
+        await new Promise((r) => setTimeout(r, 2000));
+        const html = await page.content();
+        const cookies = await page.cookies();
+        for (const c of cookies) {
+          cookieStore.set(c.name, c.value);
+        }
+        await page.close();
+        return html;
+      } catch (e) {
+        console.warn("java.ajax webView failed:", e.message, fullUrl);
+        return "";
+      }
+    }
+
+    const mergedHeaders = {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      Accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+      "Accept-Encoding": "gzip, deflate",
+      Referer: baseUrl,
+      ...sourceHeaders,
+      ...(typeof headers === "object" ? headers : {}),
+      ...customHeaders,
+    };
+
     let lastError = null;
     for (let attempt = 0; attempt <= AJAX_MAX_RETRIES; attempt++) {
       try {
-        const res = await axios.get(fullUrl, {
+        const axiosConfig = {
           timeout: 20000,
           maxRedirects: 10,
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            Accept:
-              "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-            "Accept-Encoding": "gzip, deflate",
-            Connection: attempt > 0 ? "close" : "keep-alive",
-            Referer: baseUrl,
-            ...(typeof headers === "object" ? headers : {}),
-          },
-          responseType: "text",
+          headers: mergedHeaders,
+          responseType: "arraybuffer",
           decompress: true,
           validateStatus: (status) => status >= 200 && status < 400,
-        });
-        return typeof res.data === "string"
-          ? res.data
-          : JSON.stringify(res.data);
+        };
+
+        let res;
+        if (customMethod.match(/post/i) && customBody) {
+          res = await axios.post(fullUrl, customBody, axiosConfig);
+        } else {
+          res = await axios.get(fullUrl, axiosConfig);
+        }
+
+        const buf = Buffer.from(res.data);
+        let charset = customCharset || "utf-8";
+        if (!customCharset || /utf-?8/i.test(charset)) {
+          const contentType = res.headers["content-type"] || "";
+          const ctCharsetMatch = contentType.match(/charset=([^\s;]+)/i);
+          if (ctCharsetMatch && !/utf-?8/i.test(ctCharsetMatch[1])) {
+            charset = ctCharsetMatch[1].trim();
+          } else {
+            const headSample = buf.slice(0, Math.min(buf.length, 2048)).toString("utf-8");
+            const metaCharsetMatch = headSample.match(/charset=["']?([^"'\s>]+)/i);
+            if (metaCharsetMatch && !/utf-?8/i.test(metaCharsetMatch[1])) {
+              charset = metaCharsetMatch[1].trim();
+            }
+          }
+        }
+
+        let data;
+        if (/utf-?8/i.test(charset)) {
+          data = buf.toString("utf-8");
+        } else {
+          data = iconv.decode(buf, charset);
+        }
+        return data;
       } catch (e) {
         lastError = e;
         if (isAjaxRetryableError(e) && attempt < AJAX_MAX_RETRIES) {
@@ -136,17 +315,41 @@ function createJavaShim(baseUrl, sourceData = {}) {
     };
   };
 
-  const getString = (path, data) => {
-    if (!path || data == null) return "";
-    if (typeof data === "string") {
-      try {
-        data = JSON.parse(data);
-      } catch {
-        return "";
+  const getString = (rule) => {
+    if (!rule || !contextHtml) return '';
+    const $ = require('cheerio').load(contextHtml);
+    const { resolveLegadoSelector, isLegadoSelector } = require('./selectors');
+    if (isLegadoSelector(rule)) {
+      return resolveLegadoSelector(contextHtml, rule) || '';
+    }
+    return '';
+  };
+
+  const getElement = (rule) => {
+    if (!rule || !contextHtml) return null;
+    const $ = require('cheerio').load(contextHtml);
+    const { resolveLegadoSelector, isLegadoSelector } = require('./selectors');
+    if (rule.startsWith('@css:')) {
+      const cssSelector = rule.slice(5).trim();
+      const el = $(cssSelector).first();
+      return {
+        attr: (name) => el.attr(name) || '',
+        text: () => el.text().trim(),
+        html: () => el.html() || '',
+      };
+    }
+    if (isLegadoSelector(rule)) {
+      const elements = resolveLegadoSelector(contextHtml, rule, true);
+      if (elements && elements.length > 0) {
+        const el = $(elements.first());
+        return {
+          attr: (name) => el.attr(name) || '',
+          text: () => el.text().trim(),
+          html: () => el.html() || '',
+        };
       }
     }
-    const result = simpleJsonPath(data, path);
-    return result;
+    return null;
   };
 
   return {
@@ -154,10 +357,17 @@ function createJavaShim(baseUrl, sourceData = {}) {
     ajaxAll,
     connect: ajax,
     getString,
+    getElement,
     getStrResponse: ajax,
+    put,
+    get,
     log: (...args) => console.log("[JS-LOG]", ...args),
     toast: (msg) => console.log("[JS-TOAST]", msg),
     longToast: (msg) => console.log("[JS-LONGTOAST]", msg),
+    t2s: (str) => {
+      if (typeof str !== 'string') str = String(str);
+      return t2sConverter(str);
+    },
 
     base64Decode: (str) => {
       try {
@@ -175,6 +385,12 @@ function createJavaShim(baseUrl, sourceData = {}) {
     },
     hexDecodeToString: (str) => {
       try {
+        if (typeof str !== 'string') {
+          str = String(str);
+        }
+        if (!/^[0-9a-fA-F]+$/.test(str)) {
+          return str;
+        }
         return Buffer.from(str, "hex").toString("utf-8");
       } catch {
         return str;
@@ -271,9 +487,40 @@ function createJavaShim(baseUrl, sourceData = {}) {
     },
 
     startBrowser: (url, title) => console.log("[JS-BROWSER]", url, title),
-    startBrowserAwait: (url, title) => {
+    startBrowserAwait: async (url, title) => {
       console.log("[JS-BROWSER-AWAIT]", url, title);
-      return "";
+      try {
+        const browser = await getBrowserInstance();
+        const page = await browser.newPage();
+        await page.setUserAgent(
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        );
+        await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
+
+        if (title) {
+          try {
+            await page.waitForFunction(
+              (t) => document.title.includes(t) || document.readyState === "complete",
+              { timeout: 15000 },
+              title
+            );
+          } catch {}
+        }
+
+        await new Promise((r) => setTimeout(r, 2000));
+
+        const cookies = await page.cookies();
+        for (const cookie of cookies) {
+          cookieStore.set(cookie.name, cookie.value);
+        }
+
+        const html = await page.content();
+        await page.close();
+        return html;
+      } catch (e) {
+        console.error("[JS-BROWSER-AWAIT ERROR]", e.message);
+        return "";
+      }
     },
   };
 }
@@ -329,19 +576,45 @@ function createCacheShim() {
 }
 
 function createBookShim(bookData = {}) {
-  return {
+  const proxy = {
     name: bookData.name || "",
     author: bookData.author || "",
     bookUrl: bookData._sourceUrl || "",
     coverUrl: bookData.cover || "",
     intro: bookData.summary || "",
+    tocUrl: bookData.tocUrl || "",
     durChapterIndex: bookData.durChapterIndex || 0,
     durChapterName: bookData.durChapterName || "",
+    type: bookData.type || 0,
     getVariable: (key) => bookData._variables?.[key] || "",
     setVariable: (key, value) => {
       if (!bookData._variables) bookData._variables = {};
       bookData._variables[key] = value;
     },
+  };
+
+  return new Proxy(proxy, {
+    set(target, prop, value) {
+      target[prop] = value;
+      if (bookData && typeof bookData === 'object') {
+        bookData[prop] = value;
+      }
+      return true;
+    },
+    get(target, prop) {
+      return target[prop];
+    }
+  });
+}
+
+function createChapterShim(chapterData = {}) {
+  return {
+    index: chapterData.index || 0,
+    title: chapterData.title || chapterData.name || "",
+    url: chapterData.url || chapterData.chapterUrl || "",
+    isVip: chapterData.isVip || false,
+    isPay: chapterData.isPay || false,
+    baseUrl: chapterData.baseUrl || "",
   };
 }
 
@@ -351,6 +624,7 @@ module.exports = {
   createCookieShim,
   createCacheShim,
   createBookShim,
+  createChapterShim,
   sourceVariables,
   cookieStore,
   cacheStore,

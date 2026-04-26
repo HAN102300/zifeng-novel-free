@@ -1,0 +1,29 @@
+- [x] 书源管理页面顶部导航栏已隐藏，页面内自包含顶栏正常显示
+- [x] 顶栏包含：返回按钮、标题"书源管理"、启用数标 Badge、搜索框、新建/导入/导出/重置按钮
+- [x] 顶栏所有按钮和标签关联当前主题色系（primaryColor）
+- [x] 书源列表滚动区域高度限定，不会导致整体页面滚动
+- [x] 书源列表最后一条底部有足够边距，不被截断
+- [x] 批量操作栏在列表滚动时仍然可见（sticky）
+- [x] Legado 选择器 `@textNodes` 正确提取直接文本节点
+- [x] Legado 选择器 `@html` 返回内部 HTML，`@all` 返回外部 HTML
+- [x] Legado 选择器 `@content` 正确提取 meta 标签 content 属性
+- [x] Legado 选择器多级索引和负索引正确工作
+- [x] `@css:` 选择器支持 `:contains()` 伪类
+- [x] `@css:` 选择器支持属性选择器 `[attr=value]`
+- [x] `@css:` 选择器支持复合选择器和伪类
+- [x] `@XPath:` 选择器基本 XPath 1.0 查询正确工作
+- [x] `@XPath:` 返回元素列表用于 bookList 解析
+- [x] `java.t2s` 繁简转换正确工作
+- [x] `java.getString` 使用 Legado 选择器提取文本
+- [x] `java.getElement` 返回 Cheerio 元素包装对象
+- [x] `java.ajax` 正确发起 HTTP 请求
+- [x] `java.startBrowserAwait` Puppeteer 渲染正确工作
+- [x] `/api/explore` 端点正确解析发现页内容
+- [x] `exploreUrl` 支持纯文本和 JSON 数组格式
+- [x] `searchUrl` 中的 `<js>...</js>` 预处理正确执行
+- [x] 测活流程支持多阶段验证（搜索→详情→目录→内容）
+- [x] 测活返回每阶段的具体结果和失败原因
+- [x] 错误分类区分网络/超时/SSL/WAF/认证/解析错误
+- [x] 解析错误时输出具体失败的规则和期望值/实际值
+- [x] 提供 3 套后端架构升级参考方案
+- [x] 构建通过（vite build 无错误）

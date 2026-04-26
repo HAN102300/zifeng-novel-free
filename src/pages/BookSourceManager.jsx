@@ -1,8 +1,8 @@
 import React, { useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, Typography, Space, Empty, Button, Tag, Switch, Input, Modal, message, Tabs, List, Tooltip, Badge, Select, Checkbox } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined, ImportOutlined, ExportOutlined, CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined, LinkOutlined, FileOutlined, CloudOutlined, SearchOutlined, UndoOutlined, ThunderboltOutlined, WarningOutlined, LoginOutlined, LogoutOutlined, SafetyOutlined } from '@ant-design/icons';
+import { Card, Typography, Space, Empty, Button, Tag, Switch, Input, Modal, message, Tabs, List, Tooltip, Badge, Select, Checkbox, Steps } from 'antd';
+import { PlusOutlined, DeleteOutlined, EditOutlined, ImportOutlined, ExportOutlined, CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined, LinkOutlined, FileOutlined, CloudOutlined, SearchOutlined, UndoOutlined, ThunderboltOutlined, WarningOutlined, LoginOutlined, LogoutOutlined, SafetyOutlined, CompassOutlined } from '@ant-design/icons';
 import { ThemeContext } from '../App';
 import BackButton from '../components/BackButton';
 import {
@@ -12,6 +12,7 @@ import {
   fetchBookSourcesFromUrl, detectLoginCapability, getSourceLoginStatus,
   setSourceLoginStatus, clearSourceLoginStatus
 } from '../utils/bookSourceManager';
+import { getExploreAPI } from '../utils/apiClient';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -54,9 +55,22 @@ const BookSourceManager = () => {
   const [loginSource, setLoginSource] = useState(null);
   const [loginStatuses, setLoginStatuses] = useState({});
   const [hoveredUrl, setHoveredUrl] = useState(null);
+  const [fullTestResult, setFullTestResult] = useState(null);
+  const [fullTestModalOpen, setFullTestModalOpen] = useState(false);
+  const [exploreBooks, setExploreBooks] = useState([]);
+  const [exploreLoading, setExploreLoading] = useState(false);
+  const [activeExploreUrl, setActiveExploreUrl] = useState('');
   const fileInputRef = useRef(null);
 
   useEffect(() => { loadSources(); }, []);
+
+  useEffect(() => {
+    if (!editModalOpen) {
+      setExploreBooks([]);
+      setExploreLoading(false);
+      setActiveExploreUrl('');
+    }
+  }, [editModalOpen]);
 
   const loadSources = () => {
     const all = getBookSources();
@@ -84,7 +98,7 @@ const BookSourceManager = () => {
     if (url === activeSourceUrl) return;
     setActiveSource(url);
     setActiveSourceUrl(url);
-    message.success('已切换书源');
+    message.success('已设为搜索默认书源');
   };
   const handleToggle = (url, enabled) => {
     const updated = toggleBookSource(url, enabled);
@@ -129,20 +143,25 @@ const BookSourceManager = () => {
     });
   };
 
-  const handleTest = async (url) => {
+  const handleTest = async (url, isFullTest = false) => {
     setTestingUrls(prev => ({ ...prev, [url]: 'loading' }));
     setTestFailReasons(prev => { const n = { ...prev }; delete n[url]; return n; });
     const source = sources.find(s => s.bookSourceUrl === url);
     if (!source) return;
-    const result = await testBookSource(source);
+    const result = await testBookSource(source, isFullTest);
     setTestingUrls(prev => ({ ...prev, [url]: result.success ? 'success' : 'fail' }));
     if (!result.success && result.message) {
       setTestFailReasons(prev => ({ ...prev, [url]: result.message }));
     }
-    if (!result.success) {
-      message.error(`${source.bookSourceName}: ${result.message}`);
+    if (isFullTest && result.stages) {
+      setFullTestResult({ ...result, sourceName: source.bookSourceName });
+      setFullTestModalOpen(true);
     } else {
-      message.success(`${source.bookSourceName}: ${result.message}`);
+      if (!result.success) {
+        message.error(`${source.bookSourceName}: ${result.message}`);
+      } else {
+        message.success(`${source.bookSourceName}: ${result.message}`);
+      }
     }
     setTimeout(() => {
       setTestingUrls(prev => { const n = { ...prev }; delete n[url]; return n; });
@@ -257,7 +276,9 @@ const BookSourceManager = () => {
     setEditingSource({
       bookSourceName: '', bookSourceUrl: '', bookSourceType: 0, bookSourceGroup: '', enabled: true, header: '',
       searchUrl: '/search?page={{page}}&keyword={{key}}',
+      exploreUrl: '',
       ruleSearch: { author: '', bookList: '', bookUrl: '', coverUrl: '', intro: '', kind: '', lastChapter: '', name: '', wordCount: '' },
+      ruleExplore: { bookList: '', name: '', author: '', coverUrl: '', intro: '', kind: '', wordCount: '', lastChapter: '', bookUrl: '' },
       ruleBookInfo: { author: '', coverUrl: '', init: '', intro: '', kind: '', lastChapter: '', name: '', tocUrl: '', wordCount: '' },
       ruleToc: { chapterList: '', chapterName: '', chapterUrl: '', updateTime: '' },
       ruleContent: { content: '', replaceRegex: '' }
@@ -270,6 +291,47 @@ const BookSourceManager = () => {
       title: '重置书源', content: '将恢复为默认书源，自定义书源将被清除。确定继续？', okText: '确定', cancelText: '取消', okButtonProps: { danger: true },
       onOk: () => { const d = getDefaultSource(); saveBookSources([d]); setActiveSource(d.bookSourceUrl); loadSources(); message.success('已重置为默认书源'); }
     });
+  };
+
+  const parseExploreUrlLocal = (exploreUrl) => {
+    if (!exploreUrl || typeof exploreUrl !== 'string') return [];
+    const trimmed = exploreUrl.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map(item => ({
+          title: item.title || '',
+          url: item.url || ''
+        })).filter(item => item.title && item.url);
+      }
+    } catch {}
+    return trimmed.split('\n').map(line => line.trim()).filter(line => line).map(line => {
+      const idx = line.indexOf('::');
+      if (idx !== -1) {
+        return { title: line.slice(0, idx).trim(), url: line.slice(idx + 2).trim() };
+      }
+      return null;
+    }).filter(item => item && item.title && item.url);
+  };
+
+  const handleExploreCategory = async (url) => {
+    if (!editingSource) return;
+    setExploreLoading(true);
+    setActiveExploreUrl(url);
+    try {
+      const result = await getExploreAPI(editingSource, url);
+      if (result.success) {
+        setExploreBooks(result.books || []);
+      } else {
+        setExploreBooks([]);
+        message.error(result.message || '获取发现页失败');
+      }
+    } catch (e) {
+      setExploreBooks([]);
+      message.error('获取发现页失败：' + (e.message || '未知错误'));
+    }
+    setExploreLoading(false);
   };
 
   const filteredSources = sources.filter(s => {
@@ -313,8 +375,8 @@ const BookSourceManager = () => {
               allowClear
             />
             <Button size="small" icon={<PlusOutlined />} type="primary" style={{ backgroundColor: color, borderColor: color, borderRadius: 8 }} onClick={handleAddNew}>新建</Button>
-            <Button size="small" icon={<ImportOutlined />} style={{ borderRadius: 8 }} onClick={() => setImportModalOpen(true)}>导入</Button>
-            <Button size="small" icon={<ExportOutlined />} style={{ borderRadius: 8 }} onClick={handleExport}>导出</Button>
+            <Button size="small" icon={<ImportOutlined />} style={{ borderRadius: 8, color: color, borderColor: color }} onClick={() => setImportModalOpen(true)}>导入</Button>
+            <Button size="small" icon={<ExportOutlined />} style={{ borderRadius: 8, color: color, borderColor: color }} onClick={handleExport}>导出</Button>
             <Button size="small" icon={<UndoOutlined />} danger style={{ borderRadius: 8 }} onClick={handleResetToDefault}>重置</Button>
           </Space>
         </div>
@@ -370,7 +432,7 @@ const BookSourceManager = () => {
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
         style={{ flex: 1, overflow: 'auto', minHeight: 0 }}
       >
-        <Card style={{ borderRadius: 16, ...glassStyle(isDarkMode, glassMode) }} bodyStyle={{ padding: 0 }}>
+        <Card style={{ borderRadius: 16, ...glassStyle(isDarkMode, glassMode) }} bodyStyle={{ padding: '0 0 24px 0' }}>
           {filteredSources.length > 0 ? (
             <List
               dataSource={filteredSources}
@@ -422,7 +484,7 @@ const BookSourceManager = () => {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <Text strong style={{ fontSize: 14 }}>{source.bookSourceName}</Text>
-                          {isActive && <Tag color={color} style={{ fontSize: 11, lineHeight: '18px', borderRadius: 4, margin: 0 }}>当前使用</Tag>}
+                          {isActive && <Tag color={color} style={{ fontSize: 11, lineHeight: '18px', borderRadius: 4, margin: 0 }}>搜索默认</Tag>}
                           {source.bookSourceType === 0 && <Tag style={{ fontSize: 10, lineHeight: '16px', borderRadius: 4, borderColor: '#1890ff', color: '#1890ff', margin: 0 }}>API</Tag>}
                           {source.bookSourceType === 1 && <Tag style={{ fontSize: 10, lineHeight: '16px', borderRadius: 4, borderColor: '#52c41a', color: '#52c41a', margin: 0 }}>网页</Tag>}
                           {source.bookSourceType === 2 && <Tag style={{ fontSize: 10, lineHeight: '16px', borderRadius: 4, borderColor: '#faad14', color: '#faad14', margin: 0 }}>漫画</Tag>}
@@ -474,13 +536,13 @@ const BookSourceManager = () => {
                       </div>
 
                       <Space size={6} onClick={e => e.stopPropagation()}>
-                        <Tooltip title={testStatus === 'loading' ? '测活中...' : testStatus === 'success' ? '测活通过' : testStatus === 'fail' ? '测活失败' : '点击测活'}>
+                        <Tooltip title={testStatus === 'loading' ? '测活中...' : testStatus === 'success' ? '测活通过' : testStatus === 'fail' ? '测活失败' : '点击测活 / Shift+点击全链路测活'}>
                           <Button type="text" size="middle" style={{ width: 36, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 }} icon={
                             testStatus === 'loading' ? <LoadingOutlined spin style={{ fontSize: 16 }} /> :
                             testStatus === 'success' ? <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 16 }} /> :
                             testStatus === 'fail' ? <CloseCircleOutlined style={{ color: '#ff4d4f', fontSize: 16 }} /> :
                             <CloudOutlined style={{ fontSize: 16 }} />
-                          } onClick={() => handleTest(source.bookSourceUrl)} />
+                          } onClick={(e) => handleTest(source.bookSourceUrl, e.shiftKey)} />
                         </Tooltip>
                         {(() => {
                           const loginInfo = sourceLoginInfo[source.bookSourceUrl];
@@ -608,6 +670,7 @@ const BookSourceManager = () => {
                     <div><Text strong style={{ display: 'block', marginBottom: 4 }}>书源分组</Text><Input value={editingSource.bookSourceGroup || ''} onChange={e => setEditingSource({ ...editingSource, bookSourceGroup: e.target.value })} placeholder="如：小说,热门" style={{ borderRadius: 8 }} /></div>
                     <div><Text strong style={{ display: 'block', marginBottom: 4 }}>请求头</Text><TextArea rows={3} value={editingSource.header || ''} onChange={e => setEditingSource({ ...editingSource, header: e.target.value })} placeholder="JSON格式的请求头" style={{ borderRadius: 8 }} /></div>
                     <div><Text strong style={{ display: 'block', marginBottom: 4 }}>搜索地址</Text><Input value={editingSource.searchUrl || ''} onChange={e => setEditingSource({ ...editingSource, searchUrl: e.target.value })} placeholder="/search?page={{page}}&keyword={{key}}" style={{ borderRadius: 8 }} /></div>
+                    <div><Text strong style={{ display: 'block', marginBottom: 4 }}>发现页地址</Text><TextArea rows={3} value={editingSource.exploreUrl || ''} onChange={e => setEditingSource({ ...editingSource, exploreUrl: e.target.value })} placeholder="男生频道::/boy.html&#10;女生频道::/girl.html" style={{ borderRadius: 8 }} /></div>
                     {editingSource.loginUrl != null && (
                       <div><Text strong style={{ display: 'block', marginBottom: 4 }}>登录地址 (loginUrl)</Text><TextArea rows={4} value={editingSource.loginUrl || ''} onChange={e => setEditingSource({ ...editingSource, loginUrl: e.target.value })} placeholder="登录脚本或URL" style={{ borderRadius: 8, fontFamily: 'monospace', fontSize: 12 }} /></div>
                     )}
@@ -635,9 +698,9 @@ const BookSourceManager = () => {
                   </Space>
                 )
               },
-              ...['search', 'bookInfo', 'toc', 'content'].map(key => {
+              ...['search', 'bookInfo', 'toc', 'content', 'explore'].map(key => {
                 const ruleKey = `rule${key.charAt(0).toUpperCase() + key.slice(1)}`;
-                const labels = { search: '搜索规则', bookInfo: '详情规则', toc: '目录规则', content: '正文规则' };
+                const labels = { search: '搜索规则', bookInfo: '详情规则', toc: '目录规则', content: '正文规则', explore: '发现规则' };
                 return {
                   key, label: labels[key],
                   children: (
@@ -651,7 +714,63 @@ const BookSourceManager = () => {
                     </Space>
                   )
                 };
-              })
+              }),
+              {
+                key: 'exploreBrowse', label: <span><CompassOutlined /> 发现页</span>,
+                children: (
+                  <div>
+                    {(() => {
+                      const categories = parseExploreUrlLocal(editingSource.exploreUrl);
+                      if (categories.length === 0) {
+                        return <Empty description="未配置发现页地址，请在基本信息中填写 exploreUrl" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+                      }
+                      return (
+                        <div>
+                          <div style={{ marginBottom: 12 }}>
+                            <Text strong style={{ fontSize: 13, marginBottom: 8, display: 'block' }}>分类</Text>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                              {categories.map((cat, idx) => (
+                                <Tag
+                                  key={idx}
+                                  color={activeExploreUrl === cat.url ? color : (isDarkMode ? '#333' : '')}
+                                  style={{ cursor: 'pointer', borderRadius: 6, padding: '2px 10px' }}
+                                  onClick={() => handleExploreCategory(cat.url)}
+                                >
+                                  {cat.title}
+                                </Tag>
+                              ))}
+                            </div>
+                          </div>
+                          {exploreLoading && (
+                            <div style={{ textAlign: 'center', padding: 24 }}>
+                              <LoadingOutlined spin style={{ fontSize: 24, color }} />
+                              <div style={{ marginTop: 8 }}><Text type="secondary">加载中...</Text></div>
+                            </div>
+                          )}
+                          {!exploreLoading && exploreBooks.length > 0 && (
+                            <List
+                              dataSource={exploreBooks}
+                              size="small"
+                              renderItem={(book) => (
+                                <List.Item style={{ padding: '8px 0' }}>
+                                  <List.Item.Meta
+                                    avatar={book.cover ? <img src={book.cover} alt="" style={{ width: 36, height: 48, objectFit: 'cover', borderRadius: 4 }} /> : undefined}
+                                    title={<Text style={{ fontSize: 13 }}>{book.name}</Text>}
+                                    description={<Text type="secondary" style={{ fontSize: 11 }}>{book.author}{book.lastChapter ? ` | ${book.lastChapter}` : ''}</Text>}
+                                  />
+                                </List.Item>
+                              )}
+                            />
+                          )}
+                          {!exploreLoading && exploreBooks.length === 0 && activeExploreUrl && (
+                            <Empty description="暂无数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )
+              }
             ]} />
           </div>
         )}
@@ -728,6 +847,138 @@ const BookSourceManager = () => {
                     确认登录
                   </Button>
                 </Space>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
+
+      <Modal
+        title={
+          <Space>
+            <ThunderboltOutlined style={{ color }} />
+            <span>全链路测活 - {fullTestResult?.sourceName}</span>
+          </Space>
+        }
+        open={fullTestModalOpen}
+        onCancel={() => { setFullTestModalOpen(false); setFullTestResult(null); }}
+        footer={
+          <Button onClick={() => { setFullTestModalOpen(false); setFullTestResult(null); }} style={{ borderRadius: 8 }}>
+            关闭
+          </Button>
+        }
+        width={560}
+        styles={{ content: glassStyle(isDarkMode, glassMode, { borderRadius: 16 }) }}
+      >
+        {fullTestResult && fullTestResult.stages && (() => {
+          const { stages, overallSuccess, failedStage } = fullTestResult;
+          const stageList = [
+            { key: 'search', title: '搜索', stage: stages.search },
+            { key: 'bookInfo', title: '详情', stage: stages.bookInfo },
+            { key: 'toc', title: '目录', stage: stages.toc },
+            { key: 'content', title: '内容', stage: stages.content },
+          ];
+
+          const currentStep = failedStage
+            ? stageList.findIndex(s => s.key === failedStage)
+            : 4;
+
+          return (
+            <div>
+              <div style={{
+                padding: '10px 14px', borderRadius: 8, marginBottom: 16,
+                background: overallSuccess
+                  ? (isDarkMode ? 'rgba(82,196,26,0.12)' : 'rgba(82,196,26,0.06)')
+                  : (isDarkMode ? 'rgba(255,77,79,0.12)' : 'rgba(255,77,79,0.06)'),
+                border: `1px solid ${overallSuccess
+                  ? (isDarkMode ? 'rgba(82,196,26,0.25)' : 'rgba(82,196,26,0.15)')
+                  : (isDarkMode ? 'rgba(255,77,79,0.25)' : 'rgba(255,77,79,0.15)')}`,
+              }}>
+                <Text style={{ fontSize: 14, fontWeight: 600, color: overallSuccess ? '#52c41a' : '#ff4d4f' }}>
+                  {overallSuccess ? '全链路测试通过' : `测试失败，失败阶段：${failedStage}`}
+                </Text>
+              </div>
+
+              <Steps
+                current={currentStep}
+                status={failedStage ? 'error' : 'finish'}
+                size="small"
+                items={stageList.map(s => ({
+                  title: s.title,
+                  status: s.stage?.success ? 'finish' : (s.key === failedStage ? 'error' : 'wait'),
+                  icon: s.stage?.success
+                    ? <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                    : (s.key === failedStage || (!s.stage?.success && s.stage?.error))
+                      ? <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+                      : undefined,
+                }))}
+                style={{ marginBottom: 20 }}
+              />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {stageList.map(({ key, title, stage }) => (
+                  <div key={key} style={{
+                    padding: '10px 14px', borderRadius: 8,
+                    background: stage?.success
+                      ? (isDarkMode ? 'rgba(82,196,26,0.08)' : 'rgba(82,196,26,0.04)')
+                      : (isDarkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)'),
+                    border: `1px solid ${stage?.success
+                      ? (isDarkMode ? 'rgba(82,196,26,0.15)' : 'rgba(82,196,26,0.1)')
+                      : (isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)')}`,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: stage?.success || stage?.error ? 6 : 0 }}>
+                      {stage?.success
+                        ? <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 14 }} />
+                        : <CloseCircleOutlined style={{ color: '#ff4d4f', fontSize: 14 }} />}
+                      <Text strong style={{ fontSize: 13 }}>{title}</Text>
+                      <Tag color={stage?.success ? 'success' : 'error'} style={{ fontSize: 10, lineHeight: '16px', margin: 0 }}>
+                        {stage?.success ? '通过' : '失败'}
+                      </Tag>
+                    </div>
+                    {stage?.success && key === 'search' && (
+                      <div style={{ paddingLeft: 22 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>结果数量: {stage.resultCount}</Text>
+                        {stage.sampleBook && (
+                          <div style={{ marginTop: 4 }}>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              示例: {stage.sampleBook.name} - {stage.sampleBook.author}
+                            </Text>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {stage?.success && key === 'bookInfo' && (
+                      <div style={{ paddingLeft: 22 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          提取字段: {Object.entries(stage.fields || {}).filter(([, v]) => v).map(([k]) => k).join(', ') || '无'}
+                        </Text>
+                      </div>
+                    )}
+                    {stage?.success && key === 'toc' && (
+                      <div style={{ paddingLeft: 22 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>章节数量: {stage.chapterCount}</Text>
+                      </div>
+                    )}
+                    {stage?.success && key === 'content' && (
+                      <div style={{ paddingLeft: 22 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>内容长度: {stage.contentLength} 字符</Text>
+                        {stage.sampleContent && (
+                          <div style={{ marginTop: 4, padding: '4px 8px', borderRadius: 4, background: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)', fontSize: 11, color: isDarkMode ? '#999' : '#666', lineHeight: 1.5 }}>
+                            {stage.sampleContent}...
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {stage?.error && (
+                      <div style={{ paddingLeft: 22 }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 4, fontSize: 11, background: isDarkMode ? 'rgba(255,77,79,0.15)' : 'rgba(255,77,79,0.08)', color: '#ff4d4f' }}>
+                          <WarningOutlined style={{ fontSize: 10 }} />
+                          {stage.error}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           );

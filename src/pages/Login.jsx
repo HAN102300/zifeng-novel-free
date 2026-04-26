@@ -7,6 +7,7 @@ import BackButton from '../components/BackButton';
 import { ThemeContext } from '../App';
 import { saveUserInfo, saveUserToUsers } from '../utils/storage';
 import { getUser } from '../utils/database';
+import { authLogin, authRegister, isBackendAvailable } from '../utils/apiClient';
 
 const { Title, Text } = Typography;
 
@@ -23,58 +24,89 @@ const Login = ({ setIsLoggedIn, setUserInfo }) => {
   const handleSubmit = async (values) => {
     setLoading(true);
     try {
-      // 模拟登录/注册请求
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (isLogin) {
-        // 登录逻辑
-        console.log('登录:', values);
-        // 从数据库获取用户信息进行验证
-        const existingUser = await getUser(values.username);
-        if (!existingUser || !existingUser.password || existingUser.password !== values.password) {
-          message.error('用户名或密码错误，请重新输入');
-          return;
-        }
-        // 登录成功
-        const rememberMe = form.getFieldValue('remember');
-        const loginExpiresAt = new Date();
-        if (rememberMe) {
-          loginExpiresAt.setDate(loginExpiresAt.getDate() + 3); // 3天过期
+      const rememberMe = !!form.getFieldValue('remember');
+
+      if (isBackendAvailable()) {
+        if (isLogin) {
+          const result = await authLogin(values.username, values.password, rememberMe);
+          if (!result.success) {
+            message.error(result.message || '登录失败');
+            return;
+          }
+          const loginExpiresAt = new Date();
+          if (rememberMe) {
+            loginExpiresAt.setDate(loginExpiresAt.getDate() + 3);
+          } else {
+            loginExpiresAt.setHours(loginExpiresAt.getHours() + 2);
+          }
+          const userInfo = {
+            username: result.data.username,
+            nickname: result.data.nickname,
+            avatar: result.data.avatar,
+            userId: result.data.userId,
+            lastLogin: new Date().toISOString(),
+            loginExpiresAt: loginExpiresAt.toISOString(),
+          };
+          setIsLoggedIn(true);
+          setUserInfo(userInfo);
+          saveUserInfo(userInfo);
+          saveUserToUsers(userInfo);
+          message.success('登录成功');
+          const from = location.state?.from || '/';
+          navigate(from, { replace: true });
         } else {
-          loginExpiresAt.setHours(loginExpiresAt.getHours() + 1); // 1小时过期
+          const result = await authRegister(values.username, values.password, values.email);
+          if (!result.success) {
+            message.error(result.message || '注册失败');
+            return;
+          }
+          message.success('注册成功，请登录');
+          setIsLogin(true);
+          form.resetFields();
+          form.setFieldsValue({ username: values.username, password: values.password });
         }
-        
-        const userInfo = {
-          ...existingUser,
-          lastLogin: new Date().toISOString(),
-          loginExpiresAt: loginExpiresAt.toISOString()
-        };
-        
-        setIsLoggedIn(true);
-        setUserInfo(userInfo);
-        saveUserInfo(userInfo);
-        saveUserToUsers(userInfo);
-        message.success('登录成功');
-        const from = location.state?.from || '/';
-        navigate(from, { replace: true });
       } else {
-        // 注册逻辑
-        console.log('注册:', values);
-        const loginExpiresAt = new Date();
-        loginExpiresAt.setHours(loginExpiresAt.getHours() + 1); // 1小时过期
-        const userInfo = {
-          username: values.username,
-          password: values.password, // 保存密码（实际项目中应该加密存储）
-          email: values.email,
-          createdAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString(),
-          loginExpiresAt: loginExpiresAt.toISOString()
-        };
-        saveUserToUsers(userInfo);
-        message.success('注册成功，请登录');
-        setIsLogin(true);
-        form.resetFields();
-        form.setFieldsValue({ username: values.username, password: values.password });
+        if (isLogin) {
+          const existingUser = await getUser(values.username);
+          if (!existingUser || !existingUser.password || existingUser.password !== values.password) {
+            message.error('用户名或密码错误，请重新输入');
+            return;
+          }
+          const loginExpiresAt = new Date();
+          if (rememberMe) {
+            loginExpiresAt.setDate(loginExpiresAt.getDate() + 3);
+          } else {
+            loginExpiresAt.setHours(loginExpiresAt.getHours() + 2);
+          }
+          const userInfo = {
+            ...existingUser,
+            lastLogin: new Date().toISOString(),
+            loginExpiresAt: loginExpiresAt.toISOString()
+          };
+          setIsLoggedIn(true);
+          setUserInfo(userInfo);
+          saveUserInfo(userInfo);
+          saveUserToUsers(userInfo);
+          message.success('登录成功');
+          const from = location.state?.from || '/';
+          navigate(from, { replace: true });
+        } else {
+          const loginExpiresAt = new Date();
+          loginExpiresAt.setHours(loginExpiresAt.getHours() + 2);
+          const userInfo = {
+            username: values.username,
+            password: values.password,
+            email: values.email,
+            createdAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString(),
+            loginExpiresAt: loginExpiresAt.toISOString()
+          };
+          saveUserToUsers(userInfo);
+          message.success('注册成功，请登录');
+          setIsLogin(true);
+          form.resetFields();
+          form.setFieldsValue({ username: values.username, password: values.password });
+        }
       }
     } catch (error) {
       message.error('操作失败，请重试');

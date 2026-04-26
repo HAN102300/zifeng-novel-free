@@ -1,4 +1,5 @@
 import { testBookSourceAPI, importFromUrlAPI } from './apiClient.js';
+import CRYPTO_CONFIG from './cryptoConfig';
 
 const STORAGE_KEY = 'zifeng_book_sources';
 const ACTIVE_SOURCE_KEY = 'zifeng_active_source';
@@ -9,7 +10,7 @@ const DEFAULT_SOURCE = {
   bookSourceType: 0,
   bookSourceGroup: '默认',
   enabled: true,
-  header: "{\n'User-Agent': 'okhttp/4.9.2','client-device': '2d37f6b5b6b2605373092c3dc65a3b39','client-brand': 'Redmi','client-version': '2.3.0','client-name': 'app.maoyankanshu.novel','client-source': 'android','Authorization': 'bearereyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9hcGkuanhndHp4Yy5jb21cL2F1dGhcL3RoaXJkIiwiaWF0IjoxNjgzODkxNjUyLCJleHAiOjE3NzcyMDM2NTIsIm5iZiI6MTY4Mzg5MTY1MiwianRpIjoiR2JxWmI4bGZkbTVLYzBIViIsInN1YiI6Njg3ODYyLCJwcnYiOiJhMWNiMDM3MTgwMjk2YzZhMTkzOGVmMzBiNDM3OTQ2NzJkZDAxNmM1In0.mMxaC2SVyZKyjC6rdUqFVv5d9w_X36o0AdKD7szvE_Q'\n}",
+  header: `{\n'User-Agent': 'okhttp/4.9.2','client-device': '2d37f6b5b6b2605373092c3dc65a3b39','client-brand': 'Redmi','client-version': '2.3.0','client-name': 'app.maoyankanshu.novel','client-source': 'android','Authorization': '${CRYPTO_CONFIG.MAOYAN_AUTH_TOKEN}'\n}`,
   searchUrl: '/search?page={{page}}&keyword={{key}}',
   ruleSearch: {
     author: '$.authorName',
@@ -30,13 +31,16 @@ const DEFAULT_SOURCE = {
     kind: '{{$.lastChapter.decTime}},{{$.averageScore}}分,{{$.className}},{{$..tagName}}',
     lastChapter: '$.lastChapter.chapterName',
     name: '$.novelName',
+    score: '$.averageScore',
+    chapterCount: '$.chapterNum',
+    lastUpdateTime: '$.lastChapter.decTime',
     tocUrl: '/novel/{{$.novelId}}/chapters?readNum=1',
     wordCount: '$.wordNum'
   },
   ruleToc: {
     chapterList: '$.data.list[*]',
     chapterName: '$.chapterName',
-    chapterUrl: '$.path@js:java.aesBase64DecodeToString(result,"f041c49714d39908","AES/CBC/PKCS5Padding","0123456789abcdef")',
+    chapterUrl: `$.path@js:java.aesBase64DecodeToString(result,"${CRYPTO_CONFIG.MAOYAN_KEY}","AES/CBC/PKCS5Padding","${CRYPTO_CONFIG.MAOYAN_IV}")`,
     updateTime: '{{$.updatedAt}} 字数：{{$.wordNum}}'
   },
   ruleContent: {
@@ -226,16 +230,20 @@ export const parseHeaders = (headerStr) => {
   }
 };
 
-export const testBookSource = async (source) => {
+export const testBookSource = async (source, fullTest = false) => {
   try {
-    const result = await testBookSourceAPI(source, '人', 1);
+    const result = await testBookSourceAPI(source, '人', 1, fullTest);
     return {
       success: result.success,
       message: result.message,
-      resultCount: result.resultCount
+      resultCount: result.resultCount,
+      errorType: result.errorType,
+      stages: result.stages,
+      overallSuccess: result.overallSuccess,
+      failedStage: result.failedStage,
     };
   } catch (e) {
-    return { success: false, message: e.message || '连接失败' };
+    return { success: false, message: e.message || '连接失败', errorType: 'network' };
   }
 };
 
