@@ -1,0 +1,86 @@
+server:
+  port: 8080
+
+logging:
+  level:
+    root: info
+    org.springframework.security: warn
+    com.zifeng: info
+
+spring:
+  output:
+    ansi:
+      enabled: always
+  application:
+    name: zifeng-server
+  messages:
+    basename: messages
+    encoding: UTF-8
+  web:
+    locale: zh_CN
+
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
+  datasource:
+    url: jdbc:mysql://localhost:3306/zifeng_novel?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: 102300
+      database: 0
+      timeout: 10s 
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
+
+sa-token:
+  token-name: zifeng_token
+  timeout: 7200
+  active-timeout: -1
+  is-concurrent: true
+  is-share: false
+  token-style: uuid
+  is-log: false
+  is-read-header: true
+  is-read-cookie: false
+  is-read-body: false
+
+app:
+  cors:
+    allowed-origins: "http://localhost:3002,http://localhost:5173,http://127.0.0.1:3002,http://127.0.0.1:5173"
+    allowed-methods: "*"
+    allowed-headers: "*"
+  upload:
+    dir: uploads/avatars
+    url-prefix: /api/user/avatars
+    max-size: 5MB
+
+parsing:
+  server:
+    url: http://localhost:3001
+
+cache:
+  ttl:
+    search: 1800
+    book-info: 3600
+    toc: 1800
+    content: 600

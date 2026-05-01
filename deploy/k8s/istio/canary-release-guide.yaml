@@ -1,0 +1,119 @@
+# ============================================================
+# 紫枫免费小说 - Istio 蓝绿/金丝雀发布操作手册
+# ============================================================
+#
+# ===== 蓝绿发布 =====
+# 原理：同时部署v1(蓝)和v2(绿)两个版本，通过VirtualService瞬间切换流量
+#
+# 步骤1: 部署v2版本（不影响v1流量）
+#   kubectl apply -f server-v2-deployment.yaml
+#   # 确认v2 Pod就绪
+#   kubectl rollout status deployment/zifeng-server-v2
+#
+# 步骤2: 验证v2版本（通过Header测试）
+#   curl -H "x-canary: v2" https://your-domain.com/api/health
+#
+# 步骤3: 切换全部流量到v2
+#   # 修改VirtualService，将所有路由指向v2 subset
+#   kubectl patch virtualservice zifeng-novel --type merge -p '
+#   spec:
+#     http:
+#     - route:
+#       - destination:
+#           host: zifeng-server
+#           subset: v2
+#           weight: 100'
+#
+# 步骤4: 确认无问题后，删除v1 Deployment
+#   kubectl delete deployment zifeng-server-v1
+#
+# 步骤5: 如需回滚，切回v1
+#   kubectl patch virtualservice zifeng-novel --type merge -p '
+#   spec:
+#     http:
+#     - route:
+#       - destination:
+#           host: zifeng-server
+#           subset: v1
+#           weight: 100'
+#
+# ===== 金丝雀发布 =====
+# 原理：逐步增加v2版本的流量比例
+#
+# 步骤1: 初始10%流量到v2
+#   kubectl patch virtualservice zifeng-novel --type merge -p '
+#   spec:
+#     http:
+#     - match:
+#       - uri:
+#           prefix: "/api"
+#       route:
+#       - destination:
+#           host: zifeng-server
+#           subset: v1
+#         weight: 90
+#       - destination:
+#           host: zifeng-server
+#           subset: v2
+#         weight: 10'
+#
+# 步骤2: 观察5-15分钟，检查监控指标
+#   - 错误率是否正常
+#   - 延迟是否增加
+#   - 日志是否有异常
+#
+# 步骤3: 逐步增加v2流量 (10% -> 30% -> 50% -> 100%)
+#   # 30%
+#   kubectl patch virtualservice zifeng-novel --type json -p '
+#   [{"op": "replace", "path": "/spec/http/3/route/0/weight", "value": 70},
+#    {"op": "replace", "path": "/spec/http/3/route/1/weight", "value": 30}]'
+#
+# 步骤4: 全量切换
+#   # 100%
+#   kubectl patch virtualservice zifeng-novel --type merge -p '
+#   spec:
+#     http:
+#     - route:
+#       - destination:
+#           host: zifeng-server
+#           subset: v2
+#           weight: 100'
+#
+# 步骤5: 清理v1版本
+#   kubectl delete deployment zifeng-server-v1
+#
+# ===== 自动化金丝雀（Flagger + Istio） =====
+# 如需完全自动化的金丝雀发布，可集成Flagger：
+#
+# apiVersion: flagger.app/v1beta1
+# kind: Canary
+# metadata:
+#   name: zifeng-server
+#   namespace: zifeng-novel
+# spec:
+#   targetRef:
+#     apiVersion: apps/v1
+#     kind: Deployment
+#     name: zifeng-server
+#   service:
+#     port: 8080
+#   analysis:
+#     interval: 1m
+#     threshold: 5
+#     maxWeight: 50
+#     stepWeight: 10
+#     metrics:
+#       - name: request-success-rate
+#         thresholdRange:
+#           min: 99
+#         interval: 1m
+#       - name: request-duration
+#         thresholdRange:
+#           max: 500
+#         interval: 1m
+#     webhooks:
+#       - name: load-test
+#         url: http://flagger-loadtester/
+#         timeout: 5s
+#         metadata:
+#           cmd: "hey -z 1m -q 10 -c 2 http://zifeng-server:8080/api/auth/info"

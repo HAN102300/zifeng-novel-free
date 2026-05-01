@@ -1,0 +1,317 @@
+# ============================================================
+# 紫枫免费小说 - Helm Chart 全局配置
+# ============================================================
+
+# ---- 全局配置 ----
+global:
+  registry: ghcr.io/zifeng
+  imagePullSecrets: []
+  # imagePullSecrets:
+  #   - name: ghcr-secret
+  storageClass: ""  # 使用集群默认StorageClass
+  domain: "your-domain.com"
+  environment: production
+
+# ---- Nginx Ingress 网关 ----
+nginx:
+  enabled: true
+  replicas: 2
+  image:
+    repository: nginx
+    tag: "1.25-alpine"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  ssl:
+    enabled: true
+    secretName: zifeng-tls
+  # 限流配置
+  rateLimit:
+    api: 30
+    auth: 5
+    upload: 2
+
+# ---- zifeng-server (SpringBoot) ----
+server:
+  enabled: true
+  replicas: 3
+  image:
+    repository: zifeng-server
+    tag: "latest"
+    pullPolicy: Always
+  service:
+    port: 8080
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1500m
+      memory: 1024Mi
+  # HPA自动伸缩
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  # JVM参数
+  javaOpts: >-
+    -XX:+UseContainerSupport
+    -XX:MaxRAMPercentage=75.0
+    -XX:+UseG1GC
+    -XX:+HeapDumpOnOutOfMemoryError
+    -XX:HeapDumpPath=/app/logs/heapdump.hprof
+    -Dfile.encoding=UTF-8
+    -Duser.timezone=Asia/Shanghai
+  # 健康检查
+  livenessProbe:
+    httpGet:
+      path: /api/auth/info
+      port: 8080
+    initialDelaySeconds: 90
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 5
+  readinessProbe:
+    httpGet:
+      path: /api/auth/info
+      port: 8080
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  # 持久化
+  persistence:
+    uploads:
+      enabled: true
+      size: 5Gi
+      mountPath: /app/uploads
+    logs:
+      enabled: true
+      size: 10Gi
+      mountPath: /app/logs
+  # 环境变量（敏感值从Secret注入）
+  env:
+    springProfilesActive: prod
+  envFromSecret:
+    - name: zifeng-db-secret
+    - name: zifeng-redis-secret
+
+# ---- zifeng-parser (Node.js) ----
+parser:
+  enabled: true
+  replicas: 3
+  image:
+    repository: zifeng-parser
+    tag: "latest"
+    pullPolicy: Always
+  service:
+    port: 3001
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 15
+    targetCPUUtilizationPercentage: 70
+  livenessProbe:
+    httpGet:
+      path: /api/health
+      port: 3001
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /api/health
+      port: 3001
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# ---- zifeng-web (React SPA) ----
+web:
+  enabled: true
+  replicas: 2
+  image:
+    repository: zifeng-web
+    tag: "latest"
+    pullPolicy: Always
+  service:
+    port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  autoscaling:
+    enabled: false
+
+# ---- zifeng-admin (React SPA) ----
+admin:
+  enabled: true
+  replicas: 2
+  image:
+    repository: zifeng-admin
+    tag: "latest"
+    pullPolicy: Always
+  service:
+    port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  autoscaling:
+    enabled: false
+
+# ---- MySQL ----
+mysql:
+  enabled: true
+  # 使用Bitnami MySQL Helm Chart
+  architecture: replication
+  auth:
+    rootPassword: ""  # 从Secret注入
+    database: zifeng_novel
+    username: zifeng
+    password: ""  # 从Secret注入
+    replicationPassword: ""  # 从Secret注入
+  primary:
+    persistence:
+      enabled: true
+      size: 50Gi
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 1024Mi
+      limits:
+        cpu: 2000m
+        memory: 2048Mi
+    configuration: |-
+      [mysqld]
+      max_connections=500
+      innodb_buffer_pool_size=1G
+      innodb_log_file_size=256M
+      slow_query_log=1
+      long_query_time=2
+      character_set_server=utf8mb4
+      collation_server=utf8mb4_unicode_ci
+  secondary:
+    replicaCount: 1
+    persistence:
+      enabled: true
+      size: 50Gi
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 1024Mi
+      limits:
+        cpu: 2000m
+        memory: 2048Mi
+
+# ---- Redis ----
+redis:
+  enabled: true
+  # 使用Bitnami Redis Helm Chart
+  architecture: replication
+  auth:
+    password: ""  # 从Secret注入
+  master:
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 512Mi
+  replica:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+# ---- Istio 配置 ----
+istio:
+  enabled: false
+  namespace: istio-system
+  # 蓝绿发布配置
+  blueGreen:
+    enabled: false
+    activeVersion: v1
+  # 金丝雀发布配置
+  canary:
+    enabled: false
+    stableVersion: v1
+    canaryVersion: v2
+    canaryWeight: 10
+    # 基于请求头的路由
+    headerRouting:
+      enabled: true
+      headerName: "x-canary"
+      headerValue: "v2"
+
+# ---- 监控 ----
+monitoring:
+  prometheus:
+    enabled: true
+    retention: 30d
+    storageSize: 50Gi
+  grafana:
+    enabled: true
+    adminPassword: ""  # 从Secret注入
+  skywalking:
+    enabled: false
+    oap:
+      replicas: 2
+    ui:
+      replicas: 1
+  elk:
+    enabled: false
+    elasticsearch:
+      replicas: 3
+      storageSize: 100Gi
+    kibana:
+      replicas: 1
+    logstash:
+      replicas: 2
+
+# ---- ArgoCD GitOps ----
+argocd:
+  enabled: false
+  project: zifeng-novel
+  sourceRepo: https://github.com/zifeng/zifeng-novel-free2
+  sourcePath: deploy/k8s/helm/zifeng-novel
+  targetRevision: main
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

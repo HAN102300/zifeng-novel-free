@@ -1,0 +1,124 @@
+# ============================================================
+# Prometheus 告警规则 - 紫枫免费小说
+# ============================================================
+groups:
+  # ---- 服务可用性告警 ----
+  - name: service_availability
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "服务 {{ $labels.job }} 不可用"
+          description: "实例 {{ $labels.instance }} 已停止响应超过1分钟"
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "5xx错误率过高"
+          description: "服务 {{ $labels.job }} 的5xx错误率为 {{ $value | humanizePercentage }}"
+
+  # ---- 资源使用告警 ----
+  - name: resource_usage
+    rules:
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU使用率过高"
+          description: "实例 {{ $labels.instance }} CPU使用率为 {{ $value | humanize }}%"
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "内存使用率过高"
+          description: "实例 {{ $labels.instance }} 内存使用率为 {{ $value | humanize }}%"
+
+      - alert: DiskSpaceLow
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "磁盘空间不足"
+          description: "实例 {{ $labels.instance }} 磁盘使用率为 {{ $value | humanize }}%"
+
+  # ---- MySQL告警 ----
+  - name: mysql_alerts
+    rules:
+      - alert: MySQLTooManyConnections
+        expr: mysql_global_status_threads_connected > 400
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "MySQL连接数过多"
+          description: "当前连接数: {{ $value }}"
+
+      - alert: MySQLReplicationLag
+        expr: mysql_slave_status_seconds_behind_master > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "MySQL主从延迟过大"
+          description: "从库延迟: {{ $value }}秒"
+
+      - alert: MySQLReplicationStopped
+        expr: mysql_slave_status_slave_io_running == 0 or mysql_slave_status_slave_sql_running == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MySQL主从复制停止"
+
+  # ---- Redis告警 ----
+  - name: redis_alerts
+    rules:
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis内存使用率过高"
+          description: "当前使用率: {{ $value | humanizePercentage }}"
+
+      - alert: RedisMasterDown
+        expr: redis_sentinel_status_master_status == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis Sentinel检测到主节点下线"
+
+  # ---- 应用层告警 ----
+  - name: application_alerts
+    rules:
+      - alert: JVMHeapUsageHigh
+        expr: jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"} > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JVM堆内存使用率过高"
+          description: "服务 {{ $labels.job }} 堆内存使用率: {{ $value | humanizePercentage }}"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API P95延迟过高"
+          description: "服务 {{ $labels.job }} P95延迟: {{ $value }}秒"

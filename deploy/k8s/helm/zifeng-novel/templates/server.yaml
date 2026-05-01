@@ -1,0 +1,212 @@
+{{- /*
+紫枫免费小说 - zifeng-server Kubernetes Deployment模板
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}-server
+  labels:
+    {{- include "zifeng-novel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+    version: {{ .Values.server.image.tag | default "latest" | quote }}
+spec:
+  replicas: {{ .Values.server.replicas }}
+  selector:
+    matchLabels:
+      {{- include "zifeng-novel.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: server
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        {{- include "zifeng-novel.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: server
+        version: {{ .Values.server.image.tag | default "latest" | quote }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "zifeng-novel.fullname" . }}-server
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: server
+          image: "{{ .Values.global.registry }}/{{ .Values.server.image.repository }}:{{ .Values.server.image.tag }}"
+          imagePullPolicy: {{ .Values.server.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: {{ .Values.server.env.springProfilesActive | quote }}
+            - name: JAVA_OPTS
+              value: {{ .Values.server.javaOpts | quote }}
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://{{ include "zifeng-novel.fullname" . }}-mysql-primary:3306/{{ .Values.mysql.auth.database }}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "zifeng-novel.fullname" . }}-db-secret
+                  key: username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "zifeng-novel.fullname" . }}-db-secret
+                  key: password
+            - name: SPRING_DATA_REDIS_HOST
+              value: "{{ include "zifeng-novel.fullname" . }}-redis-master"
+            - name: SPRING_DATA_REDIS_PORT
+              value: "6379"
+            - name: SPRING_DATA_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "zifeng-novel.fullname" . }}-redis-secret
+                  key: password
+            - name: PARSING_SERVER_URL
+              value: "http://{{ include "zifeng-novel.fullname" . }}-parser:3001"
+            - name: APP_CORS_ALLOWED_ORIGINS
+              value: {{ printf "https://%s" .Values.global.domain | quote }}
+          {{- with .Values.server.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.server.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.server.resources | nindent 12 }}
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/uploads
+            - name: logs
+              mountPath: /app/logs
+      volumes:
+        - name: uploads
+          {{- if .Values.server.persistence.uploads.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "zifeng-novel.fullname" . }}-server-uploads
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: logs
+          {{- if .Values.server.persistence.logs.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "zifeng-novel.fullname" . }}-server-logs
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}-server
+  labels:
+    {{- include "zifeng-novel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "zifeng-novel.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+---
+{{- if .Values.server.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}-server
+  labels:
+    {{- include "zifeng-novel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "zifeng-novel.fullname" . }}-server
+  minReplicas: {{ .Values.server.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.server.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.server.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.server.autoscaling.targetMemoryUtilizationPercentage }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 25
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      selectPolicy: Max
+{{- end }}
+---
+{{- if .Values.server.persistence.uploads.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}-server-uploads
+  labels:
+    {{- include "zifeng-novel.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.server.persistence.uploads.size }}
+{{- end }}
+---
+{{- if .Values.server.persistence.logs.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}-server-logs
+  labels:
+    {{- include "zifeng-novel.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.server.persistence.logs.size }}
+{{- end }}

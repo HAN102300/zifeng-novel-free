@@ -4,6 +4,8 @@
 
 ✨ **现代化开源小说阅读器，支持多书源、智能解析、极致阅读体验** ✨
 
+> 🏗️ **当前架构：轻量级三仓分离（方案A）** - 已完成第一阶段重构
+
 [![GitHub stars](https://img.shields.io/github/stars/HAN102300/zifeng-novel-free?style=for-the-badge)](https://github.com/HAN102300/zifeng-novel-free/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/HAN102300/zifeng-novel-free?style=for-the-badge)](https://github.com/HAN102300/zifeng-novel-free/network)
 [![GitHub license](https://img.shields.io/github/license/HAN102300/zifeng-novel-free?style=for-the-badge)](https://github.com/HAN102300/zifeng-novel-free/blob/main/LICENSE)
@@ -13,10 +15,37 @@
   <img src="https://img.shields.io/badge/React-19.2.4-blue?style=flat-square&logo=react" />
   <img src="https://img.shields.io/badge/Vite-8.0.4-yellow?style=flat-square&logo=vite" />
   <img src="https://img.shields.io/badge/Ant+Design-6.x-purple?style=flat-square&logo=antdesign" />
+  <img src="https://img.shields.io/badge/SpringBoot-3.2.5-green?style=flat-square&logo=spring" />
   <img src="https://img.shields.io/badge/Node.js-18+-green?style=flat-square&logo=node.js" />
 </p>
 
 </div>
+
+## 🏗️ 项目架构
+
+### 📦 **当前架构：轻量级三仓分离（方案A）**
+
+```
+zifeng-novel/
+├── zifeng-web/                        # 前端用户网站
+├── zifeng-admin/                      # 后台管理网站  
+├── zifeng-server/                     # SpringBoot后端 (模块化单体)
+└── zifeng-parser/                     # Express解析引擎 (独立微服务)
+```
+
+#### 🔧 **服务端口配置**
+- **zifeng-web**: `http://localhost:5173` - 用户前端
+- **zifeng-admin**: `http://localhost:3002` - 管理后台
+- **zifeng-server**: `http://localhost:8080` - SpringBoot API
+- **zifeng-parser**: `http://localhost:3001` - 解析引擎
+
+#### 📁 **后端模块化结构**
+- `module-user/` - 用户认证、书架、阅读进度
+- `module-source/` - 书源管理、导入导出
+- `module-parse/` - 解析代理、缓存处理
+- `module-admin/` - 系统管理、统计分析
+
+> 💡 **升级路径**：当用户量增长到5万+时，可平滑升级到微服务架构（方案B）
 
 ## 🎯 项目亮点
 
@@ -97,30 +126,72 @@ graph TD
 ### 📋 **前置要求**
 
 - 🐰 **Node.js 18+**
-- 📦 **npm 或 yarn**
+- ☕ **Java 17+** (用于SpringBoot后端)
+- 🛢️ **MySQL 8.0+**
+- 🔴 **Redis**
+- 📦 **Maven** (用于Java后端构建)
 - 💻 **现代浏览器**
 
 ### 🛠️ **本地开发**
 
+#### 方案1️⃣：一键启动脚本（推荐）
+
 ```bash
-# 1️⃣ 克隆项目
+# 克隆项目
 git clone https://github.com/HAN102300/zifeng-novel-free.git
 cd zifeng-novel-free
 
-# 2️⃣ 安装前端依赖
-npm install
+# 运行启动脚本 (Linux/Mac)
+./start-dev.sh
+```
 
-# 3️⃣ 启动后端服务
-cd server
-npm install
-npm start &
+#### 方案2️⃣：手动启动各服务
 
-# 4️⃣ 启动前端开发服务器
-cd ..
+```bash
+# 1️⃣ 启动解析引擎服务
+cd zifeng-parser
+npm install
+npm start
+
+# 2️⃣ 启动SpringBoot后端 (新终端)
+cd zifeng-server
+mvn spring-boot:run
+
+# 3️⃣ 启动用户前端 (新终端)
+cd zifeng-web
+npm install
 npm run dev
 
-# 🎉 访问 http://localhost:5173
+# 4️⃣ 启动管理后台 (新终端)
+cd zifeng-admin
+npm install
+npm run dev
+
+# 🎉 访问服务：
+# 用户端: http://localhost:5173
+# 管理后台: http://localhost:3002
+# API文档: http://localhost:8080/swagger-ui.html
 ```
+
+#### 方案3️⃣：Docker部署
+
+```bash
+# 使用Docker Compose启动所有服务
+docker-compose up -d
+```
+
+### 🔧 **环境配置**
+
+#### 数据库配置
+确保MySQL和Redis服务已启动，并创建数据库：
+```sql
+CREATE DATABASE zifeng_novel CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+#### 配置文件
+- `zifeng-server/src/main/resources/application.yml` - SpringBoot配置
+- `zifeng-parser/.env` - 解析服务配置
+- `.env.development` - 前端开发环境配置
 
 ### 🏗️ **生产部署**
 

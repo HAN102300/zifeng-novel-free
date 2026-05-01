@@ -1,0 +1,112 @@
+# ============================================================
+# 紫枫免费小说 - ArgoCD Application 清单
+# GitOps 部署流程：Git仓库变更 -> ArgoCD自动同步 -> K8s集群
+# ============================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: zifeng-novel
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: zifeng-novel
+    app.kubernetes.io/part-of: zifeng-novel
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-deployed.slack: zifeng-deploy
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: zifeng-alerts
+spec:
+  project: zifeng-novel
+
+  source:
+    repoURL: https://github.com/zifeng/zifeng-novel-free2
+    targetRevision: main
+    path: deploy/k8s/helm/zifeng-novel
+
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-production.yaml
+
+      # 生产环境覆盖
+      parameters:
+        - name: global.environment
+          value: production
+        - name: global.domain
+          value: your-domain.com
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: zifeng-novel
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas  # HPA管理副本数，忽略差异
+
+---
+# ArgoCD Project
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: zifeng-novel
+  namespace: argocd
+spec:
+  description: 紫枫免费小说项目
+  sourceRepos:
+    - https://github.com/zifeng/zifeng-novel-free2
+  destinations:
+    - namespace: zifeng-novel
+      server: https://kubernetes.default.svc
+    - namespace: monitoring
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: "cert-manager.io"
+      kind: ClusterIssuer
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: Secret
+    - group: ""
+      kind: ConfigMap
+    - group: apps
+      kind: Deployment
+    - group: apps
+      kind: StatefulSet
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+    - group: networking.k8s.io
+      kind: Ingress
+    - group: networking.istio.io
+      kind: VirtualService
+    - group: networking.istio.io
+      kind: DestinationRule
+    - group: networking.istio.io
+      kind: Gateway
+    - group: v1
+      kind: Service
+    - group: v1
+      kind: ServiceAccount
+    - group: v1
+      kind: PersistentVolumeClaim
+    - group: networking.k8s.io
+      kind: NetworkPolicy

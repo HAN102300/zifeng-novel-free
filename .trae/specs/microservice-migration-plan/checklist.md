@@ -1,0 +1,22 @@
+- [x] 方案A（最小拆分）架构图和服务拆分策略完整
+- [x] 方案B（标准微服务）架构图和服务拆分策略完整
+- [x] 方案C（完整云原生）架构图和服务拆分策略完整
+- [x] 微服务组件选型合理（Nacos/Gateway/OpenFeign/Sentinel/Seata）
+- [x] 服务间通信机制设计完整（同步 OpenFeign + 异步 RabbitMQ）
+- [x] 数据一致性保障策略设计完整（Seata AT + 消息最终一致性）
+- [x] Sa-Token 微服务认证方案设计完整
+- [x] Node.js 解析引擎整合策略设计完整（Sidecar / Java 重写 / gRPC）
+- [x] 渐进式迁移路线图设计完整（单体 → 网关 → 逐步拆分）
+- [x] 风险评估和缓解措施完整
+- [x] 局域网内测方案设计完整
+- [x] 云服务器内测方案设计完整（含邀请码、限流、数据脱敏）
+- [x] 全功能公测方案设计完整（含 OAuth2、内容审核、灰度发布）
+- [x] 反馈收集机制设计完整
+- [x] 单机 Docker Compose 部署方案完整（含 Dockerfile、CI/CD、备份）
+- [x] 多机 Docker Swarm 部署方案完整（含高可用、灰度发布、监控）
+- [x] Kubernetes 集群部署方案完整（含 Helm、HPA、ArgoCD、Istio）
+- [x] 上线前检查清单完整
+- [x] 上线后验证流程完整
+- [x] 回滚策略设计完整
+- [x] 环境管理方案完整（dev/test/staging/prod）
+- [x] 敏感配置管理方案完整

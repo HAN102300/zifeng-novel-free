@@ -1,0 +1,191 @@
+# ============================================================
+# 紫枫免费小说 - Kubernetes 全链路监控配置
+# Prometheus + Skywalking + ELK
+# ============================================================
+
+# ---- Prometheus 监控栈 ----
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zifeng-prometheus-config
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets:
+              - alertmanager:9093
+
+    rule_files:
+      - /etc/prometheus/rules/*.yml
+
+    scrape_configs:
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+
+      - job_name: 'kubernetes-nodes'
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+
+      - job_name: 'kubernetes-cadvisor'
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - target_label: __metrics_path__
+            replacement: /metrics/cadvisor
+
+---
+# ---- Skywalking OAP 配置 ----
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skywalking-oap-config
+  namespace: monitoring
+data:
+  application.yml: |
+    cluster:
+      selector: 'standalone'
+    core:
+      selector: 'default'
+      default:
+        restHost: 0.0.0.0
+        restPort: 12800
+        gRPCPort: 11800
+    storage:
+      selector: '${SW_STORAGE:mysql}'
+      mysql:
+        properties:
+          jdbcUrl: jdbc:mysql://mysql-monitor:3306/skywalking?useUnicode=true&characterEncoding=utf8&useSSL=false
+          dataSource.user: skywalking
+          dataSource.password: ${SW_MYSQL_PASSWORD}
+    receiver-sharing-server:
+      selector: 'default'
+    agent-analyzer:
+      selector: 'default'
+      default:
+        sampleRate: ${SW_SAMPLE_RATE:1000}
+    configuration:
+      selector: 'default'
+    alarm:
+      selector: 'default'
+
+---
+# ---- Skywalking Java Agent 注入配置 ----
+# 通过Mutating Webhook自动注入Java Agent到SpringBoot Pod
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skywalking-agent-config
+  namespace: zifeng-novel
+data:
+  agent.config: |
+    agent.service_name=zifeng-server
+    collector.backend_service=skywalking-oap.monitoring:11800
+    agent.sample_n_per_3_secs=${SW_SAMPLE_RATE:3}
+    agent.namespace=zifeng-novel
+    logging.level=INFO
+    plugin.mysql.trace_sql_parameters=true
+    plugin.springmvc.collect_http_args=true
+
+---
+# ---- Fluentd 日志采集配置 ----
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-config
+  namespace: monitoring
+data:
+  fluent.conf: |
+    # 输入源：从容器日志目录读取
+    <source>
+      @type tail
+      path /var/log/containers/*.log
+      pos_file /var/log/fluentd-containers.log.pos
+      tag kubernetes.*
+      read_from_head true
+      <parse>
+        @type json
+        time_key time
+        time_format %Y-%m-%dT%H:%M:%S.%NZ
+        keep_time_key true
+      </parse>
+    </source>
+
+    # 过滤：仅采集zifeng相关日志
+    <filter kubernetes.**>
+      @type grep
+      <regexp>
+        key $.kubernetes.namespace_name
+        pattern /^zifeng-novel$/
+      </regexp>
+    </filter>
+
+    # 解析Java日志格式
+    <filter kubernetes.**>
+      @type parser
+      key_name log
+      reserve_data true
+      <parse>
+        @type multiline
+        format_firstline /^\d{4}-\d{2}-\d{2}/
+        format1 /^(?<time>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[(?<thread>[^\]]+)\] (?<level>\w+)\s+(?<logger>\S+) - (?<message>.*)/
+      </parse>
+    </filter>
+
+    # 输出到Elasticsearch
+    <match kubernetes.**>
+      @type elasticsearch
+      host elasticsearch-master
+      port 9200
+      logstash_format true
+      logstash_prefix zifeng-logs
+      logstash_dateformat %Y.%m.%d
+      include_tag_key true
+      tag_key @log_name
+      flush_interval 5s
+      retry_max_interval 30
+      retry_forever true
+      <buffer>
+        @type file
+        path /var/log/fluentd-buffers/kubernetes.system.buffer
+        flush_mode interval
+        flush_interval 5s
+        flush_thread_count 2
+        retry_type exponential_backoff
+        retry_forever true
+        overflow_action block
+      </buffer>
+    </match>

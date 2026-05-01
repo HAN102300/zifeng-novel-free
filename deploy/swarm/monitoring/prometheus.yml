@@ -1,0 +1,76 @@
+# ============================================================
+# Prometheus 配置 - Docker Swarm 监控方案
+# ============================================================
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # 如需Alertmanager，取消注释
+          # - alertmanager:9093
+
+rule_files:
+  - /etc/prometheus/alerts/*.yml
+
+scrape_configs:
+  # ---- Prometheus 自身 ----
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ---- Node Exporter（每节点） ----
+  - job_name: 'node'
+    dns_sd_configs:
+      - names:
+          - tasks.node-exporter
+        type: A
+        port: 9100
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '(.*)'
+        target_label: instance
+        replacement: '${1}'
+
+  # ---- cAdvisor（容器监控） ----
+  - job_name: 'cadvisor'
+    dns_sd_configs:
+      - names:
+          - tasks.cadvisor
+        type: A
+        port: 8080
+
+  # ---- zifeng-server (SpringBoot Actuator) ----
+  - job_name: 'zifeng-server'
+    metrics_path: '/actuator/prometheus'
+    dns_sd_configs:
+      - names:
+          - tasks.server
+        type: A
+        port: 8080
+
+  # ---- zifeng-parser ----
+  - job_name: 'zifeng-parser'
+    dns_sd_configs:
+      - names:
+          - tasks.parser
+        type: A
+        port: 3001
+
+  # ---- MySQL监控（需mysqld-exporter） ----
+  - job_name: 'mysql'
+    static_configs:
+      - targets: ['mysql-exporter:9104']
+
+  # ---- Redis监控（需redis-exporter） ----
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # ---- Nginx监控（需nginx-prometheus-exporter） ----
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']

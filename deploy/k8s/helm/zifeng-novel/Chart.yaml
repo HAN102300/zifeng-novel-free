@@ -1,0 +1,13 @@
+apiVersion: v2
+name: zifeng-novel
+description: 紫枫免费小说 Helm Chart - Kubernetes集群部署
+type: application
+version: 1.0.0
+appVersion: "2.0.0"
+maintainers:
+  - name: zifeng-dev
+keywords:
+  - novel
+  - reading
+  - zifeng
+home: https://github.com/zifeng/zifeng-novel-free2

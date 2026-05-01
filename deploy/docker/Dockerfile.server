@@ -1,0 +1,52 @@
+# ====== 多阶段构建：zifeng-server (SpringBoot 3.2.5 + Java 17) ======
+# 阶段1: Maven构建
+FROM maven:3.9-eclipse-temurin-17 AS builder
+WORKDIR /build
+COPY pom.xml .
+# 先下载依赖（利用Docker缓存层）
+RUN mvn dependency:go-offline -B
+COPY src ./src
+RUN mvn clean package -DskipTests -B
+
+# 阶段2: 运行时镜像
+FROM eclipse-temurin:17-jre-alpine
+LABEL maintainer="zifeng-dev"
+LABEL service="zifeng-server"
+
+# 安装必要工具和时区数据
+RUN apk add --no-cache tzdata curl && \
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone && \
+    apk del tzdata
+
+WORKDIR /app
+
+# 创建非root用户
+RUN addgroup -S zifeng && adduser -S zifeng -G zifeng
+
+# 从构建阶段复制jar包
+COPY --from=builder /build/target/zifeng-novel-backend-1.0.0.jar app.jar
+
+# 创建上传目录
+RUN mkdir -p /app/uploads/avatars && chown -R zifeng:zifeng /app
+
+USER zifeng
+
+EXPOSE 8080
+
+# JVM参数优化：容器环境感知 + GC优化 + OOM处理
+ENV JAVA_OPTS="-XX:+UseContainerSupport \
+  -XX:MaxRAMPercentage=75.0 \
+  -XX:+UseG1GC \
+  -XX:+HeapDumpOnOutOfMemoryError \
+  -XX:HeapDumpPath=/app/logs/heapdump.hprof \
+  -Dfile.encoding=UTF-8 \
+  -Duser.timezone=Asia/Shanghai"
+
+# Spring配置通过环境变量覆盖
+ENV SPRING_PROFILES_ACTIVE=prod
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:8080/api/auth/info || exit 1
+
+ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar"]

@@ -1,0 +1,86 @@
+# ============================================================
+# 紫枫免费小说 - 环境管理方案
+# 四套环境：dev / test / staging / production
+# ============================================================
+
+# ---- 开发环境 (dev) ----
+# 用途：本地开发调试
+# 部署方式：docker-compose.dev.yml 或 本地直接运行
+# 数据库：本地Docker MySQL + Redis
+# 域名：localhost
+# 特点：
+#   - 热重载，代码变更实时生效
+#   - 开启debug日志
+#   - 无需HTTPS
+#   - JPA ddl-auto: update
+#   - 无限流
+
+# ---- 测试环境 (test) ----
+# 用途：自动化测试执行
+# 部署方式：CI/CD自动部署（push到test分支触发）
+# 数据库：独立MySQL + Redis容器
+# 域名：test.internal
+# 特点：
+#   - 每次部署前重建数据库
+#   - 运行完整测试套件
+#   - 无需HTTPS
+#   - JPA ddl-auto: create-drop
+
+# ---- 预发布环境 (staging) ----
+# 用途：上线前最终验证，与生产环境一致
+# 部署方式：CI/CD自动部署（push到staging分支触发）
+# 数据库：独立MySQL + Redis（使用生产数据的脱敏副本）
+# 域名：staging.your-domain.com
+# 特点：
+#   - 配置与生产一致
+#   - HTTPS启用
+#   - 限流启用
+#   - JPA ddl-auto: update
+#   - 使用生产级镜像
+
+# ---- 生产环境 (production) ----
+# 用途：面向真实用户
+# 部署方式：CI/CD手动触发 或 tag触发
+# 数据库：MySQL主从 + Redis Sentinel
+# 域名：your-domain.com
+# 特点：
+#   - 全部安全策略启用
+#   - 完整监控告警
+#   - 自动伸缩
+#   - 数据备份
+#   - 灾备方案
+
+# ============================================================
+# 环境变量对照表
+# ============================================================
+#
+# 变量名                    | dev          | test         | staging              | production
+# --------------------------|--------------|--------------|----------------------|-------------------
+# SPRING_PROFILES_ACTIVE    | dev          | test         | staging              | prod
+# SPRING_DATASOURCE_URL     | localhost    | test-db      | staging-db           | mysql-master:3306
+# SPRING_DATASOURCE_USERNAME| root         | test_user    | zifeng               | zifeng
+# SPRING_DATASOURCE_PASSWORD| root         | test_pass    | ${MYSQL_PASSWORD}    | ${MYSQL_PASSWORD}
+# SPRING_DATA_REDIS_HOST    | localhost    | test-redis   | staging-redis        | redis-master
+# SPRING_DATA_REDIS_PASSWORD| (空)         | test_pass    | ${REDIS_PASSWORD}    | ${REDIS_PASSWORD}
+# CORS_ORIGINS              | localhost:*  | test.*       | staging.domain.com   | domain.com
+# SA_TOKEN_TIMEOUT          | 86400        | 7200         | 7200                 | 7200
+# LOG_LEVEL_ROOT            | debug        | info         | info                 | warn
+# JPA_DDL_AUTO              | update       | create-drop  | update               | update
+# RATE_LIMIT_ENABLED        | false        | false        | true                 | true
+# MONITORING_ENABLED        | false        | false        | true                 | true
+# BACKUP_ENABLED            | false        | false        | true                 | true
+
+# ============================================================
+# 环境配置文件结构
+# ============================================================
+# deploy/
+#   .env.development.template    # 开发环境变量模板
+#   .env.test.template           # 测试环境变量模板
+#   .env.staging.template        # 预发布环境变量模板
+#   .env.production.template     # 生产环境变量模板
+#
+# SpringBoot:
+#   application-dev.yml          # 开发环境配置
+#   application-test.yml         # 测试环境配置
+#   application-staging.yml      # 预发布环境配置
+#   application-prod.yml         # 生产环境配置

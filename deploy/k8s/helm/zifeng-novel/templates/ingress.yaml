@@ -1,0 +1,357 @@
+{{- /*
+紫枫免费小说 - Ingress + Istio VirtualService 配置
+*/}}
+{{- if .Values.istio.enabled }}
+---
+# ==================== Istio Gateway ====================
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}-gateway
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - {{ .Values.global.domain }}
+      tls:
+        httpsRedirect: true
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: {{ .Values.nginx.ssl.secretName }}
+      hosts:
+        - {{ .Values.global.domain }}
+
+---
+# ==================== DestinationRule（定义版本子集） ====================
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}-server
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: {{ include "zifeng-novel.fullname" . }}-server
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 200
+      http:
+        h2UpgradePolicy: DEFAULT
+        consecutiveGatewayErrors: 5
+        interval: 30s
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+  subsets:
+    - name: v1
+      labels:
+        version: v1
+    - name: v2
+      labels:
+        version: v2
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}-parser
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: {{ include "zifeng-novel.fullname" . }}-parser
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 300
+      http:
+        consecutiveGatewayErrors: 3
+        interval: 30s
+    outlierDetection:
+      consecutive5xxErrors: 3
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+  subsets:
+    - name: v1
+      labels:
+        version: v1
+    - name: v2
+      labels:
+        version: v2
+
+---
+# ==================== VirtualService（路由规则） ====================
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  hosts:
+    - {{ .Values.global.domain }}
+  gateways:
+    - {{ include "zifeng-novel.fullname" . }}-gateway
+  http:
+    # ---- 前台页面 ----
+    - match:
+        - uri:
+            prefix: "/"
+        - uri:
+            prefix: "/assets/"
+      route:
+        - destination:
+            host: {{ include "zifeng-novel.fullname" . }}-web
+            port:
+              number: 80
+
+    # ---- 后台管理 ----
+    - match:
+        - uri:
+            prefix: "/admin/"
+      rewrite:
+        uri: "/"
+      route:
+        - destination:
+            host: {{ include "zifeng-novel.fullname" . }}-admin
+            port:
+              number: 80
+
+    # ---- Parser API（支持金丝雀路由） ----
+    - match:
+        - uri:
+            prefix: "/api/search"
+        - uri:
+            prefix: "/api/test-source"
+        - uri:
+            prefix: "/api/book-info"
+        - uri:
+            prefix: "/api/toc"
+        - uri:
+            prefix: "/api/content"
+        - uri:
+            prefix: "/api/explore"
+        - uri:
+            prefix: "/api/proxy"
+        - uri:
+            prefix: "/api/import-from-url"
+        - uri:
+            prefix: "/api/import-from-json"
+        - uri:
+            prefix: "/api/health"
+      {{- if .Values.istio.canary.enabled }}
+      route:
+        - destination:
+            host: {{ include "zifeng-novel.fullname" . }}-parser
+            port:
+              number: 3001
+            subset: {{ .Values.istio.canary.stableVersion }}
+          weight: {{ sub 100 .Values.istio.canary.canaryWeight }}
+        - destination:
+            host: {{ include "zifeng-novel.fullname" . }}-parser
+            port:
+              number: 3001
+            subset: {{ .Values.istio.canary.canaryVersion }}
+          weight: {{ .Values.istio.canary.canaryWeight }}
+      {{- if .Values.istio.canary.headerRouting.enabled }}
+      # 基于Header的路由覆盖
+      - match:
+          - headers:
+              {{ .Values.istio.canary.headerRouting.headerName }}:
+                exact: {{ .Values.istio.canary.headerRouting.headerValue | quote }}
+        route:
+          - destination:
+              host: {{ include "zifeng-novel.fullname" . }}-parser
+              port:
+                number: 3001
+              subset: {{ .Values.istio.canary.canaryVersion }}
+            weight: 100
+      {{- end }}
+      {{- else }}
+      route:
+        - destination:
+            host: {{ include "zifeng-novel.fullname" . }}-parser
+            port:
+              number: 3001
+      {{- end }}
+
+    # ---- SpringBoot API（支持金丝雀路由） ----
+    - match:
+        - uri:
+            prefix: "/api/auth"
+        - uri:
+            prefix: "/api/bookshelf"
+        - uri:
+            prefix: "/api/reading"
+        - uri:
+            prefix: "/api/sources"
+        - uri:
+            prefix: "/api/parse"
+        - uri:
+            prefix: "/api/user"
+        - uri:
+            prefix: "/api/admin"
+      {{- if .Values.istio.canary.enabled }}
+      route:
+        - destination:
+            host: {{ include "zifeng-novel.fullname" . }}-server
+            port:
+              number: 8080
+            subset: {{ .Values.istio.canary.stableVersion }}
+          weight: {{ sub 100 .Values.istio.canary.canaryWeight }}
+        - destination:
+            host: {{ include "zifeng-novel.fullname" . }}-server
+            port:
+              number: 8080
+            subset: {{ .Values.istio.canary.canaryVersion }}
+          weight: {{ .Values.istio.canary.canaryWeight }}
+      {{- if .Values.istio.canary.headerRouting.enabled }}
+      - match:
+          - headers:
+              {{ .Values.istio.canary.headerRouting.headerName }}:
+                exact: {{ .Values.istio.canary.headerRouting.headerValue | quote }}
+        route:
+          - destination:
+              host: {{ include "zifeng-novel.fullname" . }}-server
+              port:
+                number: 8080
+              subset: {{ .Values.istio.canary.canaryVersion }}
+            weight: 100
+      {{- end }}
+      {{- else }}
+      route:
+        - destination:
+            host: {{ include "zifeng-novel.fullname" . }}-server
+            port:
+              number: 8080
+      {{- end }}
+
+{{- else }}
+---
+# ==================== 标准 Kubernetes Ingress ====================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}-ingress
+  labels:
+    {{- include "zifeng-novel.labels" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "20"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "20"
+    nginx.ingress.kubernetes.io/rate-limit-connections: "30"
+    nginx.ingress.kubernetes.io/rate-limit-rps: "30"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - {{ .Values.global.domain }}
+      secretName: {{ .Values.nginx.ssl.secretName }}
+  rules:
+    - host: {{ .Values.global.domain }}
+      http:
+        paths:
+          - path: /admin/
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "zifeng-novel.fullname" . }}-admin
+                port:
+                  number: 80
+          - path: /api/search
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "zifeng-novel.fullname" . }}-parser
+                port:
+                  number: 3001
+          - path: /api/test-source
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "zifeng-novel.fullname" . }}-parser
+                port:
+                  number: 3001
+          - path: /api/book-info
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "zifeng-novel.fullname" . }}-parser
+                port:
+                  number: 3001
+          - path: /api/toc
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "zifeng-novel.fullname" . }}-parser
+                port:
+                  number: 3001
+          - path: /api/content
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "zifeng-novel.fullname" . }}-parser
+                port:
+                  number: 3001
+          - path: /api/explore
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "zifeng-novel.fullname" . }}-parser
+                port:
+                  number: 3001
+          - path: /api/proxy
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "zifeng-novel.fullname" . }}-parser
+                port:
+                  number: 3001
+          - path: /api/import-from-url
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "zifeng-novel.fullname" . }}-parser
+                port:
+                  number: 3001
+          - path: /api/import-from-json
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "zifeng-novel.fullname" . }}-parser
+                port:
+                  number: 3001
+          - path: /api/health
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "zifeng-novel.fullname" . }}-parser
+                port:
+                  number: 3001
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "zifeng-novel.fullname" . }}-server
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "zifeng-novel.fullname" . }}-web
+                port:
+                  number: 80
+{{- end }}

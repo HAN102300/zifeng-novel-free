@@ -1,0 +1,39 @@
+# ====== zifeng-web (React 19 + Vite 8) ======
+# 阶段1: 构建前端产物
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+# 生产环境构建，API路径通过环境变量注入
+ENV VITE_API_URL=/api
+ENV VITE_BACKEND_URL=/api
+RUN npm run build
+
+# 阶段2: Nginx提供静态文件服务
+FROM nginx:1.25-alpine
+LABEL maintainer="zifeng-dev"
+LABEL service="zifeng-web"
+
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone && \
+    apk del tzdata
+
+# 删除默认配置
+RUN rm -rf /usr/share/nginx/html/*
+RUN rm /etc/nginx/conf.d/default.conf
+
+# 复制构建产物
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# 复制Nginx配置（由外部挂载或内嵌）
+COPY ../nginx/zifeng-web.conf /etc/nginx/conf.d/default.conf
+
+# Nginx运行在80端口，由上游Nginx反向代理
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:80/ || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

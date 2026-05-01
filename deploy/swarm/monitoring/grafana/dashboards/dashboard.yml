@@ -1,0 +1,15 @@
+# ============================================================
+# Grafana Dashboard 自动加载配置
+# ============================================================
+apiVersion: 1
+
+providers:
+  - name: 'Zifeng Dashboards'
+    orgId: 1
+    folder: 'Zifeng'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json
+      foldersFromFilesStructure: false

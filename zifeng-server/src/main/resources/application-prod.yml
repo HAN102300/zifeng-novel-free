@@ -1,0 +1,139 @@
+# ============================================================
+# 紫枫免费小说 - SpringBoot 生产环境配置
+# 通过 SPRING_PROFILES_ACTIVE=prod 激活
+# ============================================================
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+  output:
+    ansi:
+      enabled: always
+  application:
+    name: zifeng-server
+  messages:
+    basename: messages
+    encoding: UTF-8
+  web:
+    locale: zh_CN
+
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
+
+  # 数据源配置（通过环境变量覆盖）
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/zifeng_novel?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+      max-lifetime: 1200000
+      connection-test-query: SELECT 1
+      pool-name: ZifengHikariPool
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          batch_size: 30
+        order_inserts: true
+        order_updates: true
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+      database: 0
+      timeout: 10s
+      lettuce:
+        pool:
+          max-active: 16
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 4
+
+# Sa-Token 生产配置
+sa-token:
+  token-name: zifeng_token
+  timeout: ${SA_TOKEN_TIMEOUT:7200}
+  active-timeout: -1
+  is-concurrent: true
+  is-share: false
+  token-style: uuid
+  is-log: false
+  is-read-header: true
+  is-read-cookie: false
+  is-read-body: false
+
+# 应用配置
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+    allowed-methods: "*"
+    allowed-headers: "*"
+  upload:
+    dir: ${APP_UPLOAD_DIR:uploads/avatars}
+    url-prefix: /api/user/avatars
+    max-size: 5MB
+
+parsing:
+  server:
+    url: ${PARSING_SERVER_URL:http://localhost:3001}
+
+cache:
+  ttl:
+    search: 1800
+    book-info: 3600
+    toc: 1800
+    content: 600
+
+# 生产日志配置
+logging:
+  level:
+    root: warn
+    org.springframework: warn
+    org.springframework.web: info
+    com.zifeng: info
+  file:
+    name: /app/logs/application.log
+  logback:
+    rollingpolicy:
+      max-file-size: 50MB
+      max-history: 30
+      total-size-cap: 1GB
+      clean-history-on-start: true
+
+# Actuator 监控端点（K8s/Swarm方案使用）
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: zifeng-server

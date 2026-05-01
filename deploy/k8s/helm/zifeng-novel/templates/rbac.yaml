@@ -1,0 +1,94 @@
+{{- /*
+紫枫免费小说 - ServiceAccount + RBAC 模板
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}-server
+  labels:
+    {{- include "zifeng-novel.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}-parser
+  labels:
+    {{- include "zifeng-novel.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+---
+# NetworkPolicy - 限制Pod间网络访问
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}-netpol
+  labels:
+    {{- include "zifeng-novel.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "zifeng-novel.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # 允许同namespace内服务间通信
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "zifeng-novel.selectorLabels" . | nindent 14 }}
+    # 允许Ingress控制器
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+    # 允许Prometheus抓取指标
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+    # 允许健康检查
+    - ports:
+        - port: 8080
+          protocol: TCP
+        - port: 3001
+          protocol: TCP
+        - port: 80
+          protocol: TCP
+  egress:
+    # 允许DNS
+    - to: []
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # 允许访问MySQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: mysql
+      ports:
+        - port: 3306
+          protocol: TCP
+    # 允许访问Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: redis
+      ports:
+        - port: 6379
+          protocol: TCP
+    # 允许访问外部网站（Parser需要爬取内容）
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 80
+          protocol: TCP
+        - port: 443
+          protocol: TCP

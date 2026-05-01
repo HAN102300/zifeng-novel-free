@@ -7,18 +7,35 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
+# Dependencies
+node_modules/
+
+# Build output
 dist
 dist-ssr
 *.local
 
-# Editor directories and files
+# Java
+zifeng-server/target/
+*.class
+*.jar
+*.war
+
+# IDE
 .vscode/*
 !.vscode/extensions.json
 .idea
+*.iml
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# Environment
+.env.local
+.env.*.local
+
+# OS
+Thumbs.db

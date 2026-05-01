@@ -1,0 +1,129 @@
+{{- /*
+紫枫免费小说 - zifeng-web & zifeng-admin 前端Deployment模板
+*/}}
+{{- $webValues := .Values.web }}
+{{- $adminValues := .Values.admin }}
+
+---
+# ==================== zifeng-web ====================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}-web
+  labels:
+    {{- include "zifeng-novel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  replicas: {{ $webValues.replicas }}
+  selector:
+    matchLabels:
+      {{- include "zifeng-novel.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        {{- include "zifeng-novel.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+    spec:
+      containers:
+        - name: web
+          image: "{{ .Values.global.registry }}/{{ $webValues.image.repository }}:{{ $webValues.image.tag }}"
+          imagePullPolicy: {{ $webValues.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            {{- toYaml $webValues.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}-web
+  labels:
+    {{- include "zifeng-novel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "zifeng-novel.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+
+---
+# ==================== zifeng-admin ====================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}-admin
+  labels:
+    {{- include "zifeng-novel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: admin
+spec:
+  replicas: {{ $adminValues.replicas }}
+  selector:
+    matchLabels:
+      {{- include "zifeng-novel.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: admin
+  template:
+    metadata:
+      labels:
+        {{- include "zifeng-novel.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: admin
+    spec:
+      containers:
+        - name: admin
+          image: "{{ .Values.global.registry }}/{{ $adminValues.image.repository }}:{{ $adminValues.image.tag }}"
+          imagePullPolicy: {{ $adminValues.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            {{- toYaml $adminValues.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "zifeng-novel.fullname" . }}-admin
+  labels:
+    {{- include "zifeng-novel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: admin
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "zifeng-novel.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: admin
