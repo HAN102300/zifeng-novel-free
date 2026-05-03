@@ -167,20 +167,22 @@ const checkRuleFormat = (source) => {
 };
 
 export const detectSourceType = (source) => {
-  if (source.bookSourceType !== undefined && source.bookSourceType !== null && source.bookSourceType !== 0) {
-    return source.bookSourceType;
-  }
-
-  const { hasCss, hasJsonPath } = checkRuleFormat(source);
+  const { hasCss, hasJsonPath, hasJs } = checkRuleFormat(source);
 
   if (hasCss && !hasJsonPath) return 1;
   if (hasJsonPath && !hasCss) return 0;
+  if (hasCss && hasJsonPath) return 1;
 
   const searchUrl = source.searchUrl || '';
-  if (searchUrl.includes('<js>') || searchUrl.includes('@js:')) return 0;
-  if (searchUrl.includes('class.') || searchUrl.includes('tag.')) return 1;
+  const ruleSearchStr = source.ruleSearch ? JSON.stringify(source.ruleSearch) : '';
+  if (searchUrl.includes('class.') || searchUrl.includes('tag.') || ruleSearchStr.includes('class.') || ruleSearchStr.includes('tag.')) return 1;
+  if (searchUrl.includes('$.') || ruleSearchStr.includes('$.')) return 0;
 
-  return source.bookSourceType || 0;
+  if (source.bookSourceType !== undefined && source.bookSourceType !== null) {
+    return source.bookSourceType;
+  }
+
+  return 0;
 };
 
 export const getSourceCompatibility = (source) => {

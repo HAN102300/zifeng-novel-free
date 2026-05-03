@@ -85,7 +85,7 @@ public class AuthController {
         try {
             Long userId = getCurrentUserId();
             User updated = authService.updateProfile(userId,
-                    request.getNickname(), request.getAvatar(), request.getEmail());
+                    request.getAvatar(), request.getEmail());
             return ApiResponse.ok(updated);
         } catch (RuntimeException e) {
             return ApiResponse.fail(e.getMessage());

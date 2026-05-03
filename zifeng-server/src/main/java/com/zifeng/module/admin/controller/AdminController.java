@@ -12,6 +12,8 @@ import com.zifeng.module.user.repository.ReadingHistoryRepository;
 import com.zifeng.module.user.repository.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -52,11 +54,13 @@ public class AdminController {
     }
 
     @GetMapping("/dashboard")
+    @Cacheable(value = "dashboard", key = "'stats'")
     public ApiResponse<DashboardStats> getDashboard() {
         return ApiResponse.ok(adminAuthService.getDashboardStats());
     }
 
     @GetMapping("/users")
+    @Cacheable(value = "users", key = "#keyword ?: 'all'")
     public ApiResponse<List<User>> listUsers(@RequestParam(required = false) String keyword) {
         if (keyword != null && !keyword.isBlank()) {
             return ApiResponse.ok(adminAuthService.searchUsers(keyword));
@@ -65,6 +69,7 @@ public class AdminController {
     }
 
     @PutMapping("/users/{id}/ban")
+    @CacheEvict(value = "users", allEntries = true)
     public ApiResponse<Void> banUser(@PathVariable Long id) {
         try {
             adminAuthService.banUser(id);
@@ -75,6 +80,7 @@ public class AdminController {
     }
 
     @PutMapping("/users/{id}/unban")
+    @CacheEvict(value = "users", allEntries = true)
     public ApiResponse<Void> unbanUser(@PathVariable Long id) {
         try {
             adminAuthService.unbanUser(id);
@@ -85,11 +91,13 @@ public class AdminController {
     }
 
     @GetMapping("/admins")
+    @Cacheable(value = "admins", key = "'all'")
     public ApiResponse<List<AdminInfoResponse>> listAdmins() {
         return ApiResponse.ok(adminAuthService.listAdmins());
     }
 
     @PostMapping("/admins")
+    @CacheEvict(value = "admins", allEntries = true)
     public ApiResponse<AdminInfoResponse> createAdmin(@Valid @RequestBody CreateAdminRequest request) {
         try {
             return ApiResponse.ok(adminAuthService.createAdmin(request));
@@ -99,6 +107,7 @@ public class AdminController {
     }
 
     @PutMapping("/admins/{id}")
+    @CacheEvict(value = "admins", allEntries = true)
     public ApiResponse<AdminInfoResponse> updateAdmin(@PathVariable Long id, @Valid @RequestBody UpdateAdminRequest request) {
         try {
             return ApiResponse.ok(adminAuthService.updateAdminUsername(id, request));
@@ -108,6 +117,7 @@ public class AdminController {
     }
 
     @DeleteMapping("/admins/{id}")
+    @CacheEvict(value = "admins", allEntries = true)
     public ApiResponse<Void> deleteAdmin(@PathVariable Long id) {
         try {
             adminAuthService.deleteAdmin(id);
@@ -118,6 +128,7 @@ public class AdminController {
     }
 
     @GetMapping("/reading/bookshelf")
+    @Cacheable(value = "bookshelf", key = "#keyword ?: 'all'")
     public ApiResponse<List<Map<String, Object>>> listBookshelf(@RequestParam(required = false) String keyword) {
         List<BookshelfItem> items;
         if (keyword != null && !keyword.isBlank()) {
@@ -149,6 +160,7 @@ public class AdminController {
     }
 
     @GetMapping("/reading/history")
+    @Cacheable(value = "readingHistory", key = "#keyword ?: 'all'")
     public ApiResponse<List<Map<String, Object>>> listReadingHistory(@RequestParam(required = false) String keyword) {
         List<ReadingHistory> items;
         if (keyword != null && !keyword.isBlank()) {

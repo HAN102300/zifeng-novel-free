@@ -104,6 +104,7 @@ const AdminManagement = () => {
       title: '用户名',
       dataIndex: 'username',
       key: 'username',
+      width: 180,
       render: (text, record) => (
         <Space>
           <div style={{
@@ -220,7 +221,7 @@ const AdminManagement = () => {
   ];
 
   return (
-    <div>
+    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -228,6 +229,7 @@ const AdminManagement = () => {
         marginBottom: 16,
         flexWrap: 'wrap',
         gap: 12,
+        flexShrink: 0,
       }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>管理员管理</h2>
         <Button
@@ -242,7 +244,7 @@ const AdminManagement = () => {
 
       <div ref={tableRef} style={{
         borderRadius: 12,
-        overflow: 'hidden',
+        flex: 1,
         boxShadow: isDarkMode
           ? '0 2px 12px rgba(0,0,0,0.3)'
           : '0 2px 12px rgba(0,0,0,0.06)',
@@ -252,7 +254,8 @@ const AdminManagement = () => {
           columns={columns}
           rowKey="id"
           loading={loading}
-          style={{ background: isDarkMode ? '#141414' : '#fff' }}
+          style={{ background: isDarkMode ? '#141414' : '#fff', borderRadius: 12, overflow: 'hidden' }}
+          scroll={{ y: 'calc(100vh - 64px - 48px - 55px - 32px)' }}
         />
       </div>
 

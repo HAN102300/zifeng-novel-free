@@ -13,9 +13,10 @@ import {
 import {
   getAdminSources, getAdminSourceStats, createAdminSource,
   updateAdminSource, deleteAdminSource, importAdminSources,
-  testSource, importFromUrl,
+  testSource, importFromUrl, loginSource, checkLoginState,
 } from '../utils/adminApi';
 import { staggerFadeIn, fadeInUp } from '../utils/animations';
+import { detectSourceType } from '../utils/bookSourceManager';
 import { ThemeContext } from '../App';
 
 const { TextArea } = Input;
@@ -179,6 +180,9 @@ const BookSourceManager = () => {
       if (data?.success) {
         message.success(`${record.bookSourceName}: 测试通过${data.respondTime ? ` (${data.respondTime}ms)` : ''}`);
         setTestingIds(prev => ({ ...prev, [record.id]: 'success' }));
+      } else if (data?.requiresLogin) {
+        setTestingIds(prev => ({ ...prev, [record.id]: 'login' }));
+        handleLoginRequired(record);
       } else {
         message.error(`${record.bookSourceName}: 测试失败 - ${data?.message || '未知错误'}`);
         setTestingIds(prev => ({ ...prev, [record.id]: 'fail' }));
@@ -194,6 +198,56 @@ const BookSourceManager = () => {
         return next;
       });
     }, 5000);
+  };
+
+  const handleLoginRequired = (record) => {
+    const loginUrl = record.loginUrl || '';
+    const isHttpLogin = /^https?:\/\//i.test(loginUrl.trim());
+    const isJsLogin = loginUrl.includes('<js>') || loginUrl.includes('function') || (loginUrl.trim() && !isHttpLogin);
+
+    if (isHttpLogin) {
+      Modal.confirm({
+        title: '需要浏览器登录',
+        content: (
+          <div>
+            <p>书源「{record.bookSourceName}」需要通过浏览器完成登录。</p>
+            <p>请在浏览器中访问以下地址完成登录，登录后Cookie将自动保存：</p>
+            <Input.TextArea value={loginUrl} readOnly rows={2} style={{ marginTop: 8 }} />
+          </div>
+        ),
+        okText: '打开登录页面',
+        cancelText: '取消',
+        onOk: () => {
+          window.open(loginUrl, '_blank');
+          message.info('请在浏览器中完成登录后，重新测活验证');
+        },
+      });
+    } else if (isJsLogin) {
+      Modal.confirm({
+        title: '需要执行登录脚本',
+        content: (
+          <div>
+            <p>书源「{record.bookSourceName}」包含登录脚本，是否执行？</p>
+            <p style={{ color: '#999', fontSize: 12 }}>脚本将自动运行以获取认证信息</p>
+          </div>
+        ),
+        okText: '执行登录',
+        cancelText: '取消',
+        onOk: async () => {
+          try {
+            const loginRes = await loginSource(record, 'login');
+            if (loginRes.data?.success) {
+              message.success(`${record.bookSourceName}: 登录成功`);
+              handleTest(record);
+            } else {
+              message.error(`${record.bookSourceName}: 登录失败 - ${loginRes.data?.message || '未知错误'}`);
+            }
+          } catch (e) {
+            message.error(`${record.bookSourceName}: 登录请求失败`);
+          }
+        },
+      });
+    }
   };
 
   const openCreateModal = () => {
@@ -238,18 +292,35 @@ const BookSourceManager = () => {
     setSubmitting(true);
     try {
       const payload = {
-        ...values,
+        bookSourceName: values.bookSourceName,
+        bookSourceUrl: values.bookSourceUrl,
+        bookSourceGroup: values.bookSourceGroup,
+        bookSourceType: values.bookSourceType,
+        header: values.header,
+        searchUrl: values.searchUrl,
+        exploreUrl: values.exploreUrl,
+        loginUrl: values.loginUrl,
+        loginUi: parseRule(values.loginUi),
+        jsLib: values.jsLib,
+        concurrentRate: values.concurrentRate,
+        enabled: values.enabled,
+        enabledCookieJar: values.enabledCookieJar,
+        weight: values.weight,
+        customOrder: values.customOrder,
         ruleSearch: parseRule(values.ruleSearch),
         ruleBookInfo: parseRule(values.ruleBookInfo),
         ruleToc: parseRule(values.ruleToc),
         ruleContent: parseRule(values.ruleContent),
         ruleExplore: parseRule(values.ruleExplore),
-        loginUi: parseRule(values.loginUi),
       };
 
       if (editingSource) {
-        await updateAdminSource(editingSource.id, { ...editingSource, ...payload });
-        message.success('更新成功');
+        const resp = await updateAdminSource(editingSource.id, payload);
+        if (resp.data && resp.data.success === false) {
+          message.error(resp.data.message || '更新失败');
+        } else {
+          message.success('更新成功');
+        }
       } else {
         await createAdminSource(payload);
         message.success('创建成功');
@@ -385,8 +456,9 @@ const BookSourceManager = () => {
       dataIndex: 'bookSourceType',
       key: 'bookSourceType',
       width: 80,
-      render: (val) => {
-        const info = SOURCE_TYPE_MAP[val] || { color: 'default', label: '未知' };
+      render: (val, record) => {
+        const detectedType = detectSourceType(record);
+        const info = SOURCE_TYPE_MAP[detectedType] || { color: 'default', label: '未知' };
         return <Tag color={info.color}>{info.label}</Tag>;
       },
     },
@@ -442,7 +514,7 @@ const BookSourceManager = () => {
             >
               编辑
             </Button>
-            <Tooltip title={testStatus === 'loading' ? '测试中...' : '测试书源'}>
+            <Tooltip title={testStatus === 'loading' ? '测试中...' : testStatus === 'login' ? '需要登录' : '测试书源'}>
               <Button
                 type="text"
                 size="small"
@@ -450,6 +522,7 @@ const BookSourceManager = () => {
                   testStatus === 'loading' ? <CloudOutlined spin /> :
                   testStatus === 'success' ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> :
                   testStatus === 'fail' ? <CloseCircleOutlined style={{ color: '#ff4d4f' }} /> :
+                  testStatus === 'login' ? <LinkOutlined style={{ color: '#faad14' }} /> :
                   <ThunderboltOutlined />
                 }
                 onClick={() => handleTest(record)}
@@ -677,8 +750,8 @@ const BookSourceManager = () => {
   ];
 
   return (
-    <div>
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }} ref={statsRef}>
+    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16, flexShrink: 0 }} ref={statsRef}>
         {statCards.map((item, index) => (
           <Col xs={24} sm={8} key={item.title}>
             <Card
@@ -725,6 +798,7 @@ const BookSourceManager = () => {
         marginBottom: 16,
         flexWrap: 'wrap',
         gap: 12,
+        flexShrink: 0,
       }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>书源管理</h2>
         <Space wrap size={8}>
@@ -768,6 +842,7 @@ const BookSourceManager = () => {
       <div ref={tableRef} style={{
         borderRadius: 12,
         overflow: 'hidden',
+        flex: 1,
         boxShadow: isDarkMode
           ? '0 2px 12px rgba(0,0,0,0.3)'
           : '0 2px 12px rgba(0,0,0,0.06)',
@@ -782,7 +857,7 @@ const BookSourceManager = () => {
             onChange: setSelectedRowKeys,
           }}
           style={{ background: isDarkMode ? '#141414' : '#fff' }}
-          scroll={{ x: 1040 }}
+          scroll={{ x: 1040, y: 'calc(100vh - 64px - 48px - 55px - 100px - 32px)' }}
         />
       </div>
 

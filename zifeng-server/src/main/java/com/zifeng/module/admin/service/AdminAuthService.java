@@ -28,6 +28,7 @@ import java.time.LocalTime;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -248,10 +249,15 @@ public class AdminAuthService {
 
         List<Object[]> rawTrend = visitLogRepository.countByDateBetween(thirtyDaysAgo, todayEnd);
         List<Map<String, Object>> visitTrend = rawTrend.stream()
-                .map(row -> Map.of("date", row[0].toString(), "count", row[1]))
-                .toList();
+                .map(row -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("date", row[0].toString());
+                    m.put("count", row[1]);
+                    return m;
+                })
+                .collect(Collectors.toList());
 
-        List<VisitLog> recentLogs = visitLogRepository.findTop50ByOrderByVisitDateDesc();
+        List<VisitLog> recentLogs = visitLogRepository.findTop500ByOrderByVisitDateDesc();
         Map<Long, User> userMap = new HashMap<>();
         try {
             List<User> allUsers = userRepository.findAll();
@@ -283,22 +289,33 @@ public class AdminAuthService {
                             Long adminId = -log.getUserId();
                             try {
                                 Admin admin = adminRepository.findById(adminId).orElse(null);
-                                map.put("username", admin != null ? admin.getUsername() + "(管理员)" : "管理员");
+                                if (admin != null) {
+                                    String adminUsername = admin.getUsername();
+                                    map.put("username", adminUsername);
+                                    map.put("userType", "zifeng".equals(adminUsername) ? "super_admin" : "admin");
+                                } else {
+                                    map.put("username", "管理员");
+                                    map.put("userType", "admin");
+                                }
                             } catch (Exception e) {
                                 map.put("username", "管理员");
+                                map.put("userType", "admin");
                             }
                         } else if (userMap.containsKey(log.getUserId())) {
                             map.put("username", userMap.get(log.getUserId()).getUsername());
+                            map.put("userType", "user");
                         } else {
                             map.put("username", null);
+                            map.put("userType", "user");
                         }
                     } else {
                         map.put("username", null);
+                        map.put("userType", "guest");
                     }
                     map.put("visitCount", 1);
                     return map;
                 })
-                .toList();
+                .collect(Collectors.toList());
 
         return DashboardStats.builder()
                 .totalVisits(totalVisits)

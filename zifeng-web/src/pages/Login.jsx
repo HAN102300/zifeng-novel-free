@@ -33,7 +33,6 @@ const Login = ({ setIsLoggedIn, setUserInfo }) => {
         const userInfo = {
           id: result.data.userId,
           username: result.data.username,
-          nickname: result.data.nickname,
           avatar: result.data.avatar,
           lastLogin: new Date().toISOString(),
         };
@@ -60,7 +59,6 @@ const Login = ({ setIsLoggedIn, setUserInfo }) => {
         const userInfo = {
           id: loginResult.data.userId,
           username: loginResult.data.username,
-          nickname: loginResult.data.nickname,
           avatar: loginResult.data.avatar,
           lastLogin: new Date().toISOString(),
         };

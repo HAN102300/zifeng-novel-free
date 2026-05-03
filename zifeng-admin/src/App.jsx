@@ -12,15 +12,26 @@ import {
   MoonOutlined,
   SunOutlined,
   LogoutOutlined,
+  LineChartOutlined,
+  FileSearchOutlined,
+  HistoryOutlined,
+  BookOutlined as BookshelfIcon,
+  ImportOutlined,
+  BarChartOutlined,
+  UnorderedListOutlined,
 } from '@ant-design/icons';
 import { motion } from 'framer-motion';
 import anime from 'animejs/lib/anime.es.js';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
+import DashboardOverview from './pages/dashboard/Overview';
+import DashboardLogs from './pages/dashboard/Logs';
 import UserManagement from './pages/UserManagement';
 import AdminManagement from './pages/AdminManagement';
-import ReadingManagement from './pages/ReadingManagement';
-import BookSourceManager from './pages/BookSourceManager';
+import ReadingBookshelf from './pages/reading/Bookshelf';
+import ReadingHistory from './pages/reading/History';
+import BookSourceList from './pages/booksource/SourceList';
+import BookSourceImport from './pages/booksource/SourceImport';
+import BookSourceStats from './pages/booksource/SourceStats';
 
 const { Header, Sider, Content } = Layout;
 
@@ -33,10 +44,35 @@ const themeConfigs = {
 };
 
 const menuItems = [
-  { key: '/dashboard', icon: <DashboardOutlined />, label: '仪表盘' },
+  {
+    key: 'dashboard-group',
+    icon: <DashboardOutlined />,
+    label: '仪表盘',
+    children: [
+      { key: '/dashboard/overview', icon: <LineChartOutlined />, label: '数据概览' },
+      { key: '/dashboard/logs', icon: <FileSearchOutlined />, label: '访问日志' },
+    ],
+  },
   { key: '/users', icon: <UserOutlined />, label: '用户管理' },
-  { key: '/reading', icon: <BookOutlined />, label: '阅读管理' },
-  { key: '/booksource', icon: <DatabaseOutlined />, label: '书源管理' },
+  {
+    key: 'reading-group',
+    icon: <BookOutlined />,
+    label: '阅读管理',
+    children: [
+      { key: '/reading/bookshelf', icon: <BookshelfIcon />, label: '书架记录' },
+      { key: '/reading/history', icon: <HistoryOutlined />, label: '阅读历史' },
+    ],
+  },
+  {
+    key: 'booksource-group',
+    icon: <DatabaseOutlined />,
+    label: '书源管理',
+    children: [
+      { key: '/booksource/stats', icon: <BarChartOutlined />, label: '书源统计' },
+      { key: '/booksource/list', icon: <UnorderedListOutlined />, label: '书源列表' },
+      { key: '/booksource/import', icon: <ImportOutlined />, label: '书源导入' },
+    ],
+  },
   { key: '/admins', icon: <TeamOutlined />, label: '管理员管理' },
 ];
 
@@ -45,6 +81,20 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
   const location = useLocation();
   const contentRef = useRef(null);
   const [fadeState, setFadeState] = useState('in');
+
+  const getOpenKeys = () => {
+    const path = location.pathname;
+    if (path.startsWith('/dashboard')) return ['dashboard-group'];
+    if (path.startsWith('/reading')) return ['reading-group'];
+    if (path.startsWith('/booksource')) return ['booksource-group'];
+    return [];
+  };
+
+  const [openKeys, setOpenKeys] = useState(getOpenKeys);
+
+  useEffect(() => {
+    setOpenKeys(getOpenKeys());
+  }, [location.pathname]);
 
   useEffect(() => {
     if (contentRef.current) {
@@ -91,14 +141,15 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
   };
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout style={{ minHeight: '100vh', height: '100vh', overflow: 'hidden' }}>
       <Sider
         trigger={null}
         collapsible
         collapsed={collapsed}
         width={220}
         collapsedWidth={72}
-        theme={isDarkMode ? 'dark' : 'light'}
+        theme="dark"
+        className="admin-sider"
         style={{
           overflow: 'auto',
           height: '100vh',
@@ -107,9 +158,13 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
           top: 0,
           bottom: 0,
           zIndex: 100,
-          borderRight: isDarkMode
-            ? '1px solid rgba(255,255,255,0.06)'
-            : '1px solid #f0f0f0',
+          background: isDarkMode
+            ? 'linear-gradient(180deg, #0a0a14 0%, #0d0d1a 100%)'
+            : 'linear-gradient(180deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%)',
+          boxShadow: isDarkMode
+            ? '2px 0 16px rgba(0,0,0,0.6)'
+            : '4px 0 16px rgba(15, 52, 96, 0.2)',
+          transition: 'all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1)',
         }}
       >
         <div style={{
@@ -117,9 +172,7 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          borderBottom: isDarkMode
-            ? '1px solid rgba(255,255,255,0.06)'
-            : '1px solid #f0f0f0',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
           overflow: 'hidden',
           padding: '0 16px',
         }}>
@@ -159,18 +212,22 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
           )}
         </div>
         <Menu
-          theme={isDarkMode ? 'dark' : 'light'}
+          theme="dark"
           mode="inline"
           selectedKeys={[location.pathname]}
+          openKeys={collapsed ? [] : openKeys}
+          onOpenChange={(keys) => setOpenKeys(keys)}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
-          style={{ borderRight: 'none', marginTop: 8 }}
+          style={{ borderRight: 'none', marginTop: 8, background: 'transparent' }}
         />
       </Sider>
       <Layout style={{ marginLeft: collapsed ? 72 : 220, transition: 'margin-left 0.2s ease' }}>
-        <Header style={{
+        <Header className="admin-header" style={{
           padding: '0 24px',
-          background: isDarkMode ? '#141414' : '#fff',
+          background: isDarkMode
+            ? 'linear-gradient(90deg, #0d0d1a 0%, #141414 100%)'
+            : 'linear-gradient(90deg, #f0f2ff 0%, #ffffff 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -178,12 +235,10 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
           position: 'sticky',
           top: 0,
           zIndex: 99,
-          borderBottom: isDarkMode
-            ? '1px solid rgba(255,255,255,0.06)'
-            : '1px solid #f0f0f0',
           boxShadow: isDarkMode
-            ? '0 1px 8px rgba(0,0,0,0.3)'
-            : '0 1px 8px rgba(0,0,0,0.04)',
+            ? '0 2px 12px rgba(0,0,0,0.4)'
+            : '0 2px 12px rgba(102, 126, 234, 0.08)',
+          transition: 'all 0.3s ease',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <Button
@@ -259,21 +314,30 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
             </Dropdown>
           </div>
         </Header>
-        <Content style={{
-          margin: 24,
-          minHeight: 'calc(100vh - 64px - 48px)',
-          overflow: 'initial',
+        <Content className="admin-content" style={{
+          margin: 0,
+          padding: '24px',
+          height: 'calc(100vh - 64px)',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          background: isDarkMode ? '#141414' : '#f5f6fa',
         }}>
           <div
             ref={contentRef}
+            style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
           >
             <Routes>
-              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dashboard/overview" element={<DashboardOverview />} />
+              <Route path="/dashboard/logs" element={<DashboardLogs />} />
               <Route path="/users" element={<UserManagement />} />
-              <Route path="/reading" element={<ReadingManagement />} />
-              <Route path="/booksource" element={<BookSourceManager />} />
+              <Route path="/reading/bookshelf" element={<ReadingBookshelf />} />
+              <Route path="/reading/history" element={<ReadingHistory />} />
+              <Route path="/booksource/list" element={<BookSourceList />} />
+              <Route path="/booksource/import" element={<BookSourceImport />} />
+              <Route path="/booksource/stats" element={<BookSourceStats />} />
               <Route path="/admins" element={<AdminManagement />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />
             </Routes>
           </div>
         </Content>
@@ -319,6 +383,7 @@ function App() {
   return (
     <Router>
       <ConfigProvider
+        getPopupContainer={() => document.body}
         theme={{
           algorithm: isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
           token: {
@@ -327,11 +392,11 @@ function App() {
           },
           components: {
             Layout: {
-              headerBg: isDarkMode ? '#141414' : '#fff',
-              siderBg: isDarkMode ? '#141414' : '#fff',
+              headerBg: 'transparent',
+              siderBg: 'transparent',
             },
             Menu: {
-              darkItemBg: '#141414',
+              darkItemBg: 'transparent',
             },
             Table: {
               borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
@@ -361,7 +426,7 @@ function App() {
         }}>
           <Routes>
             <Route path="/login" element={
-              isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
+              isAuthenticated ? <Navigate to="/dashboard/overview" replace /> : <Login />
             } />
             <Route path="/*" element={
               isAuthenticated ? (

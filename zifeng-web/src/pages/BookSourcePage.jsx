@@ -66,38 +66,70 @@ const BookSourcePage = () => {
     }
   }, [loading]);
 
+  const resolveActiveUrl = (sources) => {
+    let activeUrl = '';
+    try {
+      activeUrl = localStorage.getItem('zifeng_active_source') || '';
+    } catch {}
+
+    const normalizeUrl = (url) => (url || '').replace(/^https?:\/\//, '').replace(/\/+$/, '').toLowerCase();
+
+    if (activeUrl) {
+      const exact = sources.find(s => s.bookSourceUrl === activeUrl);
+      if (exact) return exact.bookSourceUrl;
+      const norm = normalizeUrl(activeUrl);
+      const fuzzy = sources.find(s => normalizeUrl(s.bookSourceUrl) === norm);
+      if (fuzzy) return fuzzy.bookSourceUrl;
+    }
+
+    const localActive = getActiveSource();
+    if (localActive && localActive.bookSourceUrl) {
+      const exact = sources.find(s => s.bookSourceUrl === localActive.bookSourceUrl);
+      if (exact) return exact.bookSourceUrl;
+      const norm = normalizeUrl(localActive.bookSourceUrl);
+      const fuzzy = sources.find(s => normalizeUrl(s.bookSourceUrl) === norm);
+      if (fuzzy) return fuzzy.bookSourceUrl;
+      const byName = sources.find(s => s.bookSourceName === localActive.bookSourceName);
+      if (byName) return byName.bookSourceUrl;
+    }
+
+    if (sources.length > 0) return sources[0].bookSourceUrl;
+    return '';
+  };
+
   const loadSources = async () => {
     setLoading(true);
     try {
-      const active = getActiveSource();
-      setActiveSourceUrl(active?.bookSourceUrl || '');
+      let sources = [];
 
       try {
         const res = await getAllEnabledSources();
         const backendSources = res.data?.data;
         if (backendSources && backendSources.length > 0) {
           const parsed = backendSources.map(s => {
-            const parsed = { ...s };
+            const p = { ...s };
             ['ruleSearch', 'ruleBookInfo', 'ruleToc', 'ruleContent', 'ruleExplore'].forEach(key => {
-              if (typeof parsed[key] === 'string' && parsed[key]) {
-                try { parsed[key] = JSON.parse(parsed[key]); } catch {}
+              if (typeof p[key] === 'string' && p[key]) {
+                try { p[key] = JSON.parse(p[key]); } catch {}
               }
             });
-            return parsed;
+            return p;
           });
-          setSources(parsed);
+          sources = parsed;
           syncToLocal(parsed);
         } else {
-          const localSources = getBookSources();
-          setSources(localSources);
-          if (localSources.length > 0) {
-            syncToBackend(localSources);
+          sources = getBookSources();
+          if (sources.length > 0) {
+            syncToBackend(sources);
           }
         }
       } catch {
-        const localSources = getBookSources();
-        setSources(localSources);
+        sources = getBookSources();
       }
+
+      setSources(sources);
+      const activeUrl = resolveActiveUrl(sources);
+      setActiveSourceUrl(activeUrl);
     } finally {
       setLoading(false);
     }
@@ -141,6 +173,8 @@ const BookSourcePage = () => {
         });
         setSources(parsed);
         syncToLocal(parsed);
+        const activeUrl = resolveActiveUrl(parsed);
+        setActiveSourceUrl(activeUrl);
         message.success(`已从服务器同步 ${parsed.length} 个书源`);
       } else {
         message.info('服务器暂无书源数据');

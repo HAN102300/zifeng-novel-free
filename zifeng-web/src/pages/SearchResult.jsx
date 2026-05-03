@@ -7,7 +7,7 @@ import BackButton from '../components/BackButton';
 import SummaryText from '../components/SummaryText';
 import { ThemeContext } from '../App';
 import {
-  getBookSources, getActiveSource
+  getBookSources, getActiveSource, setActiveSource as saveActiveSource
 } from '../utils/bookSourceManager';
 import { searchBooksAPI, getAllEnabledSources } from '../utils/apiClient';
 import { saveNovelCache, simpleHash } from '../utils/novelConfig';
@@ -32,11 +32,13 @@ const SearchResult = () => {
     const saved = localStorage.getItem('search_layout');
     return saved || 'list';
   });
-  const [activeSource, setActiveSourceState] = useState(() => getActiveSource());
-  const [availableSources, setAvailableSources] = useState(() => getBookSources().filter(s => s.enabled));
+  const [activeSource, setActiveSourceState] = useState(null);
+  const [availableSources, setAvailableSources] = useState([]);
+  const [sourcesLoaded, setSourcesLoaded] = useState(false);
 
   useEffect(() => {
     const loadSources = async () => {
+      let enabled = [];
       try {
         const res = await getAllEnabledSources();
         const backendSources = res.data?.data;
@@ -49,13 +51,56 @@ const SearchResult = () => {
             try { if (typeof s.ruleContent === 'string') result.ruleContent = JSON.parse(s.ruleContent); } catch {}
             return result;
           });
-          setAvailableSources(parsed.filter(s => s.enabled));
-          const currentActive = getActiveSource();
-          const match = parsed.find(s => s.bookSourceUrl === currentActive.bookSourceUrl);
-          if (match) setActiveSourceState(match);
-          else if (parsed.length > 0) setActiveSourceState(parsed[0]);
+          enabled = parsed.filter(s => s.enabled);
         }
       } catch {}
+
+      if (enabled.length === 0) {
+        enabled = getBookSources().filter(s => s.enabled);
+      }
+      setAvailableSources(enabled);
+
+      let activeUrl = '';
+      try {
+        activeUrl = localStorage.getItem('zifeng_active_source') || '';
+      } catch {}
+
+      const normalizeUrl = (url) => (url || '').replace(/^https?:\/\//, '').replace(/\/+$/, '').toLowerCase();
+
+      let matchedSource = null;
+
+      if (activeUrl) {
+        matchedSource = enabled.find(s => s.bookSourceUrl === activeUrl);
+        if (!matchedSource) {
+          const norm = normalizeUrl(activeUrl);
+          matchedSource = enabled.find(s => normalizeUrl(s.bookSourceUrl) === norm);
+        }
+      }
+
+      if (!matchedSource) {
+        const localActive = getActiveSource();
+        if (localActive && localActive.bookSourceUrl) {
+          matchedSource = enabled.find(s => s.bookSourceUrl === localActive.bookSourceUrl);
+          if (!matchedSource) {
+            const norm = normalizeUrl(localActive.bookSourceUrl);
+            matchedSource = enabled.find(s => normalizeUrl(s.bookSourceUrl) === norm);
+          }
+          if (!matchedSource) {
+            matchedSource = enabled.find(s => s.bookSourceName === localActive.bookSourceName);
+          }
+        }
+      }
+
+      if (!matchedSource && enabled.length > 0) {
+        matchedSource = enabled[0];
+      }
+
+      if (matchedSource) {
+        setActiveSourceState(matchedSource);
+        saveActiveSource(matchedSource.bookSourceUrl);
+      }
+
+      setSourcesLoaded(true);
     };
     loadSources();
   }, []);
@@ -68,6 +113,7 @@ const SearchResult = () => {
     const source = availableSources.find(s => s.bookSourceUrl === url);
     if (source) {
       setActiveSourceState(source);
+      saveActiveSource(url);
       setResults([]);
       setPage(1);
       pageRef.current = 1;
@@ -82,7 +128,8 @@ const SearchResult = () => {
     if (!searchKeyword.trim()) return;
     if (isLoadMore && loadingMoreRef.current) return;
 
-    const source = sourceOverride || getActiveSource();
+    const source = sourceOverride || activeSource;
+    if (!source) return;
 
     if (isLoadMore) {
       loadingMoreRef.current = true;
@@ -148,10 +195,10 @@ const SearchResult = () => {
       setLoadingMore(false);
       loadingMoreRef.current = false;
     }
-  }, []);
+  }, [activeSource]);
 
   useEffect(() => {
-    if (keyword) {
+    if (keyword && sourcesLoaded) {
       setPage(1);
       pageRef.current = 1;
       setHasMore(true);
@@ -160,7 +207,7 @@ const SearchResult = () => {
       setResults([]);
       fetchSearchResults(keyword, 1);
     }
-  }, [keyword]);
+  }, [keyword, fetchSearchResults, sourcesLoaded]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -188,6 +235,7 @@ const SearchResult = () => {
   };
 
   const navigateToDetail = (book) => {
+    if (!activeSource) return;
     const sourceUrl = activeSource.bookSourceUrl;
     const bookUrl = book._sourceUrl || book.bookUrl || book.url || String(book.id || '');
     saveNovelCache(book, sourceUrl, bookUrl);
@@ -305,17 +353,19 @@ const SearchResult = () => {
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                <Select
-                  value={activeSource.bookSourceUrl}
-                  onChange={handleSourceChange}
-                  size="small"
-                  style={{ minWidth: 120 }}
-                  suffixIcon={<SwapOutlined />}
-                  options={availableSources.map(s => ({
-                    value: s.bookSourceUrl,
-                    label: s.bookSourceName
-                  }))}
-                />
+                {sourcesLoaded && activeSource && (
+                  <Select
+                    value={activeSource.bookSourceUrl}
+                    onChange={handleSourceChange}
+                    size="small"
+                    style={{ minWidth: 120 }}
+                    suffixIcon={<SwapOutlined />}
+                    options={availableSources.map(s => ({
+                      value: s.bookSourceUrl,
+                      label: s.bookSourceName
+                    }))}
+                  />
+                )}
                 <Segmented
                   value={layout}
                   onChange={toggleLayout}

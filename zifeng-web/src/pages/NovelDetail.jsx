@@ -107,7 +107,7 @@ const NovelDetail = () => {
             authorName: bookInfo.author || bookInfo.authorName || cachedBookData?.author || '',
             cover: coverUrl || cachedBookData?.cover || '',
             summary: bookInfo.intro || bookInfo.summary || cachedBookData?.summary || '',
-            categoryNames: bookInfo.category ? [{ className: bookInfo.category }] : (cachedBookData?.category ? [{ className: cachedBookData.category }] : []),
+            categoryNames: (bookInfo.kind || bookInfo.category) ? [{ className: bookInfo.kind || bookInfo.category }] : (cachedBookData?.category ? [{ className: cachedBookData.category }] : []),
             averageScore: parseFloat(bookInfo.score) || cachedBookData?.score || 0,
             tagNames: [],
             wordNum: bookInfo.wordCount || '未知',
@@ -264,6 +264,7 @@ const NovelDetail = () => {
       sourceUrl: sourceUrl,
       sourceName: sourceName,
       bookUrl: bookUrl,
+      category: novel.categoryNames?.[0]?.className || '',
     };
 
     try {

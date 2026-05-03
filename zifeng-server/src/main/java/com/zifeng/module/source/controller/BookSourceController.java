@@ -7,6 +7,8 @@ import com.zifeng.module.source.entity.BookSource;
 import com.zifeng.module.source.service.BookSourceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -79,6 +81,7 @@ public class BookSourceController {
     }
 
     @GetMapping("/admin/all")
+    @Cacheable(value = "sourceList", key = "#keyword ?: 'all'")
     public ApiResponse<List<BookSource>> adminListAllSources(
             @RequestParam(required = false) String keyword) {
         List<BookSource> sources;
@@ -91,6 +94,7 @@ public class BookSourceController {
     }
 
     @DeleteMapping("/admin/{id}")
+    @CacheEvict(value = {"sourceList", "sourceStats"}, allEntries = true)
     public ApiResponse<Void> adminDeleteSource(@PathVariable Long id) {
         try {
             bookSourceService.adminDeleteSource(id);
@@ -101,6 +105,7 @@ public class BookSourceController {
     }
 
     @PutMapping("/admin/{id}")
+    @CacheEvict(value = {"sourceList", "sourceStats"}, allEntries = true)
     public ApiResponse<BookSource> adminUpdateSource(@PathVariable Long id, @RequestBody Map<String, Object> sourceData) {
         try {
             BookSource updated = bookSourceService.adminUpdateSource(id, sourceData);
@@ -111,6 +116,7 @@ public class BookSourceController {
     }
 
     @PostMapping("/admin")
+    @CacheEvict(value = {"sourceList", "sourceStats"}, allEntries = true)
     public ApiResponse<BookSource> adminCreateSource(@RequestBody Map<String, Object> sourceData) {
         try {
             BookSource created = bookSourceService.adminCreateSource(sourceData);
@@ -121,6 +127,7 @@ public class BookSourceController {
     }
 
     @PostMapping("/admin/import")
+    @CacheEvict(value = {"sourceList", "sourceStats"}, allEntries = true)
     public ApiResponse<Map<String, Object>> adminImportSources(@RequestBody List<Map<String, Object>> sourcesData) {
         int success = 0;
         int fail = 0;
@@ -136,6 +143,7 @@ public class BookSourceController {
     }
 
     @GetMapping("/admin/count")
+    @Cacheable(value = "sourceStats", key = "'stats'")
     public ApiResponse<Map<String, Object>> adminSourceStats() {
         long total = bookSourceService.getAllSourcesCount();
         long enabled = bookSourceService.getEnabledSourcesCount();

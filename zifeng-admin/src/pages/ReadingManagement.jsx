@@ -237,6 +237,7 @@ const ReadingManagement = () => {
           columns={bookshelfColumns}
           rowKey="id"
           loading={bookshelfLoading}
+          scroll={{ y: 'calc(100vh - 64px - 48px - 55px - 46px - 32px)' }}
         />
       ),
     },
@@ -254,13 +255,14 @@ const ReadingManagement = () => {
           columns={historyColumns}
           rowKey="id"
           loading={historyLoading}
+          scroll={{ y: 'calc(100vh - 64px - 48px - 55px - 46px - 32px)' }}
         />
       ),
     },
   ];
 
   return (
-    <div>
+    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -268,6 +270,7 @@ const ReadingManagement = () => {
         marginBottom: 16,
         flexWrap: 'wrap',
         gap: 12,
+        flexShrink: 0,
       }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>阅读管理</h2>
         <Input.Search
@@ -285,6 +288,7 @@ const ReadingManagement = () => {
       <div ref={tableRef} style={{
         borderRadius: 12,
         overflow: 'hidden',
+        flex: 1,
         boxShadow: isDarkMode
           ? '0 2px 12px rgba(0,0,0,0.3)'
           : '0 2px 12px rgba(0,0,0,0.06)',
@@ -293,7 +297,7 @@ const ReadingManagement = () => {
           activeKey={activeTab}
           onChange={handleTabChange}
           items={tabItems}
-          style={{ padding: '0 16px', background: isDarkMode ? '#141414' : '#fff' }}
+          style={{ padding: '0 16px', background: isDarkMode ? '#141414' : '#fff', height: '100%' }}
         />
       </div>
     </div>

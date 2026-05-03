@@ -37,9 +37,6 @@ public class User {
     @Column(length = 255)
     private String avatar;
 
-    @Column(length = 50)
-    private String nickname;
-
     @Builder.Default
     @Column(nullable = false)
     private Integer status = 1;

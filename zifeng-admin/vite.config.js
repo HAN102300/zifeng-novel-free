@@ -16,6 +16,10 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
       },
+      '/api/login': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
       '/api/book-info': {
         target: 'http://localhost:3001',
         changeOrigin: true,

@@ -12,7 +12,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
@@ -21,29 +23,60 @@ public class VisitLogInterceptor implements HandlerInterceptor {
 
     private final VisitLogRepository visitLogRepository;
 
-    private static final Set<String> PAGE_VIEW_PREFIXES = Set.of(
-            "/api/auth/info",
-            "/api/bookshelf",
-            "/api/reading/history",
-            "/api/reading/progress",
-            "/api/sources/public",
-            "/api/parse/search",
-            "/api/parse/bookinfo",
-            "/api/parse/toc",
-            "/api/parse/content",
-            "/api/user/avatar"
-    );
-
-    private static final Set<String> EXCLUDED_PREFIXES = Set.of(
-            "/api/admin/auth/",
-            "/api/admin/captcha",
+    private static final Set<String> TRACKED_PATHS = Set.of(
             "/api/auth/login",
             "/api/auth/register",
-            "/api/auth/send-reset-code",
+            "/api/auth/info",
+            "/api/auth/me",
+            "/api/auth/profile",
+            "/api/auth/password",
             "/api/auth/reset-password",
+            "/api/auth/send-reset-code",
+            "/api/bookshelf",
+            "/api/bookshelf/check",
             "/api/reading/progress",
-            "/api/user/heartbeat"
+            "/api/reading/history",
+            "/api/sources",
+            "/api/sources/enabled",
+            "/api/sources/import",
+            "/api/sources/admin/all",
+            "/api/sources/admin/import",
+            "/api/sources/admin/count",
+            "/api/admin/auth/login",
+            "/api/admin/auth/captcha",
+            "/api/admin/auth/info",
+            "/api/admin/dashboard",
+            "/api/admin/users",
+            "/api/admin/admins",
+            "/api/admin/reading/bookshelf",
+            "/api/admin/reading/history",
+            "/api/user/avatar",
+            "/api/parse/search",
+            "/api/parse/test-source",
+            "/api/parse/book-info",
+            "/api/parse/toc",
+            "/api/parse/content",
+            "/api/parse/explore"
     );
+
+    private static final Set<String> TRACKED_PREFIXES = Set.of(
+            "/api/admin/users/",
+            "/api/admin/admins/",
+            "/api/sources/admin/"
+    );
+
+    private static final Set<String> DEDUPLICATE_PATHS = Set.of(
+            "/api/auth/info",
+            "/api/auth/me",
+            "/api/sources",
+            "/api/sources/enabled",
+            "/api/admin/auth/info",
+            "/api/admin/auth/captcha",
+            "/api/admin/dashboard"
+    );
+
+    private static final long DEDUP_WINDOW_MS = 10_000L;
+    private final Map<String, Long> dedupCache = new ConcurrentHashMap<>();
 
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
@@ -51,24 +84,35 @@ public class VisitLogInterceptor implements HandlerInterceptor {
             String uri = request.getRequestURI();
             String method = request.getMethod();
 
-            for (String prefix : EXCLUDED_PREFIXES) {
-                if (uri.startsWith(prefix)) return;
-            }
             if (!uri.startsWith("/api/")) return;
+            if ("OPTIONS".equalsIgnoreCase(method)) return;
 
-            boolean isPageView = false;
-            if ("GET".equals(method)) {
-                isPageView = true;
-            }
-            if (!isPageView) {
-                for (String prefix : PAGE_VIEW_PREFIXES) {
+            boolean shouldTrack = TRACKED_PATHS.contains(uri);
+            if (!shouldTrack) {
+                for (String prefix : TRACKED_PREFIXES) {
                     if (uri.startsWith(prefix)) {
-                        isPageView = true;
+                        shouldTrack = true;
                         break;
                     }
                 }
             }
-            if (!isPageView) return;
+            if (!shouldTrack) return;
+
+            if (DEDUPLICATE_PATHS.contains(uri)) {
+                Long userId = resolveUserId(request);
+                String ip = getClientIp(request);
+                String dedupKey = uri + ":" + ip + ":" + (userId != null ? userId : "guest");
+                long now = System.currentTimeMillis();
+                Long lastTime = dedupCache.get(dedupKey);
+                if (lastTime != null && (now - lastTime) < DEDUP_WINDOW_MS) {
+                    return;
+                }
+                dedupCache.put(dedupKey, now);
+            }
+
+            if (dedupCache.size() > 10000) {
+                dedupCache.clear();
+            }
 
             String ip = getClientIp(request);
             String userAgent = request.getHeader("User-Agent");

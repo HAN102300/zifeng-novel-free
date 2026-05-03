@@ -20,7 +20,7 @@ public interface VisitLogRepository extends JpaRepository<VisitLog, Long> {
     @Query("SELECT DATE(v.visitDate) as date, COUNT(v) as count FROM VisitLog v WHERE v.visitDate BETWEEN :start AND :end GROUP BY DATE(v.visitDate) ORDER BY DATE(v.visitDate)")
     List<Object[]> countByDateBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
-    List<VisitLog> findTop50ByOrderByVisitDateDesc();
+    List<VisitLog> findTop500ByOrderByVisitDateDesc();
 
     @Query("SELECT v.ip, COUNT(v) as cnt FROM VisitLog v WHERE v.visitDate BETWEEN :start AND :end GROUP BY v.ip ORDER BY cnt DESC")
     List<Object[]> countByIpBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);

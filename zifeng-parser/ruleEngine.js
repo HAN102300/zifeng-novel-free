@@ -7,39 +7,11 @@ const {
   createCacheShim,
   createBookShim,
   createChapterShim,
+  sourceVariables,
 } = require("./javaShim");
+const { resolveUrl, parseHeaders, sleep, classifyError, createTTLMap, MAX_RETRIES, RETRY_DELAY_BASE } = require("./utils");
 
-function resolveUrl(baseUrl, relativePath) {
-  if (!relativePath) return baseUrl;
-  if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
-    return relativePath;
-  }
-  if (relativePath.startsWith('//')) {
-    return 'https:' + relativePath;
-  }
-  try {
-    const base = baseUrl.replace(/\/+$/, '');
-    if (relativePath.startsWith('/')) {
-      const urlObj = new URL(base);
-      const qIdx = relativePath.indexOf('?');
-      if (qIdx >= 0) {
-        urlObj.pathname = relativePath.substring(0, qIdx);
-        urlObj.search = relativePath.substring(qIdx);
-      } else {
-        urlObj.pathname = relativePath;
-      }
-      return urlObj.href;
-    }
-    if (base.endsWith('/')) {
-      return new URL(relativePath, base).href;
-    }
-    return new URL(relativePath, base + '/').href;
-  } catch {
-    return baseUrl.replace(/\/+$/, '') + '/' + relativePath.replace(/^\/+/, '');
-  }
-}
-
-const ruleVariables = new Map();
+const ruleVariables = createTTLMap(5 * 60 * 1000, 30 * 60 * 1000, 2000);
 
 function resolveJsonPath(data, path) {
   if (!path || data == null) return null;
@@ -162,7 +134,7 @@ function resolveTemplate(template, data) {
 async function executeJsRule(code, resultValue, context) {
   if (!code || typeof code !== "string") return resultValue;
 
-  const { baseUrl, source, book, key, page, chapter } = context;
+  const { baseUrl, source, book, key, page, chapter, _loginMode } = context;
   const java = createJavaShim(baseUrl, source, context);
   const sourceShim = createSourceShim(source);
   const cookieShim = createCookieShim();
@@ -180,7 +152,15 @@ async function executeJsRule(code, resultValue, context) {
       async function () {},
     ).constructor;
 
-    let wrappedCode = code.trim();
+    let wrappedCode;
+
+    if (_loginMode) {
+      wrappedCode = code.trim();
+      if (!wrappedCode.startsWith("{")) {
+        wrappedCode = "{ " + wrappedCode + " }";
+      }
+    } else {
+      wrappedCode = code.trim();
     const hasVarDecl = /\b(var|let|const)\s+/.test(wrappedCode);
     if (hasVarDecl || wrappedCode.endsWith(";")) {
       if (!wrappedCode.includes("return ") && !wrappedCode.includes("return\t")) {
@@ -253,6 +233,7 @@ async function executeJsRule(code, resultValue, context) {
       } else {
         wrappedCode = `return (${wrappedCode});`;
       }
+    }
     }
 
     const cheerio = require("cheerio");
@@ -352,9 +333,15 @@ async function executeJsRule(code, resultValue, context) {
        const globalThis = undefined;
        const __filename = undefined;
        const __dirname = undefined;
+       const constructor = undefined;
+       const __proto__ = undefined;
+       Object.defineProperty(this, 'constructor', { value: undefined, writable: false, configurable: false });
        ${jsLibCode}
        ${wrappedCode}`,
     );
+
+    const safeThis = Object.create(null);
+    Object.defineProperty(safeThis, 'constructor', { value: undefined, writable: false, configurable: false });
 
     const cryptoShim = {
       MD5: (str) => ({
@@ -376,7 +363,8 @@ async function executeJsRule(code, resultValue, context) {
       },
     };
 
-    const execResult = await fn(
+    const execResult = await fn.call(
+      safeThis,
       resultValue,
       java,
       baseUrl,
@@ -662,7 +650,7 @@ async function resolveSingleRule(data, rule, context) {
 
 async function parseBookListFromRules(source, responseData, rules, context = {}) {
   if (!responseData) return [];
-  if (!rules) return [];
+  if (!rules || typeof rules !== 'object') return [];
 
   const bookListRule = rules.bookList || "$.data";
   const htmlStr = typeof responseData === "string" ? responseData : JSON.stringify(responseData);
@@ -879,9 +867,78 @@ function parseExploreUrl(exploreUrl) {
 
 function resolveLegadoSelectorForElement($, $el, rule) {
   if (!rule) return null;
+  if (typeof rule !== 'string') return null;
+
+  let rawRule = rule;
+  let replacements = [];
+  let defaultValues = [];
+
+  const tripleHashParts = rawRule.split('###');
+  if (tripleHashParts.length > 1) {
+    defaultValues = tripleHashParts.slice(1);
+    rawRule = tripleHashParts[0];
+  }
+
+  const andParts = rawRule.split('&&');
+  if (andParts.length > 1) {
+    for (const part of andParts) {
+      const val = extractWithReplacements($, $el, part.trim(), replacements);
+      if (val && val.trim()) return applyDefaultValues(val, defaultValues);
+    }
+    return applyDefaultValues('', defaultValues);
+  }
+
+  const orParts = rawRule.split('||');
+  if (orParts.length > 1) {
+    for (const part of orParts) {
+      const val = extractWithReplacements($, $el, part.trim(), replacements);
+      if (val && val.trim()) return applyDefaultValues(val, defaultValues);
+    }
+    return applyDefaultValues('', defaultValues);
+  }
+
+  const val = extractWithReplacements($, $el, rawRule, replacements);
+  return applyDefaultValues(val, defaultValues);
+}
+
+function extractWithReplacements($, $el, rule, replacements) {
   const { parseLegadoSelector } = require("./selectors");
-  const result = parseLegadoSelector($, $el, rule);
+
+  const hashParts = rule.split('##');
+  const selectorPart = hashParts[0].trim();
+  const regexParts = hashParts.slice(1);
+
+  let result = parseLegadoSelector($, $el, selectorPart);
+
+  if (result && regexParts.length > 0) {
+    for (const regexStr of regexParts) {
+      result = applyRegexReplacement(result, regexStr.trim());
+    }
+  }
+
   return result;
+}
+
+function applyRegexReplacement(value, regexStr) {
+  if (!value || !regexStr) return value;
+
+  const replaceParts = regexStr.split('@@');
+  const pattern = replaceParts[0];
+  const replacement = replaceParts.length > 1 ? replaceParts[1] : '';
+
+  try {
+    const regex = new RegExp(pattern, 'g');
+    return value.replace(regex, replacement);
+  } catch {
+    return value;
+  }
+}
+
+function applyDefaultValues(value, defaultValues) {
+  if ((value === null || value === undefined || value === '') && defaultValues.length > 0) {
+    return defaultValues[0];
+  }
+  return value;
 }
 
 async function parseBookInfo(source, responseData, context = {}) {
@@ -1033,7 +1090,7 @@ async function parseToc(source, responseData, context = {}) {
   return chapters;
 }
 
-async function parseContent(source, responseData, context = {}) {
+async function parseContent(source, responseData, context = {}, fetchFn = null) {
   const rules = source.ruleContent || {};
   const htmlStr = typeof responseData === "string" ? responseData : JSON.stringify(responseData);
   const ctx = { baseUrl: source.bookSourceUrl, source, contextHtml: htmlStr, ...context };
@@ -1058,7 +1115,7 @@ async function parseContent(source, responseData, context = {}) {
   }
 
   if (rules.nextContentUrl) {
-    const maxPages = 10;
+    const maxPages = parseInt(process.env.PARSER_MAX_CONTENT_PAGES || '10', 10);
     let pageCount = 0;
     let currentData = data;
     let allContent = content ? String(content) : "";
@@ -1068,9 +1125,9 @@ async function parseContent(source, responseData, context = {}) {
       if (!nextUrl || typeof nextUrl !== 'string' || !nextUrl.startsWith('http')) break;
 
       try {
-        const { fetchWithConfig } = require("./index");
+        if (!fetchFn) break;
         const headers = parseHeaders(source.header);
-        const nextResponseData = await fetchWithConfig({
+        const nextResponseData = await fetchFn({
           url: nextUrl,
           method: "GET",
           headers,
@@ -1097,33 +1154,6 @@ async function parseContent(source, responseData, context = {}) {
   }
 
   return content;
-}
-
-function parseHeaders(headerStr) {
-  if (!headerStr) return {};
-  if (headerStr.includes("<js>")) return {};
-
-  try {
-    const cleaned = headerStr.replace(/'/g, '"');
-    return JSON.parse(cleaned);
-  } catch {
-    try {
-      const headers = {};
-      const content = headerStr.replace(/^\s*\{/, '').replace(/\}\s*$/, '').trim();
-      const pairs = content.split(/,(?=[\s]*[\w-]+\s*:)/);
-      for (const pair of pairs) {
-        const colonIdx = pair.indexOf(":");
-        if (colonIdx > 0) {
-          const key = pair.slice(0, colonIdx).trim().replace(/['"]/g, '');
-          const value = pair.slice(colonIdx + 1).trim().replace(/['"]/g, '');
-          if (key) headers[key] = value;
-        }
-      }
-      return headers;
-    } catch {
-      return {};
-    }
-  }
 }
 
 async function buildSearchConfig(source, keyword, page) {
@@ -1157,10 +1187,60 @@ async function buildSearchConfig(source, keyword, page) {
       }
     }
   } else if (rawUrl.includes("<js>") || rawUrl.includes("@js:")) {
-    let jsCode = rawUrl
-      .replace(/^<js>/, "")
-      .replace(/<\/js>$/, "")
-      .replace(/^@js:/, "");
+    let jsCode = "";
+    let urlPart = "";
+
+    const jsTagIndex = rawUrl.indexOf("@js:");
+    const jsTagIndex2 = rawUrl.indexOf("<js>");
+
+    if (jsTagIndex !== -1) {
+      urlPart = rawUrl.slice(0, jsTagIndex).trim();
+      jsCode = rawUrl.slice(jsTagIndex + 4).trim();
+    } else if (jsTagIndex2 !== -1) {
+      urlPart = rawUrl.slice(0, jsTagIndex2).trim();
+      const jsEnd = rawUrl.indexOf("</js>", jsTagIndex2 + 4);
+      jsCode = jsEnd !== -1 ? rawUrl.slice(jsTagIndex2 + 4, jsEnd).trim() : rawUrl.slice(jsTagIndex2 + 4).trim();
+    }
+
+    if (urlPart) {
+      urlPart = urlPart
+        .replace(/\{\{source\.([a-zA-Z_]\w*)\}\}/g, (match, prop) => {
+          const val = source[prop];
+          return val != null ? String(val) : '';
+        })
+        .replace(/\{\{source\.(\w+)\(([^)]*)\)\}\}/g, (match, method, arg) => {
+          if (method === 'getKey') return source.bookSourceUrl || '';
+          if (method === 'getVariable' || method === 'getVar') {
+            const vars = sourceVariables.get(source.bookSourceUrl) || {};
+            return vars[arg] || '';
+          }
+          return '';
+        })
+        .replace(/\{\{key\}\}/g, keyword)
+        .replace(/\{\{keyword\}\}/g, keyword)
+        .replace(/\{\{keyRaw\}\}/g, keyword)
+        .replace(/\{\{keywordRaw\}\}/g, keyword)
+        .replace(/\{\{keyEncoded\}\}/g, encodeURIComponent(keyword))
+        .replace(/\{\{keywordEncoded\}\}/g, encodeURIComponent(keyword))
+        .replace(/\{\{page\}\}/g, String(page))
+        .replace(/\{\{\(([^)]+)\)\}\}/g, (_, expr) => {
+          try {
+            const safeExpr = expr.replace(/\bpage\b/g, String(page)).replace(/\bkey\b/g, `"${keyword}"`);
+            if (!/^[\d\s+\-*/().]+$/.test(safeExpr.replace(/"[^"]*"/g, '0'))) return _;
+            const result = Function.prototype.constructor.call(null, "return " + safeExpr)();
+            return String(result);
+          } catch { return _; }
+        })
+        .replace(/\{\{([a-zA-Z_]\w*)\}\}/g, (match, varName) => {
+          const vars = sourceVariables.get(source.bookSourceUrl) || {};
+          if (vars[varName] != null) return String(vars[varName]);
+          return match;
+        })
+        .replace(/\{\{cookie\.\w+\([^)]*\)\}\}/g, "")
+        .replace(/\{\{java\.encodeURI\(key\)\}\}/g, encodeURIComponent(keyword))
+        .replace(/\{\{java\.encodeURIComponent\(key\)\}\}/g, encodeURIComponent(keyword))
+        .replace(/[\r\n]+/g, "").trim();
+    }
 
     jsCode = jsCode
       .replace(/\{\{java\.encodeURI\(key\)\}\}/g, encodeURIComponent(keyword))
@@ -1170,9 +1250,16 @@ async function buildSearchConfig(source, keyword, page) {
       .replace(/\{\{page\}\}/g, String(page))
       .replace(/\{\{\(([^)]+)\)\}\}/g, (_, expr) => {
         try {
-          const safeExpr = expr.replace(/page/g, String(page)).replace(/key/g, `"${keyword}"`);
-          return String(new Function("return " + safeExpr)());
+          const safeExpr = expr.replace(/\bpage\b/g, String(page)).replace(/\bkey\b/g, `"${keyword}"`);
+          if (!/^[\d\s+\-*/().]+$/.test(safeExpr.replace(/"[^"]*"/g, '0'))) return _;
+          const result = Function.prototype.constructor.call(null, "return " + safeExpr)();
+          return String(result);
         } catch { return _; }
+      })
+      .replace(/\{\{([a-zA-Z_]\w*)\}\}/g, (match, varName) => {
+        const vars = sourceVariables.get(source.bookSourceUrl) || {};
+        if (vars[varName] != null) return String(vars[varName]);
+        return match;
       })
       .replace(/\{\{cookie\.\w+\([^)]*\)\}\}/g, "")
       .replace(/\{\{source\.\w+\([^)]*\)\}\}/g, source.bookSourceUrl || "")
@@ -1189,16 +1276,17 @@ async function buildSearchConfig(source, keyword, page) {
         if (result.method) method = result.method.toUpperCase();
         if (result.body) body = result.body;
         if (result.headers) headers = { ...headers, ...result.headers };
+        if (!rawUrl && urlPart) rawUrl = urlPart;
       } else {
         console.warn(
           "JS searchUrl returned empty result for:",
           source.bookSourceName,
         );
-        rawUrl = "";
+        rawUrl = urlPart || "";
       }
     } catch (e) {
       console.warn("JS searchUrl execution failed:", e.message);
-      rawUrl = "";
+      rawUrl = urlPart || "";
     }
   }
 
@@ -1209,20 +1297,19 @@ async function buildSearchConfig(source, keyword, page) {
   if (
     source.bookSourceUrl &&
     !/^https?:\/\//i.test(source.bookSourceUrl) &&
-    !rawUrl.startsWith("http")
+    (!rawUrl || !rawUrl.startsWith("http"))
   ) {
     console.warn(
       "Non-HTTP bookSourceUrl, likely aggregate source:",
       source.bookSourceName,
       source.bookSourceUrl,
     );
-    if (!rawUrl || !rawUrl.startsWith("http")) {
-      return null;
-    }
+    return null;
   }
 
-  const postMatch = rawUrl.match(/^(.+?),\s*(\{[\s\S]*\})\s*$/);
-  if (postMatch) {
+  const configKeysRegex = /"(method|body|charset|headers|webView|encoding|data)"\s*:|'(method|body|charset|headers|webView|encoding|data)'\s*:/i;
+  const postMatch = rawUrl.match(/^(.+?)\/?,\s*(\{[\s\S]*\})\s*$/);
+  if (postMatch && configKeysRegex.test(postMatch[2])) {
     rawUrl = postMatch[1].trim();
     try {
       const jsonStr = postMatch[2].replace(/'/g, '"');
@@ -1230,8 +1317,7 @@ async function buildSearchConfig(source, keyword, page) {
       method = (config.method || method).toUpperCase();
       if (config.body) body = config.body;
       if (config.headers) headers = { ...headers, ...config.headers };
-      if (config.webView) {
-      }
+      if (config.charset) headers['x-override-charset'] = config.charset;
     } catch (e) {
       console.warn(
         "Failed to parse search URL config:",
@@ -1239,7 +1325,38 @@ async function buildSearchConfig(source, keyword, page) {
         e.message,
       );
     }
+  } else if (rawUrl.includes(',{')) {
+    const fallbackIdx = rawUrl.lastIndexOf(',{');
+    if (fallbackIdx > 0) {
+      const configPart = rawUrl.slice(fallbackIdx + 1);
+      if (configKeysRegex.test(configPart)) {
+        rawUrl = rawUrl.slice(0, fallbackIdx).trim();
+        try {
+          const jsonStr = configPart.replace(/'/g, '"');
+          const config = JSON.parse(jsonStr);
+          method = (config.method || method).toUpperCase();
+          if (config.body) body = config.body;
+          if (config.headers) headers = { ...headers, ...config.headers };
+          if (config.charset) headers['x-override-charset'] = config.charset;
+        } catch {}
+      }
+    }
   }
+
+  rawUrl = rawUrl.replace(/\{\{source\.([a-zA-Z_]\w*)\}\}/g, (match, prop) => {
+    if (prop === 'bookSourceUrl') return source.bookSourceUrl || '';
+    if (prop === 'key') return source.bookSourceUrl || '';
+    const val = source[prop];
+    return val != null ? String(val) : '';
+  });
+  rawUrl = rawUrl.replace(/\{\{source\.(\w+)\(([^)]*)\)\}\}/g, (match, method) => {
+    if (method === 'getKey') return source.bookSourceUrl || '';
+    if (method === 'getVariable') return '';
+    if (method === 'getVar') return '';
+    return '';
+  });
+  rawUrl = rawUrl.replace(/\{\{cookie\.removeCookie\(source\.[a-zA-Z_]\w*(?:\(\))?\)\}\}/g, '');
+  rawUrl = rawUrl.replace(/\{\{cookie\.\w+\([^)]*\)\}\}/g, '');
 
   let url = rawUrl
     .replace(/\{\{page\}\}/g, String(page))
@@ -1252,11 +1369,6 @@ async function buildSearchConfig(source, keyword, page) {
     .replace(/\{\{\(page-1\)\}\}/g, String(page - 1))
     .replace(/\{\{\(page\)\}\}/g, String(page));
 
-  url = url.replace(/\{\{cookie\.removeCookie\([^)]*\)\}\}/g, "");
-  url = url.replace(/\{\{cookie\.\w+\([^)]*\)\}\}/g, "");
-  url = url.replace(/\{\{source\.getKey\(\)\}\}/g, source.bookSourceUrl || "");
-  url = url.replace(/\{\{source\.getVariable\(\)\}\}/g, "");
-  url = url.replace(/\{\{source\.getVar\([^)]*\)\}\}/g, "");
   url = url.replace(/\{\{java\.\w+\([^)]*\)\}\}/g, (match) => {
     try {
       const inner = match.slice(2, -2);
@@ -1294,8 +1406,13 @@ async function buildSearchConfig(source, keyword, page) {
 
   if (body) {
     body = body
+      .replace(/\{\{source\.bookSourceUrl\}\}/g, source.bookSourceUrl || '')
+      .replace(/\{\{source\.getKey\(\)\}\}/g, source.bookSourceUrl || '')
+      .replace(/\{\{source\.key\}\}/g, source.bookSourceUrl || '')
       .replace(/\{\{key\}\}/g, keyword)
       .replace(/\{\{keyword\}\}/g, keyword)
+      .replace(/\{\{keyRaw\}\}/g, keyword)
+      .replace(/\{\{keywordRaw\}\}/g, keyword)
       .replace(/\{\{keyEncoded\}\}/g, encodeURIComponent(keyword))
       .replace(/\{\{keywordEncoded\}\}/g, encodeURIComponent(keyword))
       .replace(/\{\{page\}\}/g, String(page));
@@ -1309,6 +1426,9 @@ async function buildSearchConfig(source, keyword, page) {
         for (const key of Object.keys(bodyObj)) {
           if (typeof bodyObj[key] === "string") {
             bodyObj[key] = bodyObj[key]
+              .replace(/\{\{source\.bookSourceUrl\}\}/g, source.bookSourceUrl || '')
+              .replace(/\{\{source\.getKey\(\)\}\}/g, source.bookSourceUrl || '')
+              .replace(/\{\{source\.key\}\}/g, source.bookSourceUrl || '')
               .replace(/\{\{key\}\}/g, keyword)
               .replace(/\{\{keyword\}\}/g, keyword)
               .replace(/\{\{keyEncoded\}\}/g, encodeURIComponent(keyword))
@@ -1392,16 +1512,6 @@ function getSourceCompatibility(source) {
     hasCss,
     hasJsonPath,
   };
-}
-
-function classifyError(error) {
-  const msg = error.message || String(error);
-  if (error.code === 'ECONNABORTED' || msg.includes('timeout')) return { type: 'timeout', message: '请求超时' };
-  if (error.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' || msg.includes('SSL')) return { type: 'ssl', message: 'SSL证书错误' };
-  if (msg.includes('403') || msg.includes('Forbidden') || msg.includes('WAF') || msg.includes('cloudflare')) return { type: 'waf', message: 'WAF防护/访问被拒' };
-  if (msg.includes('401') || msg.includes('Unauthorized')) return { type: 'auth', message: '需要认证' };
-  if (msg.includes('ENOTFOUND') || msg.includes('ECONNREFUSED') || msg.includes('network')) return { type: 'network', message: '网络错误' };
-  return { type: 'parse', message: '解析错误' };
 }
 
 module.exports = {

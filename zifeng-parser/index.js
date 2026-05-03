@@ -9,42 +9,12 @@ const {
   parseBookInfo,
   parseToc,
   parseContent,
-  parseHeaders,
   buildSearchConfig,
   getSourceCompatibility,
   executeJsRule,
-  classifyError,
 } = require("./ruleEngine");
-
-function resolveUrl(baseUrl, relativePath) {
-  if (!relativePath) return baseUrl;
-  if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
-    return relativePath;
-  }
-  if (relativePath.startsWith('//')) {
-    return 'https:' + relativePath;
-  }
-  try {
-    const base = baseUrl.replace(/\/+$/, '');
-    if (relativePath.startsWith('/')) {
-      const urlObj = new URL(base);
-      const qIdx = relativePath.indexOf('?');
-      if (qIdx >= 0) {
-        urlObj.pathname = relativePath.substring(0, qIdx);
-        urlObj.search = relativePath.substring(qIdx);
-      } else {
-        urlObj.pathname = relativePath;
-      }
-      return urlObj.href;
-    }
-    if (base.endsWith('/')) {
-      return new URL(relativePath, base).href;
-    }
-    return new URL(relativePath, base + '/').href;
-  } catch {
-    return baseUrl.replace(/\/+$/, '') + '/' + relativePath.replace(/^\/+/, '');
-  }
-}
+const { resolveUrl, parseHeaders, sleep, isRetryableError, classifyError, createTTLMap, MAX_RETRIES, RETRY_DELAY_BASE } = require("./utils");
+const { checkLoginState, injectAuthIntoConfig, isAuthFailure, persistAuthState, restoreAuthState } = require("./javaShim");
 
 const app = express();
 
@@ -73,7 +43,7 @@ function isProxyUrlAllowed(url) {
   }
 }
 
-const rateLimitMap = new Map();
+const rateLimitMap = createTTLMap(60 * 1000, 120 * 1000, 5000);
 function rateLimitMiddleware(maxRequests = 60, windowMs = 60000) {
   return (req, res, next) => {
     const key = req.ip || req.connection.remoteAddress;
@@ -85,7 +55,7 @@ function rateLimitMiddleware(maxRequests = 60, windowMs = 60000) {
     } else {
       record.count++;
     }
-    rateLimitMap.set(key, record);
+    rateLimitMap.set(key, record, 120 * 1000);
     if (record.count > maxRequests) {
       return res.status(429).json({ error: "Too many requests" });
     }
@@ -198,36 +168,35 @@ async function fetchWithMaoyanAuth(config, source) {
   return result;
 }
 
-const RETRYABLE_ERRORS = [
-  "ECONNRESET",
-  "ETIMEDOUT",
-  "ECONNREFUSED",
-  "EPIPE",
-  "EAI_AGAIN",
-  "ENOTFOUND",
-  "EPROTO",
-  "ERR_BAD_RESPONSE",
-];
-const MAX_RETRIES = 3;
-const RETRY_DELAY_BASE = 1000;
+async function fetchWithAuthRetry(config, source) {
+  let authedConfig = injectAuthIntoConfig(config, source);
+  let responseData = await fetchWithConfig(authedConfig);
 
-function isRetryableError(error) {
-  if (!error) return false;
-  const code = error.code || "";
-  const message = error.message || "";
-  if (RETRYABLE_ERRORS.some((e) => code === e || message.includes(e)))
-    return true;
-  if (error.response && error.response.status >= 500) return true;
-  if (
-    message.includes("socket disconnected") ||
-    message.includes("connect ETIMEDOUT")
-  )
-    return true;
-  return false;
-}
+  if (isAuthFailure(responseData, source)) {
+    console.log(`[AUTH-RETRY] Detected auth failure for: ${source.bookSourceName}`);
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+    if (source.loginUrl && !/^https?:\/\//i.test(source.loginUrl.trim())) {
+      console.log(`[AUTH-RETRY] Attempting re-login for: ${source.bookSourceName}`);
+      try {
+        const ctx = { baseUrl: source.bookSourceUrl, source, key: '', page: 1, _loginMode: true };
+        await executeJsRule(source.loginUrl, null, ctx);
+
+        authedConfig = injectAuthIntoConfig(config, source);
+        console.log(`[AUTH-RETRY] Re-login done, retrying request...`);
+        responseData = await fetchWithConfig(authedConfig);
+
+        if (isAuthFailure(responseData, source)) {
+          console.log(`[AUTH-RETRY] Still failing after re-login for: ${source.bookSourceName}`);
+        }
+      } catch (e) {
+        console.warn(`[AUTH-RETRY] Re-login failed for ${source.bookSourceName}:`, e.message);
+      }
+    } else if (source.loginUrl && /^https?:\/\//i.test(source.loginUrl.trim())) {
+      console.log(`[AUTH-RETRY] Browser login required for: ${source.bookSourceName}, cannot auto-retry`);
+    }
+  }
+
+  return responseData;
 }
 
 function extractRedirectUrl(html) {
@@ -305,16 +274,21 @@ async function fetchWithConfig(config) {
 
       const buf = Buffer.from(response.data);
       let charset = "utf-8";
-      const contentType = response.headers["content-type"] || "";
-      const ctCharsetMatch = contentType.match(/charset=([^\s;]+)/i);
-      if (ctCharsetMatch) {
-        charset = ctCharsetMatch[1].trim().replace(/['"]/g, "");
-      }
-      if (charset.toLowerCase() === "utf-8" || charset.toLowerCase() === "utf8") {
-        const headSample = buf.slice(0, Math.min(buf.length, 2048)).toString("utf-8");
-        const metaCharsetMatch = headSample.match(/charset=["']?([^"'\s>]+)/i);
-        if (metaCharsetMatch && !/utf-?8/i.test(metaCharsetMatch[1])) {
-          charset = metaCharsetMatch[1].trim();
+      const overrideCharset = (axiosConfig.headers && axiosConfig.headers['x-override-charset']) || null;
+      if (overrideCharset) {
+        charset = overrideCharset;
+      } else {
+        const contentType = response.headers["content-type"] || "";
+        const ctCharsetMatch = contentType.match(/charset=([^\s;]+)/i);
+        if (ctCharsetMatch) {
+          charset = ctCharsetMatch[1].trim().replace(/['"]/g, "");
+        }
+        if (charset.toLowerCase() === "utf-8" || charset.toLowerCase() === "utf8") {
+          const headSample = buf.slice(0, Math.min(buf.length, 2048)).toString("utf-8");
+          const metaCharsetMatch = headSample.match(/charset=["']?([^"'\s>]+)/i);
+          if (metaCharsetMatch && !/utf-?8/i.test(metaCharsetMatch[1])) {
+            charset = metaCharsetMatch[1].trim();
+          }
         }
       }
       let data;
@@ -503,27 +477,33 @@ app.post("/api/test-source", async (req, res) => {
     };
 
     try {
-      responseData = await fetchWithConfig(config);
+      responseData = await fetchWithAuthRetry(config, source);
     } catch (e) {
       const classified = classifyError(e);
       console.error(
         `[TEST ERROR] ${source.bookSourceName}: ${e.code || ''} - ${e.message}`,
       );
+      const hasLoginUrl = !!source.loginUrl;
       return res.json({
         success: false,
         message: classified.message,
         errorType: classified.type,
         requestInfo,
         errorCode: e.code || '',
+        requiresLogin: hasLoginUrl,
+        hasLoginUrl,
       });
     }
 
     if (!responseData) {
+      const hasLoginUrl = !!source.loginUrl;
       return res.json({
         success: false,
         message: "服务器返回空内容",
         errorType: "empty_response",
         requestInfo,
+        requiresLogin: hasLoginUrl,
+        hasLoginUrl,
       });
     }
 
@@ -552,20 +532,27 @@ app.post("/api/test-source", async (req, res) => {
       typeof responseData === "string" && responseData.trim().startsWith("{");
 
     if (!fullTest) {
+      const hasLoginUrl = !!source.loginUrl;
+      const requiresLogin = hasLoginUrl && results.length === 0 && isAuthFailure(responseData, source);
+
       return res.json({
         success: results.length > 0,
         message:
           results.length > 0
             ? `连接成功，找到 ${results.length} 条结果`
-            : isHtml
-              ? "连接成功但未解析到结果，可能需要调整解析规则"
-              : "连接成功但无搜索结果",
+            : requiresLogin
+              ? "需要登录后才能获取内容，请先执行登录操作"
+              : isHtml
+                ? "连接成功但未解析到结果，可能需要调整解析规则"
+                : "连接成功但无搜索结果",
         resultCount: results.length,
         sample: results.slice(0, 3),
         compatibility: compat,
         rawLength: typeof responseData === "string" ? responseData.length : 0,
         responseType: isHtml ? "html" : isJson ? "json" : "unknown",
         requestInfo,
+        requiresLogin,
+        hasLoginUrl,
       });
     }
 
@@ -610,7 +597,7 @@ app.post("/api/test-source", async (req, res) => {
         bookInfoData = bookUrl;
       } else if (bookUrl) {
         const headers = parseHeaders(source.header);
-        bookInfoData = await fetchWithMaoyanAuth({ url: bookUrl, method: "GET", headers }, source);
+        bookInfoData = await fetchWithAuthRetry({ url: bookUrl, method: "GET", headers }, source);
       }
       if (bookInfoData) {
         bookInfoResult = await parseBookInfo(source, bookInfoData, { book: sampleBook });
@@ -654,7 +641,7 @@ app.post("/api/test-source", async (req, res) => {
           tocData = tocUrl;
         } else {
           const headers = parseHeaders(source.header);
-          tocData = await fetchWithMaoyanAuth({ url: tocUrl, method: "GET", headers }, source);
+          tocData = await fetchWithAuthRetry({ url: tocUrl, method: "GET", headers }, source);
         }
         tocResult = await parseToc(source, tocData, { book: bookInfoResult || sampleBook });
         if (tocResult && tocResult.length > 0) {
@@ -697,12 +684,12 @@ app.post("/api/test-source", async (req, res) => {
           contentData = chapterUrl;
         } else {
           const headers = parseHeaders(source.header);
-          contentData = await fetchWithMaoyanAuth({ url: chapterUrl, method: "GET", headers }, source);
+          contentData = await fetchWithAuthRetry({ url: chapterUrl, method: "GET", headers }, source);
         }
         contentResult = await parseContent(source, contentData, {
           book: bookInfoResult || sampleBook,
           chapter: sampleChapter,
-        });
+        }, fetchWithConfig);
         const contentStr = typeof contentResult === 'object'
           ? contentResult.content || String(contentResult || '')
           : String(contentResult || '');
@@ -746,6 +733,93 @@ app.post("/api/test-source", async (req, res) => {
   }
 });
 
+app.post("/api/login", async (req, res) => {
+  const { source, mode = "login" } = req.body;
+
+  if (!source || !source.bookSourceUrl) {
+    return res.status(400).json({ error: "Invalid source" });
+  }
+
+  try {
+    if (mode === "check") {
+      const state = checkLoginState(source);
+      return res.json({
+        success: true,
+        mode: "check",
+        loginState: state,
+        message: state.isLoggedIn ? "已登录" : "未登录",
+      });
+    }
+
+    if (!source.loginUrl) {
+      const state = checkLoginState(source);
+      return res.json({
+        success: state.isLoggedIn,
+        mode: "login",
+        loginState: state,
+        message: "该书源无loginUrl字段，无需脚本登录",
+      });
+    }
+
+    console.log(`[LOGIN] Executing login for: ${source.bookSourceName}`);
+
+    let loginCode = source.loginUrl;
+
+    if (/^https?:\/\//i.test(loginCode.trim())) {
+      console.log(`[LOGIN] HTTP login URL (browser required): ${source.bookSourceName} -> ${loginCode.trim().slice(0, 80)}`);
+      return res.json({
+        success: false,
+        mode: "login",
+        loginUrl: loginCode.trim(),
+        message: `该书源需要通过浏览器完成登录: ${loginCode.trim().slice(0, 100)}`,
+        loginState: { isLoggedIn: false, requiresBrowser: true },
+      });
+    }
+
+    if (source.loginUi && typeof source.loginUi === 'string') {
+      if (source.loginUi.includes('<js>') || source.loginUi.includes('function')) {
+        const ctx = {
+          baseUrl: source.bookSourceUrl,
+          source,
+          key: '',
+          page: 1,
+          _loginMode: true,
+        };
+        await executeJsRule(source.loginUi, null, ctx);
+        console.log(`[LOGIN] loginUi pre-processing executed for: ${source.bookSourceName}`);
+      }
+    }
+
+    const ctx = {
+      baseUrl: source.bookSourceUrl,
+      source,
+      key: '',
+      page: 1,
+      _loginMode: true,
+    };
+
+    await executeJsRule(loginCode, null, ctx);
+
+    const state = checkLoginState(source);
+    console.log(`[LOGIN] Done: ${source.bookSourceName}, isLoggedIn=${state.isLoggedIn}`);
+
+    res.json({
+      success: state.isLoggedIn,
+      mode: "login",
+      loginState: state,
+      message: state.isLoggedIn ? `登录成功 - ${source.bookSourceName}` : `登录脚本已执行，但未检测到登录状态 - ${source.bookSourceName}`,
+    });
+  } catch (e) {
+    console.error(`[LOGIN ERROR] ${source.bookSourceName}:`, e.message);
+    res.json({
+      success: false,
+      mode: mode,
+      message: `登录执行失败: ${e.message}`,
+      errorType: "login",
+    });
+  }
+});
+
 app.post("/api/search", async (req, res) => {
   const { source, keyword, page = 1 } = req.body;
 
@@ -767,7 +841,7 @@ app.post("/api/search", async (req, res) => {
       `[SEARCH] ${source.bookSourceName} keyword=${keyword} page=${page} -> ${config.url}`,
     );
 
-    const responseData = await fetchWithConfig(config);
+    const responseData = await fetchWithAuthRetry(config, source);
     const results = await parseSearchResults(source, responseData, {
       key: keyword,
       page,
@@ -800,8 +874,9 @@ app.post("/api/explore", async (req, res) => {
       url = base + (url.startsWith("/") ? "" : "/") + url;
     }
     const headers = parseHeaders(source.header);
+    const config = { url, method: "GET", headers };
     console.log(`[EXPLORE] ${source.bookSourceName} -> ${url}`);
-    const responseData = await fetchWithConfig({ url, method: "GET", headers });
+    const responseData = await fetchWithAuthRetry(config, source);
     const books = await parseExplore(source, responseData, {});
     res.json({ success: true, books });
   } catch (e) {
@@ -839,7 +914,7 @@ app.post("/api/book-info", async (req, res) => {
         headers,
       };
       console.log(`[BOOK-INFO] ${source.bookSourceName} -> ${requestUrl}`);
-      responseData = await fetchWithMaoyanAuth(config, source);
+      responseData = await fetchWithAuthRetry(config, source);
     } else {
       responseData = bookData;
     }
@@ -907,12 +982,13 @@ app.post("/api/toc", async (req, res) => {
         return match;
       });
       console.log(`[TOC] ${source.bookSourceName} -> ${requestUrl}`);
-      console.log(`[TOC] Final headers:`, JSON.stringify(headers));
-      responseData = await fetchWithMaoyanAuth({
+      console.log(`[TOC] Request to: ${requestUrl}`);
+      const tocConfig = {
         url: requestUrl,
         method: "GET",
         headers,
-      }, source);
+      };
+      responseData = await fetchWithAuthRetry(tocConfig, source);
     }
 
     const chapters = await parseToc(source, responseData, { book });
@@ -941,14 +1017,15 @@ app.post("/api/content", async (req, res) => {
     } else {
       const headers = parseHeaders(source.header);
       console.log(`[CONTENT] ${source.bookSourceName} -> ${chapterUrl}`);
-      responseData = await fetchWithMaoyanAuth({
+      const contentConfig = {
         url: chapterUrl,
         method: "GET",
         headers,
-      }, source);
+      };
+      responseData = await fetchWithAuthRetry(contentConfig, source);
     }
 
-    const content = await parseContent(source, responseData, { book, chapter });
+    const content = await parseContent(source, responseData, { book, chapter }, fetchWithConfig);
 
     res.json({
       success: true,
@@ -1054,6 +1131,44 @@ app.post("/api/import-from-json", async (req, res) => {
   }
 });
 
+app.post("/api/auth/state", async (req, res) => {
+  res.json({
+    sourceVariables: [...require("./javaShim").sourceVariables.keys()],
+    cookieStore: [...require("./javaShim").cookieStore.keys()],
+    cacheStore: [...require("./javaShim").cacheStore.keys()],
+  });
+});
+
+app.post("/api/auth/persist", async (req, res) => {
+  const ok = persistAuthState(AUTH_STATE_FILE);
+  res.json({ success: ok, file: AUTH_STATE_FILE });
+});
+
+const path = require('path');
+const AUTH_STATE_FILE = path.join(__dirname, 'auth_state.json');
+
+restoreAuthState(AUTH_STATE_FILE);
+
+const PERSIST_INTERVAL_MS = 5 * 60 * 1000;
+const persistTimer = setInterval(() => {
+  persistAuthState(AUTH_STATE_FILE);
+}, PERSIST_INTERVAL_MS);
+persistTimer.unref();
+
+process.on('SIGTERM', () => {
+  console.log('[SHUTDOWN] SIGTERM received, saving auth state...');
+  persistAuthState(AUTH_STATE_FILE);
+  clearInterval(persistTimer);
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('[SHUTDOWN] SIGINT received, saving auth state...');
+  persistAuthState(AUTH_STATE_FILE);
+  clearInterval(persistTimer);
+  process.exit(0);
+});
+
 app.listen(PORT, () => {
   console.log(`\n🚀 Book Source Server v2.0 running on port ${PORT}`);
   console.log(`\nAPI Endpoints:`);
@@ -1061,6 +1176,7 @@ app.listen(PORT, () => {
   console.log(`  GET  /api/proxy?url=...`);
   console.log(`  POST /api/proxy { url, method, headers, body }`);
   console.log(`  POST /api/test-source { source, keyword, page, fullTest }`);
+  console.log(`  POST /api/login { source, mode }`);
   console.log(`  POST /api/search { source, keyword, page }`);
   console.log(`  POST /api/explore { source, exploreUrl }`);
   console.log(`  POST /api/book-info { source, bookUrl, bookData }`);
@@ -1079,6 +1195,7 @@ app.listen(PORT, () => {
   console.log(`  ✅ Full java shim (ajax, crypto, etc.)`);
   console.log(`  ✅ data: URL protocol`);
   console.log(`  ✅ Multi-stage alive testing`);
+  console.log(`  ✅ Login + auto re-auth + state persistence`);
   console.log("");
 });
 

@@ -129,7 +129,12 @@ export const getActiveSource = () => {
     const activeUrl = localStorage.getItem(ACTIVE_SOURCE_KEY);
     if (!activeUrl) return DEFAULT_SOURCE;
     const sources = getBookSources();
-    const source = sources.find(s => s.bookSourceUrl === activeUrl);
+    let source = sources.find(s => s.bookSourceUrl === activeUrl);
+    if (!source) {
+      const normalizeUrl = (url) => (url || '').replace(/^https?:\/\//, '').replace(/\/+$/, '').toLowerCase();
+      const norm = normalizeUrl(activeUrl);
+      source = sources.find(s => normalizeUrl(s.bookSourceUrl) === norm);
+    }
     return source || DEFAULT_SOURCE;
   } catch {
     return DEFAULT_SOURCE;

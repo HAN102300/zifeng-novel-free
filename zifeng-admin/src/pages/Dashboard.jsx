@@ -131,7 +131,7 @@ const Dashboard = () => {
   ];
 
   return (
-    <div>
+    <div style={{ flex: 1, overflow: 'auto' }}>
       <Row gutter={[16, 16]} ref={statsRef}>
         {statCards.map((item, index) => (
           <Col xs={24} sm={12} md={8} lg={8} xl={4} key={item.title}>

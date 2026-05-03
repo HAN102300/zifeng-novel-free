@@ -212,7 +212,6 @@ export const authLogin = async (username, password, rememberMe = false) => {
     const userData = {
       id: res.data.data.userId,
       username: res.data.data.username,
-      nickname: res.data.data.nickname,
       avatar: res.data.data.avatar,
     };
     localStorage.setItem("zifeng_user", JSON.stringify(userData));
@@ -249,8 +248,8 @@ export const resetPassword = async (data) => {
   return res.data;
 };
 
-export const updateProfile = async (nickname, avatar, email) => {
-  const res = await backendAxios.put("/auth/profile", { nickname, avatar, email });
+export const updateProfile = async (avatar, email) => {
+  const res = await backendAxios.put("/auth/profile", { avatar, email });
   return res.data;
 };
 

@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --text: #6b6375;
   --text-h: #08060d;
   --bg: #fff;
@@ -52,14 +52,17 @@
 
 body {
   margin: 0;
+  overflow: hidden;
+  height: 100vh;
 }
 
 #root {
   width: 100%;
-  min-height: 100svh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 h1,
@@ -134,4 +137,169 @@ code {
   .ant-modal-content {
     padding: 20px !important;
   }
+}
+
+.ant-table-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.ant-table-wrapper .ant-spin-nested-loading {
+  flex: 1;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+}
+
+.ant-table-wrapper .ant-spin-container {
+  flex: 1;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+}
+
+.ant-table-wrapper .ant-table {
+  flex: 1;
+  overflow: hidden;
+}
+
+.ant-table-wrapper .ant-table-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.ant-table-wrapper .ant-table-body {
+  flex: 1;
+  overflow: auto !important;
+}
+
+.ant-table-wrapper .ant-table-pagination {
+  flex-shrink: 0;
+  padding: 8px 16px !important;
+  margin: 0 !important;
+  position: sticky;
+  bottom: 0;
+  background: inherit;
+  z-index: 10;
+  overflow: visible;
+}
+
+/* ===== Global Navigation Styles ===== */
+
+.admin-sider {
+  position: relative;
+}
+
+.admin-sider::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
+  z-index: 10;
+}
+
+.admin-sider .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-sider .ant-menu-dark {
+  background: transparent !important;
+}
+
+.admin-sider .ant-menu-dark .ant-menu-item,
+.admin-sider .ant-menu-dark .ant-menu-submenu-title {
+  transition: all 0.25s cubic-bezier(0.645, 0.045, 0.355, 1) !important;
+  border-radius: 8px !important;
+  margin: 2px 8px !important;
+  width: calc(100% - 16px) !important;
+}
+
+.admin-sider .ant-menu-dark .ant-menu-item:hover,
+.admin-sider .ant-menu-dark .ant-menu-submenu-title:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  transform: translateX(2px);
+}
+
+.admin-sider .ant-menu-dark .ant-menu-item-selected {
+  background: linear-gradient(90deg, rgba(102, 126, 234, 0.25) 0%, rgba(118, 75, 162, 0.15) 100%) !important;
+  position: relative;
+}
+
+.admin-sider .ant-menu-dark .ant-menu-item-selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+}
+
+.admin-sider .ant-menu-dark .ant-menu-submenu-arrow {
+  transition: transform 0.25s ease !important;
+}
+
+.admin-sider .ant-menu-dark .ant-menu-submenu .ant-menu-item {
+  padding-left: 48px !important;
+}
+
+.admin-sider.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-item,
+.admin-sider.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-submenu-title {
+  margin: 2px 4px !important;
+  width: calc(100% - 8px) !important;
+  padding: 0 calc(50% - 12px) !important;
+  transform: none !important;
+}
+
+.admin-sider.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-item:hover {
+  transform: none !important;
+}
+
+.admin-header {
+  position: relative;
+}
+
+.admin-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+
+.admin-header:hover::after {
+  opacity: 0.8;
+}
+
+.admin-content {
+  position: relative;
+}
+
+.admin-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(102, 126, 234, 0.08) 50%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Fix: pagination Select dropdown z-index stacking context */
+.ant-table-pagination .ant-select-dropdown {
+  z-index: 1060 !important;
 }

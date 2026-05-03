@@ -1,7 +1,6 @@
 package com.zifeng.config;
 
 import cn.dev33.satoken.stp.StpInterface;
-import com.zifeng.module.admin.entity.Admin;
 import com.zifeng.module.admin.repository.AdminRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

@@ -3,16 +3,16 @@ const crypto = require("crypto");
 const iconv = require("iconv-lite");
 const OpenCC = require("opencc-js");
 const t2sConverter = OpenCC.Converter({ from: 'tw', to: 'cn' });
+const { parseHeaders, createTTLMap } = require("./utils");
 
 const sourceVariables = new Map();
 const cookieStore = new Map();
 const cacheStore = new Map();
 
 const MAX_MAP_SIZE = 1000;
-const MAP_CLEANUP_INTERVAL = 30 * 60 * 1000;
+const MAP_CLEANUP_INTERVAL = 10 * 60 * 1000;
 
-function cleanupMap(map, maxAge = 2 * 60 * 60 * 1000) {
-  if (map.size <= MAX_MAP_SIZE) return;
+function cleanupMap(map, maxAge = 30 * 60 * 1000) {
   const now = Date.now();
   for (const [key, value] of map) {
     if (value && value._timestamp && (now - value._timestamp > maxAge)) {
@@ -55,6 +55,7 @@ async function getBrowserInstance() {
       });
       _browserInstance.on("disconnected", () => {
         _browserInstance = null;
+        _browserLaunchPromise = null;
       });
       return _browserInstance;
     } catch (e) {
@@ -96,31 +97,6 @@ function isAjaxRetryableError(error) {
   );
 }
 
-function parseSourceHeaders(headerStr) {
-  if (!headerStr) return {};
-  if (headerStr.includes("<js>")) return {};
-  try {
-    const cleaned = headerStr.replace(/'/g, '"');
-    return JSON.parse(cleaned);
-  } catch {
-    try {
-      const headers = {};
-      const pairs = headerStr.replace(/[{}'"]/g, "").split(",");
-      for (const pair of pairs) {
-        const colonIdx = pair.indexOf(":");
-        if (colonIdx > 0) {
-          const key = pair.slice(0, colonIdx).trim();
-          const value = pair.slice(colonIdx + 1).trim();
-          if (key) headers[key] = value;
-        }
-      }
-      return headers;
-    } catch {
-      return {};
-    }
-  }
-}
-
 function createJavaShim(baseUrl, sourceData = {}, requestContext = {}) {
   const requestVars = requestContext._ruleVariables || new Map();
   const contextHtml = requestContext.contextHtml || '';
@@ -137,7 +113,7 @@ function createJavaShim(baseUrl, sourceData = {}, requestContext = {}) {
     return sourceVariables.get(key) || '';
   };
 
-  const sourceHeaders = parseSourceHeaders(sourceData.header);
+  const sourceHeaders = parseHeaders(sourceData.header);
 
   const ajax = async (url, headers) => {
     let fullUrl = url;
@@ -183,7 +159,7 @@ function createJavaShim(baseUrl, sourceData = {}, requestContext = {}) {
         const html = await page.content();
         const cookies = await page.cookies();
         for (const c of cookies) {
-          cookieStore.set(c.name, c.value);
+          cookieStore.set(c.name, { value: c.value, _timestamp: Date.now() });
         }
         await page.close();
         return html;
@@ -511,7 +487,7 @@ function createJavaShim(baseUrl, sourceData = {}, requestContext = {}) {
 
         const cookies = await page.cookies();
         for (const cookie of cookies) {
-          cookieStore.set(cookie.name, cookie.value);
+          cookieStore.set(cookie.name, { value: cookie.value, _timestamp: Date.now() });
         }
 
         const html = await page.content();
@@ -527,19 +503,24 @@ function createJavaShim(baseUrl, sourceData = {}, requestContext = {}) {
 
 function createSourceShim(sourceData = {}) {
   const sourceUrl = sourceData.bookSourceUrl || "";
-  const sourceVars = sourceVariables.get(sourceUrl) || new Map();
+  let sourceVars = sourceVariables.get(sourceUrl);
+  if (!sourceVars) {
+    sourceVars = new Map();
+    sourceVariables.set(sourceUrl, sourceVars);
+  }
+  sourceVars._timestamp = Date.now();
 
   return {
     getKey: () => sourceUrl,
     get: (key) => sourceVars.get(key) || "",
     put: (key, value) => {
       sourceVars.set(key, value);
-      sourceVariables.set(sourceUrl, sourceVars);
+      sourceVars._timestamp = Date.now();
     },
     getVariable: () => sourceVars.get("_variable") || "",
     setVariable: (str) => {
       sourceVars.set("_variable", str);
-      sourceVariables.set(sourceUrl, sourceVars);
+      sourceVars._timestamp = Date.now();
     },
     getLoginInfoMap: () => {
       const loginInfo = sourceVars.get("_loginInfo");
@@ -555,23 +536,39 @@ function createSourceShim(sourceData = {}) {
     getLoginInfo: () => sourceVars.get("_loginInfo") || "",
     setLoginInfo: (info) => {
       sourceVars.set("_loginInfo", info);
-      sourceVariables.set(sourceUrl, sourceVars);
+      sourceVars._timestamp = Date.now();
     },
   };
 }
 
 function createCookieShim() {
   return {
-    getCookie: (url) => cookieStore.get(url) || "",
-    setCookie: (url, cookie) => cookieStore.set(url, cookie),
+    getCookie: (url) => {
+      const entry = cookieStore.get(url);
+      if (!entry) return "";
+      if (entry._timestamp && Date.now() - entry._timestamp > 30 * 60 * 1000) {
+        cookieStore.delete(url);
+        return "";
+      }
+      return entry.value || "";
+    },
+    setCookie: (url, cookie) => cookieStore.set(url, { value: cookie, _timestamp: Date.now() }),
     removeCookie: (url) => cookieStore.delete(url),
   };
 }
 
 function createCacheShim() {
   return {
-    get: (key) => cacheStore.get(key) || "",
-    put: (key, value) => cacheStore.set(key, value),
+    get: (key) => {
+      const entry = cacheStore.get(key);
+      if (!entry) return "";
+      if (entry._timestamp && Date.now() - entry._timestamp > 30 * 60 * 1000) {
+        cacheStore.delete(key);
+        return "";
+      }
+      return entry.value || "";
+    },
+    put: (key, value) => cacheStore.set(key, { value, _timestamp: Date.now() }),
   };
 }
 
@@ -618,6 +615,169 @@ function createChapterShim(chapterData = {}) {
   };
 }
 
+function checkLoginState(source) {
+  const sourceUrl = source.bookSourceUrl || '';
+  const sourceVars = sourceVariables.get(sourceUrl);
+  const cookieEntry = cookieStore.get(sourceUrl);
+
+  const loginInfo = sourceVars?.get('_loginInfo');
+  const hasCookies = cookieEntry && cookieEntry.value;
+
+  let loginInfoParsed = null;
+  if (loginInfo) {
+    try {
+      loginInfoParsed = typeof loginInfo === 'string' ? JSON.parse(loginInfo) : loginInfo;
+    } catch {}
+  }
+
+  return {
+    hasLoginInfo: !!loginInfo,
+    hasCookies: !!hasCookies,
+    loginInfoPreview: loginInfo ? String(loginInfo).slice(0, 200) : '',
+    cookiePreview: hasCookies ? String(cookieEntry.value).slice(0, 200) : '',
+    isLoggedIn: !!(loginInfo || hasCookies),
+    parsed: loginInfoParsed,
+  };
+}
+
+function injectAuthIntoConfig(config, source) {
+  if (!config || !source) return config;
+
+  const newHeaders = { ...config.headers };
+  const sourceUrl = source.bookSourceUrl || '';
+
+  const cookieEntry = cookieStore.get(sourceUrl);
+  if (cookieEntry && cookieEntry.value) {
+    newHeaders['Cookie'] = cookieEntry.value;
+    try {
+      const urlObj = new URL(sourceUrl);
+      const domainCookies = [];
+      for (const [key, entry] of cookieStore) {
+        if (entry && entry.value && key !== sourceUrl) {
+          try {
+            const keyUrl = new URL(key);
+            if (keyUrl.hostname === urlObj.hostname || keyUrl.hostname.endsWith('.' + urlObj.hostname)) {
+              domainCookies.push(entry.value);
+            }
+          } catch {}
+        }
+      }
+      if (domainCookies.length > 0) {
+        newHeaders['Cookie'] = [cookieEntry.value, ...domainCookies].join('; ');
+      }
+    } catch {}
+  }
+
+  const sourceVars = sourceVariables.get(sourceUrl);
+  const loginInfo = sourceVars?.get('_loginInfo');
+  if (loginInfo) {
+    try {
+      const info = typeof loginInfo === 'string' ? JSON.parse(loginInfo) : loginInfo;
+      if (info.token) {
+        newHeaders['Authorization'] = info.token.startsWith('Bearer ') ? info.token : `Bearer ${info.token}`;
+      }
+      if (info.headers && typeof info.headers === 'object') {
+        Object.assign(newHeaders, info.headers);
+      }
+    } catch {}
+  }
+
+  return { ...config, headers: newHeaders };
+}
+
+function isAuthFailure(responseData, source) {
+  if (!responseData) return false;
+  if (typeof responseData !== 'string') return false;
+
+  if (responseData.length === 0) {
+    return false;
+  }
+
+  if (responseData.length < 2000) {
+    const lower = responseData.toLowerCase();
+    if (/请(先)?登录/.test(responseData)) return true;
+    if (/login\s*\(/.test(lower) && responseData.length < 500) return true;
+    if (/<form[^>]*login/.test(lower) && responseData.length < 800) return true;
+  }
+
+  try {
+    const parsed = JSON.parse(responseData);
+    const authCodes = [4001, 4005, 4006, 401, 403, 1001, 10001, -1];
+    if (authCodes.includes(parsed.code) || authCodes.includes(parsed.status)) {
+      return true;
+    }
+    if (parsed.msg && /(登录|认证|token|auth|expired|过期)/i.test(parsed.msg)) {
+      return true;
+    }
+    if (parsed.message && /(login|auth|token|expired)/i.test(parsed.message)) {
+      return true;
+    }
+  } catch {}
+
+  return false;
+}
+
+function persistAuthState(stateFile) {
+  try {
+    const fs = require('fs');
+    const state = {
+      sourceVariables: {},
+      cookieStore: {},
+      cacheStore: {},
+      savedAt: new Date().toISOString(),
+    };
+
+    for (const [key, vars] of sourceVariables) {
+      state.sourceVariables[key] = Object.fromEntries(vars);
+    }
+    for (const [key, entry] of cookieStore) {
+      state.cookieStore[key] = entry;
+    }
+    for (const [key, entry] of cacheStore) {
+      state.cacheStore[key] = entry;
+    }
+
+    fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+    console.log(`[AUTH-PERSIST] Saved to ${stateFile} (${Object.keys(state.sourceVariables).length} sources, ${Object.keys(state.cookieStore).length} cookies)`);
+    return true;
+  } catch (e) {
+    console.warn('[AUTH-PERSIST] Save failed:', e.message);
+    return false;
+  }
+}
+
+function restoreAuthState(stateFile) {
+  try {
+    const fs = require('fs');
+    if (!fs.existsSync(stateFile)) {
+      console.log('[AUTH-PERSIST] No saved state found');
+      return false;
+    }
+
+    const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+
+    for (const [key, vars] of Object.entries(state.sourceVariables || {})) {
+      const map = new Map(Object.entries(vars));
+      map._timestamp = Date.now();
+      sourceVariables.set(key, map);
+    }
+    for (const [key, entry] of Object.entries(state.cookieStore || {})) {
+      entry._timestamp = Date.now();
+      cookieStore.set(key, entry);
+    }
+    for (const [key, entry] of Object.entries(state.cacheStore || {})) {
+      entry._timestamp = Date.now();
+      cacheStore.set(key, entry);
+    }
+
+    console.log(`[AUTH-PERSIST] Restored from ${stateFile} (${Object.keys(state.sourceVariables).length} sources, saved at ${state.savedAt || 'unknown'})`);
+    return true;
+  } catch (e) {
+    console.warn('[AUTH-PERSIST] Restore failed:', e.message);
+    return false;
+  }
+}
+
 module.exports = {
   createJavaShim,
   createSourceShim,
@@ -625,6 +785,11 @@ module.exports = {
   createCacheShim,
   createBookShim,
   createChapterShim,
+  checkLoginState,
+  injectAuthIntoConfig,
+  isAuthFailure,
+  persistAuthState,
+  restoreAuthState,
   sourceVariables,
   cookieStore,
   cacheStore,

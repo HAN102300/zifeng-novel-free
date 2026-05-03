@@ -44,7 +44,6 @@ public class AuthService {
         return AuthResponse.builder()
                 .token(token)
                 .username(user.getUsername())
-                .nickname(user.getNickname())
                 .avatar(user.getAvatar())
                 .userId(user.getId())
                 .expiresAt(System.currentTimeMillis() + timeout * 1000)
@@ -64,7 +63,6 @@ public class AuthService {
                 .username(request.getUsername())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .email(request.getEmail())
-                .nickname(request.getNickname() != null ? request.getNickname() : request.getUsername())
                 .status(1)
                 .build();
 
@@ -75,7 +73,6 @@ public class AuthService {
         return AuthResponse.builder()
                 .token(token)
                 .username(user.getUsername())
-                .nickname(user.getNickname())
                 .avatar(user.getAvatar())
                 .userId(user.getId())
                 .expiresAt(System.currentTimeMillis() + 7200 * 1000)
@@ -87,9 +84,8 @@ public class AuthService {
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
     }
 
-    public User updateProfile(Long userId, String nickname, String avatar, String email) {
+    public User updateProfile(Long userId, String avatar, String email) {
         User user = getUserById(userId);
-        if (nickname != null) user.setNickname(nickname);
         if (avatar != null) user.setAvatar(avatar);
         if (email != null) user.setEmail(email);
         return userRepository.save(user);
@@ -136,7 +132,6 @@ public class AuthService {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .avatar(user.getAvatar())
-                .nickname(user.getNickname())
                 .status(user.getStatus())
                 .createdAt(user.getCreatedAt())
                 .lastLoginAt(user.getLastLoginAt())

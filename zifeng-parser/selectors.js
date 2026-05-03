@@ -78,6 +78,12 @@ function splitSelectorChain(rule) {
       continue;
     }
 
+    if (ch === '!' && depth === 0 && !inBracket) {
+      if (current.trim()) parts.push(current.trim());
+      current = '!';
+      continue;
+    }
+
     current += ch;
   }
   if (current.trim()) parts.push(current.trim());
@@ -212,6 +218,15 @@ function selectElements($, elements, seg, isFirst) {
   if (/^[a-zA-Z][a-zA-Z0-9]*$/.test(seg)) {
     return selectByLegadoTag($, elements, seg, isFirst);
   }
+  if (/^[a-zA-Z][\w.]*$/.test(seg) && !seg.startsWith('@')) {
+    const dotIdx = seg.indexOf('.');
+    if (dotIdx > 0) {
+      const tagName = seg.slice(0, dotIdx);
+      if (/^[a-zA-Z][a-zA-Z0-9]*$/.test(tagName)) {
+        return selectByLegadoTag($, elements, seg, isFirst);
+      }
+    }
+  }
   return selectByCss($, elements, seg);
 }
 
@@ -225,7 +240,7 @@ function selectByCss($, elements, selector) {
       cssSel = cssSel.replace(/:contains\((?:"[^"]*"|'[^']*'|[^)'"]+)\)/g, '');
     }
     cssSel = cssSel
-      .replace(/:eq\((\d+)\)/g, ':nth-child($1)')
+      .replace(/:eq\((\d+)\)/g, (_, n) => ':nth-child(' + (parseInt(n) + 1) + ')')
       .replace(/:first/i, ':first-child')
       .replace(/:last/i, ':last-child');
     let found = elements.find(cssSel);
@@ -591,7 +606,14 @@ function isLegadoSelector(rule) {
   if (rule.startsWith('@css:')) return true;
   if (rule.startsWith('@XPath:') || rule.startsWith('@xpath:')) return true;
   if (/^(class\.|tag\.|id\.|attr\.)/.test(rule)) return true;
-  if (rule.includes('@text') || rule.includes('@html') || rule.includes('@src') || rule.includes('@href') || rule.includes('@all') || rule.includes('@data-')) return true;
+  if (rule.includes('@text') || rule.includes('@html') || rule.includes('@src') || rule.includes('@href') || rule.includes('@all') || rule.includes('@data-') || rule.includes('@textNodes') || rule.includes('@ownText')) return true;
+  if (rule.includes('@') && !rule.includes('<js>') && !rule.includes('@js:') && !rule.startsWith('$.')) {
+    const segs = rule.split('@');
+    if (segs.length >= 2) {
+      const first = segs[0].trim();
+      if (/^(class\.|tag\.|id\.|attr\.|\.|#|[a-zA-Z])/.test(first)) return true;
+    }
+  }
   if (/^\.[\w-]+/.test(rule) && !rule.startsWith('$.') && !rule.startsWith('$..')) return true;
   if (rule.startsWith('#')) return true;
   if (rule.startsWith('[') && rule.includes(']@')) return true;

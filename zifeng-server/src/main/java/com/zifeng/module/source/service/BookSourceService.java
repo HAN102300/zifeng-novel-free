@@ -41,8 +41,8 @@ public class BookSourceService {
     }
 
     public BookSource addSource(Long userId, Map<String, Object> sourceData) {
-        String sourceUrl = (String) sourceData.get("bookSourceUrl");
-        if (sourceUrl == null) {
+        String sourceUrl = toStringSafe(sourceData.get("bookSourceUrl"));
+        if (sourceUrl == null || sourceUrl.isBlank()) {
             throw new RuntimeException("bookSourceUrl 不能为空");
         }
 
@@ -102,28 +102,54 @@ public class BookSourceService {
     }
 
     private void updateSourceFromMap(BookSource source, Map<String, Object> data) {
-        if (data.get("bookSourceName") != null) source.setBookSourceName((String) data.get("bookSourceName"));
-        if (data.get("bookSourceUrl") != null) source.setBookSourceUrl((String) data.get("bookSourceUrl"));
-        if (data.get("bookSourceGroup") != null) source.setBookSourceGroup((String) data.get("bookSourceGroup"));
-        if (data.get("bookSourceType") != null) source.setBookSourceType(((Number) data.get("bookSourceType")).intValue());
-        if (data.get("enabled") != null) source.setEnabled((Boolean) data.get("enabled"));
-        if (data.get("header") != null) source.setHeader((String) data.get("header"));
-        if (data.get("searchUrl") != null) source.setSearchUrl((String) data.get("searchUrl"));
-        if (data.get("exploreUrl") != null) source.setExploreUrl((String) data.get("exploreUrl"));
-        if (data.get("loginUrl") != null) source.setLoginUrl((String) data.get("loginUrl"));
-        if (data.get("loginUi") != null) source.setLoginUi((String) data.get("loginUi"));
-        if (data.get("jsLib") != null) source.setJsLib((String) data.get("jsLib"));
-        if (data.get("customOrder") != null) source.setCustomOrder(((Number) data.get("customOrder")).intValue());
-        if (data.get("weight") != null) source.setWeight(((Number) data.get("weight")).intValue());
-        if (data.get("enabledCookieJar") != null) source.setEnabledCookieJar((Boolean) data.get("enabledCookieJar"));
-        if (data.get("concurrentRate") != null) source.setConcurrentRate((String) data.get("concurrentRate"));
-        if (data.get("respondTime") != null) source.setRespondTime(((Number) data.get("respondTime")).intValue());
+        if (data.get("bookSourceName") != null) source.setBookSourceName(toStringSafe(data.get("bookSourceName")));
+        if (data.get("bookSourceUrl") != null) source.setBookSourceUrl(toStringSafe(data.get("bookSourceUrl")));
+        if (data.get("bookSourceGroup") != null) source.setBookSourceGroup(toStringSafe(data.get("bookSourceGroup")));
+        if (data.get("bookSourceType") != null) source.setBookSourceType(toIntSafe(data.get("bookSourceType")));
+        if (data.get("enabled") != null) source.setEnabled(toBooleanSafe(data.get("enabled")));
+        if (data.get("header") != null) source.setHeader(serializeRule(data.get("header")));
+        if (data.get("searchUrl") != null) source.setSearchUrl(toStringSafe(data.get("searchUrl")));
+        if (data.get("exploreUrl") != null) source.setExploreUrl(toStringSafe(data.get("exploreUrl")));
+        if (data.get("loginUrl") != null) source.setLoginUrl(toStringSafe(data.get("loginUrl")));
+        if (data.get("loginUi") != null) source.setLoginUi(serializeRule(data.get("loginUi")));
+        if (data.get("jsLib") != null) source.setJsLib(toStringSafe(data.get("jsLib")));
+        if (data.get("customOrder") != null) source.setCustomOrder(toIntSafe(data.get("customOrder")));
+        if (data.get("weight") != null) source.setWeight(toIntSafe(data.get("weight")));
+        if (data.get("enabledCookieJar") != null) source.setEnabledCookieJar(toBooleanSafe(data.get("enabledCookieJar")));
+        if (data.get("concurrentRate") != null) source.setConcurrentRate(toStringSafe(data.get("concurrentRate")));
+        if (data.get("respondTime") != null) source.setRespondTime(toIntSafe(data.get("respondTime")));
 
         if (data.get("ruleSearch") != null) source.setRuleSearch(serializeRule(data.get("ruleSearch")));
         if (data.get("ruleBookInfo") != null) source.setRuleBookInfo(serializeRule(data.get("ruleBookInfo")));
         if (data.get("ruleToc") != null) source.setRuleToc(serializeRule(data.get("ruleToc")));
         if (data.get("ruleContent") != null) source.setRuleContent(serializeRule(data.get("ruleContent")));
         if (data.get("ruleExplore") != null) source.setRuleExplore(serializeRule(data.get("ruleExplore")));
+    }
+
+    private String toStringSafe(Object value) {
+        if (value == null) return null;
+        if (value instanceof String) return (String) value;
+        if (value instanceof List) {
+            StringBuilder sb = new StringBuilder();
+            for (Object item : (List<?>) value) {
+                if (sb.length() > 0) sb.append(",");
+                if (item != null) sb.append(item.toString());
+            }
+            return sb.toString();
+        }
+        return value.toString();
+    }
+
+    private int toIntSafe(Object value) {
+        if (value == null) return 0;
+        if (value instanceof Number) return ((Number) value).intValue();
+        try { return Integer.parseInt(value.toString()); } catch (NumberFormatException e) { return 0; }
+    }
+
+    private boolean toBooleanSafe(Object value) {
+        if (value == null) return false;
+        if (value instanceof Boolean) return (Boolean) value;
+        return "true".equalsIgnoreCase(value.toString());
     }
 
     private String serializeRule(Object rule) {
@@ -137,7 +163,7 @@ public class BookSourceService {
     }
 
     public BookSource updateSource(Long userId, Map<String, Object> sourceData) {
-        String url = (String) sourceData.get("bookSourceUrl");
+        String url = toStringSafe(sourceData.get("bookSourceUrl"));
         if (url == null || url.isBlank()) {
             throw new RuntimeException("书源地址不能为空");
         }
