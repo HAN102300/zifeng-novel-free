@@ -47,7 +47,7 @@ public class BookSource {
     @Column(name = "header", columnDefinition = "TEXT")
     private String header;
 
-    @Column(name = "search_url", length = 1000)
+    @Column(name = "search_url", columnDefinition = "TEXT")
     private String searchUrl;
 
     @Column(name = "explore_url", columnDefinition = "TEXT")

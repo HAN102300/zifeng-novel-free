@@ -4,10 +4,11 @@ import {
   PlusOutlined, ImportOutlined, DeleteOutlined, ReloadOutlined,
   ThunderboltOutlined, CloudOutlined, CheckCircleOutlined,
   CloseCircleOutlined, EditOutlined, LinkOutlined, ExportOutlined,
+  LoginOutlined,
 } from '@ant-design/icons';
 import {
   getAdminSources, deleteAdminSource, updateAdminSource,
-  createAdminSource, testSource, loginSource,
+  createAdminSource, testSource, loginSource, browserLogin,
   importAdminSources, importFromUrl,
 } from '../../utils/adminApi';
 import { detectSourceType } from '../../utils/bookSourceManager';
@@ -170,34 +171,129 @@ const SourceList = () => {
 
   const handleLoginRequired = (record) => {
     const loginUrl = (record.loginUrl || '').trim();
-    if (!loginUrl) {
-      message.warning('该书源未配置登录地址');
+    const loginUi = record.loginUi || '';
+    const hasLoginUi = !!loginUi && loginUi !== '{}' && loginUi !== '[]' && loginUi !== '""';
+
+    if (!loginUrl && !hasLoginUi) {
+      message.warning('该书源未配置登录信息');
       return;
     }
-    const isHttpLogin = /^https?:\/\//i.test(loginUrl);
+
+    const isHttpLogin = loginUrl && /^https?:\/\//i.test(loginUrl);
+    const isScriptLogin = loginUrl && !isHttpLogin;
+
+    let loginUiFields = [];
+    if (hasLoginUi) {
+      try {
+        let uiData = loginUi;
+        if (typeof uiData === 'string') {
+          try { uiData = JSON.parse(uiData); } catch {}
+        }
+        if (Array.isArray(uiData)) {
+          loginUiFields = uiData;
+        } else if (uiData && typeof uiData === 'object') {
+          loginUiFields = Array.isArray(uiData.fields) ? uiData.fields : [uiData];
+        }
+      } catch {}
+    }
+
+    const hasFormFields = loginUiFields.length > 0;
+
     if (isHttpLogin) {
       Modal.confirm({
         title: '需要浏览器登录',
-        content: <div><p>书源「{record.bookSourceName}」需要通过浏览器完成登录。</p><Input.TextArea value={loginUrl} readOnly rows={2} style={{ marginTop: 8 }} /></div>,
-        okText: '打开登录页面', cancelText: '取消',
-        onOk: () => {
+        width: 520,
+        content: (
+          <div>
+            <p>书源「{record.bookSourceName}」需要通过浏览器完成登录。</p>
+            <Input.TextArea value={loginUrl} readOnly rows={2} style={{ marginTop: 8, fontSize: 12 }} />
+            <div style={{ marginTop: 12 }}>
+              <p style={{ fontWeight: 500, marginBottom: 4 }}>选择登录方式：</p>
+              <p>• <strong>Puppeteer 浏览器</strong>：在服务器端打开浏览器窗口，自动获取 Cookie</p>
+              <p>• <strong>本地浏览器</strong>：在本地打开浏览器标签页，手动操作</p>
+            </div>
+          </div>
+        ),
+        okText: 'Puppeteer 登录',
+        cancelText: '本地浏览器',
+        onOk: async () => {
+          try {
+            const res = await browserLogin(record);
+            if (res.data?.success) {
+              message.success('浏览器已打开，请完成登录后关闭窗口，然后重新测活');
+            } else {
+              message.error(res.data?.message || '浏览器登录启动失败');
+            }
+          } catch {
+            message.error('浏览器登录请求失败，请检查解析引擎是否运行');
+          }
+        },
+        onCancel: () => {
           try {
             const win = window.open(loginUrl, '_blank', 'noopener,noreferrer');
             if (!win || win.closed) {
-              message.warning('浏览器已阻止弹窗，请允许弹窗后重试或手动复制地址访问');
+              message.warning('浏览器已阻止弹窗，请允许弹窗后重试');
             } else {
               message.info('请在浏览器中完成登录后，重新测活验证');
             }
           } catch {
-            message.warning('浏览器已阻止弹窗，请允许弹窗后重试或手动复制地址访问');
+            message.warning('浏览器已阻止弹窗，请允许弹窗后重试');
           }
         },
       });
-    } else {
+    } else if (isScriptLogin) {
       Modal.confirm({
         title: '需要执行登录脚本',
-        content: <div><p>书源「{record.bookSourceName}」包含登录脚本，是否执行？</p></div>,
+        content: (
+          <div>
+            <p>书源「{record.bookSourceName}」包含登录脚本，是否执行？</p>
+            {hasFormFields && (
+              <div style={{ marginTop: 8 }}>
+                <p style={{ fontWeight: 500 }}>登录表单参数：</p>
+                {loginUiFields.map((field, idx) => (
+                  <div key={idx} style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                    {field.name || field.label || `字段${idx + 1}`}: {field.type || 'text'}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ),
         okText: '执行登录', cancelText: '取消',
+        onOk: async () => {
+          try {
+            const loginRes = await loginSource(record, 'login');
+            if (loginRes.data?.success) { message.success(`${record.bookSourceName}: 登录成功`); handleTest(record); }
+            else { message.error(`${record.bookSourceName}: 登录失败 - ${loginRes.data?.message || '未知错误'}`); }
+          } catch { message.error(`${record.bookSourceName}: 登录请求失败`); }
+        },
+      });
+    } else if (hasFormFields) {
+      Modal.info({
+        title: '登录界面参数',
+        width: 520,
+        content: (
+          <div>
+            <p>书源「{record.bookSourceName}」配置了登录界面参数：</p>
+            <div style={{ marginTop: 8 }}>
+              {loginUiFields.map((field, idx) => {
+                const name = field.name || field.label || `字段${idx + 1}`;
+                const type = field.type || 'text';
+                const placeholder = field.placeholder || field.hint || '';
+                return (
+                  <div key={idx} style={{ marginBottom: 8, padding: '4px 8px', background: '#f5f5f5', borderRadius: 4 }}>
+                    <span style={{ fontWeight: 500 }}>{name}</span>
+                    <span style={{ marginLeft: 8, color: '#999', fontSize: 12 }}>({type})</span>
+                    {placeholder && <div style={{ fontSize: 12, color: '#999' }}>提示: {placeholder}</div>}
+                    {field.url && <div style={{ fontSize: 12, color: '#1890ff', wordBreak: 'break-all' }}>URL: {field.url}</div>}
+                  </div>
+                );
+              })}
+            </div>
+            <p style={{ marginTop: 12, color: '#999', fontSize: 12 }}>该登录界面需要通过脚本登录执行，请点击下方按钮执行登录</p>
+          </div>
+        ),
+        okText: '执行登录',
         onOk: async () => {
           try {
             const loginRes = await loginSource(record, 'login');
@@ -305,14 +401,20 @@ const SourceList = () => {
     { title: '类型', dataIndex: 'bookSourceType', key: 'bookSourceType', width: 80, render: (val, record) => { const detectedType = detectSourceType(record); const info = SOURCE_TYPE_MAP[detectedType] || { color: 'default', label: '未知' }; return <Tag color={info.color}>{info.label}</Tag>; } },
     { title: '启用', dataIndex: 'enabled', key: 'enabled', width: 70, render: (val, record) => <Switch size="small" checked={val} onChange={() => handleToggleEnabled(record)} /> },
     {
-      title: '操作', key: 'actions', width: 160, fixed: 'right',
+      title: '操作', key: 'actions', width: 200, fixed: 'right',
       render: (_, record) => {
         const testStatus = testingIds[record.id];
+        const hasLogin = !!(record.loginUrl || (record.loginUi && record.loginUi !== '{}' && record.loginUi !== '[]' && record.loginUi !== '""'));
         return (
           <Space size={4}>
             <Tooltip title={testStatus === 'loading' ? '测试中...' : testStatus === 'login' ? '需要登录' : '测试书源'}>
               <Button type="text" size="small" icon={testStatus === 'loading' ? <CloudOutlined spin /> : testStatus === 'success' ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : testStatus === 'fail' ? <CloseCircleOutlined style={{ color: '#ff4d4f' }} /> : testStatus === 'login' ? <LinkOutlined style={{ color: '#faad14' }} /> : <ThunderboltOutlined />} onClick={() => handleTest(record)} />
             </Tooltip>
+            {hasLogin && (
+              <Tooltip title="登录">
+                <Button type="text" size="small" icon={<LoginOutlined style={{ color: '#1890ff' }} />} onClick={() => handleLoginRequired(record)} />
+              </Tooltip>
+            )}
             <Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)} />
             <Popconfirm title="确定删除？" onConfirm={() => handleDelete(record.id)}>
               <Button type="text" size="small" danger icon={<DeleteOutlined />} />

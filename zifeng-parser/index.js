@@ -18,7 +18,7 @@ const { checkLoginState, injectAuthIntoConfig, isAuthFailure, persistAuthState, 
 
 const app = express();
 
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || "http://localhost:5173,http://localhost:3000").split(",");
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || "http://localhost:5173,http://localhost:3000,http://localhost:8088,http://127.0.0.1:8088").split(",");
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || ALLOWED_ORIGINS.includes(origin)) {
@@ -817,6 +817,104 @@ app.post("/api/login", async (req, res) => {
       message: `登录执行失败: ${e.message}`,
       errorType: "login",
     });
+  }
+});
+
+app.post("/api/browser-login", async (req, res) => {
+  const { source } = req.body;
+  if (!source || !source.bookSourceUrl) {
+    return res.status(400).json({ error: "Invalid source" });
+  }
+
+  const loginUrl = (source.loginUrl || '').trim();
+  if (!loginUrl) {
+    return res.json({ success: false, message: "该书源未配置登录地址" });
+  }
+
+  const isHttpLogin = /^https?:\/\//i.test(loginUrl);
+  if (!isHttpLogin) {
+    return res.json({ success: false, message: "登录地址不是HTTP URL，请使用脚本登录", isScript: true });
+  }
+
+  try {
+    const puppeteer = require("puppeteer");
+    const chromePaths = [
+      process.env.CHROME_PATH,
+      "C:/Program Files/Google/Chrome/Application/chrome.exe",
+      "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+      process.env.LOCALAPPDATA + "/Google/Chrome/Application/chrome.exe",
+      "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
+      "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+      process.env.LOCALAPPDATA + "/Microsoft/Edge/Application/msedge.exe",
+    ].filter(Boolean);
+
+    let executablePath = null;
+    const fs = require("fs");
+    for (const p of chromePaths) {
+      try { if (fs.existsSync(p)) { executablePath = p; break; } } catch {}
+    }
+
+    const browser = await puppeteer.launch({
+      headless: false,
+      executablePath,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--window-size=800,700",
+      ],
+      defaultViewport: { width: 780, height: 650 },
+    });
+
+    const page = await browser.newPage();
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    );
+
+    const sourceUrl = new URL(source.bookSourceUrl);
+    await page.setCookie({
+      name: "_placeholder",
+      value: "1",
+      domain: sourceUrl.hostname,
+      path: "/",
+    });
+
+    await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+
+    res.json({ success: true, message: "浏览器已打开，请完成登录后关闭窗口" });
+
+    browser.on("disconnected", async () => {
+      try {
+        const pages = await browser.pages();
+        for (const p of pages) {
+          const cookies = await p.cookies();
+          for (const c of cookies) {
+            cookieStore.set(c.name, { value: c.value, _timestamp: Date.now() });
+          }
+        }
+      } catch {}
+      try {
+        const state = checkLoginState(source);
+        console.log(`[BROWSER-LOGIN] Browser closed, isLoggedIn=${state.isLoggedIn}`);
+      } catch {}
+    });
+
+    setTimeout(async () => {
+      try {
+        if (browser.connected) {
+          const pages = await browser.pages();
+          for (const p of pages) {
+            const cookies = await p.cookies();
+            for (const c of cookies) {
+              cookieStore.set(c.name, { value: c.value, _timestamp: Date.now() });
+            }
+          }
+        }
+      } catch {}
+    }, 5000);
+
+  } catch (e) {
+    console.error(`[BROWSER-LOGIN ERROR] ${source.bookSourceName}:`, e.message);
+    res.json({ success: false, message: `浏览器启动失败: ${e.message}` });
   }
 });
 

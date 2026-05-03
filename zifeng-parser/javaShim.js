@@ -44,8 +44,23 @@ async function getBrowserInstance() {
   _browserLaunchPromise = (async () => {
     try {
       const puppeteer = require("puppeteer");
+      const chromePaths = [
+        process.env.CHROME_PATH,
+        "C:/Program Files/Google/Chrome/Application/chrome.exe",
+        "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+        process.env.LOCALAPPDATA + "/Google/Chrome/Application/chrome.exe",
+        "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
+        "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+        process.env.LOCALAPPDATA + "/Microsoft/Edge/Application/msedge.exe",
+      ].filter(Boolean);
+      let executablePath = null;
+      const fs = require("fs");
+      for (const p of chromePaths) {
+        try { if (fs.existsSync(p)) { executablePath = p; break; } } catch {}
+      }
       _browserInstance = await puppeteer.launch({
         headless: "new",
+        executablePath,
         args: [
           "--no-sandbox",
           "--disable-setuid-sandbox",

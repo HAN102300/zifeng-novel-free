@@ -179,6 +179,10 @@ export const checkLoginState = (source) => parserApi.post('/login', {
   mode: 'check',
 });
 
+export const browserLogin = (source) => parserApi.post('/browser-login', {
+  source: parseSourceRules(source),
+});
+
 export const importFromUrl = (url) => parserApi.get('/import-from-url', { params: { url } });
 
 export default adminApi;

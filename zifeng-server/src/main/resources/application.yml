@@ -1,5 +1,8 @@
 server:
   port: 8080
+  tomcat:
+    max-http-form-post-size: 50MB
+    max-swallow-size: 50MB
 
 logging:
   level:
@@ -21,8 +24,8 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 5MB
-      max-request-size: 10MB
+      max-file-size: 50MB
+    max-request-size: 50MB
   datasource:
     url: jdbc:mysql://localhost:3306/zifeng_novel?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: root
@@ -66,7 +69,7 @@ sa-token:
 
 app:
   cors:
-    allowed-origins: "http://localhost:3002,http://localhost:5173,http://127.0.0.1:3002,http://127.0.0.1:5173"
+    allowed-origins: "http://localhost:3002,http://localhost:5173,http://localhost:8088,http://127.0.0.1:3002,http://127.0.0.1:5173,http://127.0.0.1:8088"
     allowed-methods: "*"
     allowed-headers: "*"
   upload:

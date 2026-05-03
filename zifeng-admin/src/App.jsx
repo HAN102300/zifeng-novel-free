@@ -381,7 +381,7 @@ function App() {
   const currentThemeConfig = themeConfigs[currentTheme];
 
   return (
-    <Router>
+    <Router basename="/admin">
       <ConfigProvider
         getPopupContainer={() => document.body}
         theme={{

@@ -1157,6 +1157,22 @@ async function parseContent(source, responseData, context = {}, fetchFn = null) 
 }
 
 async function buildSearchConfig(source, keyword, page) {
+  if (source.variable && source.bookSourceUrl) {
+    const vars = sourceVariables.get(source.bookSourceUrl) || new Map();
+    const lines = String(source.variable).split(/[\n,;]+/);
+    for (const line of lines) {
+      const eqIdx = line.indexOf("=");
+      if (eqIdx > 0) {
+        const k = line.slice(0, eqIdx).trim();
+        const v = line.slice(eqIdx + 1).trim();
+        if (k) vars.set(k, v);
+      }
+    }
+    if (!sourceVariables.has(source.bookSourceUrl)) {
+      sourceVariables.set(source.bookSourceUrl, vars);
+    }
+  }
+
   let rawUrl = source.searchUrl || "";
   let method = "GET";
   let body = null;
@@ -1223,9 +1239,10 @@ async function buildSearchConfig(source, keyword, page) {
         .replace(/\{\{keyEncoded\}\}/g, encodeURIComponent(keyword))
         .replace(/\{\{keywordEncoded\}\}/g, encodeURIComponent(keyword))
         .replace(/\{\{page\}\}/g, String(page))
-        .replace(/\{\{\(([^)]+)\)\}\}/g, (_, expr) => {
+        .replace(/\{\{(.+?)\}\}/g, (_, content) => {
+          if (!content.startsWith('(')) return _;
           try {
-            const safeExpr = expr.replace(/\bpage\b/g, String(page)).replace(/\bkey\b/g, `"${keyword}"`);
+            const safeExpr = content.replace(/\bpage\b/g, String(page)).replace(/\bkey\b/g, `"${keyword}"`);
             if (!/^[\d\s+\-*/().]+$/.test(safeExpr.replace(/"[^"]*"/g, '0'))) return _;
             const result = Function.prototype.constructor.call(null, "return " + safeExpr)();
             return String(result);
@@ -1248,9 +1265,10 @@ async function buildSearchConfig(source, keyword, page) {
       .replace(/\{\{key\}\}/g, keyword.replace(/'/g, "\\'"))
       .replace(/\{\{keyword\}\}/g, keyword.replace(/'/g, "\\'"))
       .replace(/\{\{page\}\}/g, String(page))
-      .replace(/\{\{\(([^)]+)\)\}\}/g, (_, expr) => {
+      .replace(/\{\{(.+?)\}\}/g, (_, content) => {
+        if (!content.startsWith('(')) return _;
         try {
-          const safeExpr = expr.replace(/\bpage\b/g, String(page)).replace(/\bkey\b/g, `"${keyword}"`);
+          const safeExpr = content.replace(/\bpage\b/g, String(page)).replace(/\bkey\b/g, `"${keyword}"`);
           if (!/^[\d\s+\-*/().]+$/.test(safeExpr.replace(/"[^"]*"/g, '0'))) return _;
           const result = Function.prototype.constructor.call(null, "return " + safeExpr)();
           return String(result);
@@ -1366,8 +1384,15 @@ async function buildSearchConfig(source, keyword, page) {
     .replace(/\{\{keywordRaw\}\}/g, keyword)
     .replace(/\{\{keyEncoded\}\}/g, encodeURIComponent(keyword))
     .replace(/\{\{keywordEncoded\}\}/g, encodeURIComponent(keyword))
-    .replace(/\{\{\(page-1\)\}\}/g, String(page - 1))
-    .replace(/\{\{\(page\)\}\}/g, String(page));
+    .replace(/\{\{(.+?)\}\}/g, (_, content) => {
+      if (!content.startsWith('(')) return _;
+      try {
+        const safeExpr = content.replace(/\bpage\b/g, String(page)).replace(/\bkey\b/g, `"${keyword}"`);
+        if (!/^[\d\s+\-*/().]+$/.test(safeExpr.replace(/"[^"]*"/g, '0'))) return _;
+        const result = Function.prototype.constructor.call(null, "return " + safeExpr)();
+        return String(result);
+      } catch { return _; }
+    });
 
   url = url.replace(/\{\{java\.\w+\([^)]*\)\}\}/g, (match) => {
     try {
