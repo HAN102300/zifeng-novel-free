@@ -885,11 +885,18 @@ app.post("/api/browser-login", async (req, res) => {
     browser.on("disconnected", async () => {
       try {
         const pages = await browser.pages();
+        const domainCookies = [];
         for (const p of pages) {
           const cookies = await p.cookies();
           for (const c of cookies) {
             cookieStore.set(c.name, { value: c.value, _timestamp: Date.now() });
+            if (c.domain && (c.domain.includes(sourceUrl.hostname) || sourceUrl.hostname.includes(c.domain.replace(/^\./, '')))) {
+              domainCookies.push(`${c.name}=${c.value}`);
+            }
           }
+        }
+        if (domainCookies.length > 0) {
+          cookieStore.set(source.bookSourceUrl, { value: domainCookies.join('; '), _timestamp: Date.now() });
         }
       } catch {}
       try {
@@ -902,11 +909,18 @@ app.post("/api/browser-login", async (req, res) => {
       try {
         if (browser.connected) {
           const pages = await browser.pages();
+          const domainCookies = [];
           for (const p of pages) {
             const cookies = await p.cookies();
             for (const c of cookies) {
               cookieStore.set(c.name, { value: c.value, _timestamp: Date.now() });
+              if (c.domain && (c.domain.includes(sourceUrl.hostname) || sourceUrl.hostname.includes(c.domain.replace(/^\./, '')))) {
+                domainCookies.push(`${c.name}=${c.value}`);
+              }
             }
+          }
+          if (domainCookies.length > 0) {
+            cookieStore.set(source.bookSourceUrl, { value: domainCookies.join('; '), _timestamp: Date.now() });
           }
         }
       } catch {}

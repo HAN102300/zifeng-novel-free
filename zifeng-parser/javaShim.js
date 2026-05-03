@@ -173,8 +173,18 @@ function createJavaShim(baseUrl, sourceData = {}, requestContext = {}) {
         await new Promise((r) => setTimeout(r, 2000));
         const html = await page.content();
         const cookies = await page.cookies();
+        const domainCookies = [];
         for (const c of cookies) {
           cookieStore.set(c.name, { value: c.value, _timestamp: Date.now() });
+          try {
+            const urlObj = new URL(fullUrl);
+            if (c.domain && (c.domain.includes(urlObj.hostname) || urlObj.hostname.includes(c.domain.replace(/^\./, '')))) {
+              domainCookies.push(`${c.name}=${c.value}`);
+            }
+          } catch {}
+        }
+        if (domainCookies.length > 0 && baseUrl) {
+          cookieStore.set(baseUrl, { value: domainCookies.join('; '), _timestamp: Date.now() });
         }
         await page.close();
         return html;
@@ -638,6 +648,14 @@ function checkLoginState(source) {
   const loginInfo = sourceVars?.get('_loginInfo');
   const hasCookies = cookieEntry && cookieEntry.value;
 
+  let hasUserVars = false;
+  if (sourceVars) {
+    const systemKeys = new Set(['_timestamp', '_variable', '_loginInfo']);
+    for (const [k, v] of sourceVars) {
+      if (!systemKeys.has(k) && v) { hasUserVars = true; break; }
+    }
+  }
+
   let loginInfoParsed = null;
   if (loginInfo) {
     try {
@@ -648,9 +666,10 @@ function checkLoginState(source) {
   return {
     hasLoginInfo: !!loginInfo,
     hasCookies: !!hasCookies,
+    hasUserVars,
     loginInfoPreview: loginInfo ? String(loginInfo).slice(0, 200) : '',
     cookiePreview: hasCookies ? String(cookieEntry.value).slice(0, 200) : '',
-    isLoggedIn: !!(loginInfo || hasCookies),
+    isLoggedIn: !!(loginInfo || hasCookies || hasUserVars),
     parsed: loginInfoParsed,
   };
 }
