@@ -7,9 +7,9 @@ import {
   LoginOutlined,
 } from '@ant-design/icons';
 import {
-  getAdminSources, deleteAdminSource, updateAdminSource,
+  getAdminSourcesPaged, deleteAdminSource, updateAdminSource,
   createAdminSource, testSource, loginSource, browserLogin,
-  importAdminSources, importFromUrl,
+  importAdminSources, importFromUrl, batchDeleteAdminSources,
 } from '../../utils/adminApi';
 import { detectSourceType } from '../../utils/bookSourceManager';
 import { fadeInUp, cardHover, cardLeave } from '../../utils/animations';
@@ -134,17 +134,40 @@ const SourceList = () => {
   const [editingSource, setEditingSource] = useState(null);
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+  const [batchDeleting, setBatchDeleting] = useState(false);
   const tableRef = useRef(null);
+  const searchTimerRef = useRef(null);
 
   useEffect(() => { fetchSources(); }, []);
 
-  const fetchSources = async () => {
+  const fetchSources = async (page = pagination.current, size = pagination.pageSize, keyword = searchText) => {
     setLoading(true);
     try {
-      const res = await getAdminSources();
-      setSources(res.data?.data || []);
+      const res = await getAdminSourcesPaged(keyword, page, size);
+      const data = res.data?.data;
+      if (data) {
+        setSources(data.content || []);
+        setPagination({
+          current: data.currentPage || 1,
+          pageSize: data.size || 20,
+          total: data.totalElements || 0,
+        });
+      }
     } catch { message.error('获取书源列表失败'); }
     finally { setLoading(false); }
+  };
+
+  const handleSearch = (value) => {
+    setSearchText(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      fetchSources(1, pagination.pageSize, value);
+    }, 400);
+  };
+
+  const handleTableChange = (pag) => {
+    fetchSources(pag.current, pag.pageSize, searchText);
   };
 
   const handleTest = async (record) => {
@@ -309,7 +332,7 @@ const SourceList = () => {
     try {
       await deleteAdminSource(id);
       message.success('删除成功');
-      fetchSources();
+      fetchSources(pagination.current, pagination.pageSize, searchText);
     } catch { message.error('删除失败'); }
   };
 
@@ -317,7 +340,7 @@ const SourceList = () => {
     try {
       await updateAdminSource(record.id, { enabled: !record.enabled });
       message.success(record.enabled ? '已禁用' : '已启用');
-      fetchSources();
+      fetchSources(pagination.current, pagination.pageSize, searchText);
     } catch { message.error('操作失败'); }
   };
 
@@ -373,26 +396,26 @@ const SourceList = () => {
         message.success('创建成功');
       }
       setEditModalOpen(false);
-      fetchSources();
+      fetchSources(pagination.current, pagination.pageSize, searchText);
     } catch { message.error('操作失败'); }
     finally { setSubmitting(false); }
   };
 
   const handleBatchDelete = async () => {
     if (selectedRowKeys.length === 0) return;
+    setBatchDeleting(true);
     try {
-      for (const id of selectedRowKeys) { await deleteAdminSource(id); }
-      message.success(`已删除 ${selectedRowKeys.length} 个书源`);
+      const res = await batchDeleteAdminSources(selectedRowKeys);
+      const deleted = res.data?.data?.deleted || selectedRowKeys.length;
+      message.success(`已删除 ${deleted} 个书源`);
       setSelectedRowKeys([]);
-      fetchSources();
-    } catch { message.error('批量删除失败'); }
+      fetchSources(pagination.current, pagination.pageSize, searchText);
+    } catch {
+      message.error('批量删除失败');
+    } finally {
+      setBatchDeleting(false);
+    }
   };
-
-  const filteredSources = sources.filter(s =>
-    !searchText || s.bookSourceName?.toLowerCase().includes(searchText.toLowerCase()) ||
-    s.bookSourceUrl?.toLowerCase().includes(searchText.toLowerCase()) ||
-    s.bookSourceGroup?.toLowerCase().includes(searchText.toLowerCase())
-  );
 
   const columns = [
     { title: '名称', dataIndex: 'bookSourceName', key: 'bookSourceName', width: 160, ellipsis: true, render: (text) => <span style={{ fontWeight: 500 }}>{text}</span> },
@@ -430,14 +453,31 @@ const SourceList = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12, flexShrink: 0 }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>书源列表</h2>
         <Space wrap>
-          <Input.Search placeholder="搜索书源" allowClear value={searchText} onChange={(e) => setSearchText(e.target.value)} style={{ width: 200 }} />
+          <Input.Search placeholder="搜索书源" allowClear value={searchText} onChange={(e) => handleSearch(e.target.value)} onSearch={(v) => fetchSources(1, pagination.pageSize, v)} style={{ width: 200 }} />
           <Button type="primary" icon={<PlusOutlined />} onClick={openAddModal}>添加书源</Button>
-          <Button icon={<ReloadOutlined />} onClick={fetchSources}>刷新</Button>
-          {selectedRowKeys.length > 0 && <Button danger icon={<DeleteOutlined />} onClick={handleBatchDelete}>删除 ({selectedRowKeys.length})</Button>}
+          <Button icon={<ReloadOutlined />} onClick={() => fetchSources(pagination.current, pagination.pageSize, searchText)}>刷新</Button>
+          {selectedRowKeys.length > 0 && <Button danger icon={<DeleteOutlined />} loading={batchDeleting} onClick={handleBatchDelete}>删除 ({selectedRowKeys.length})</Button>}
         </Space>
       </div>
       <div ref={tableRef} style={{ borderRadius: 12, flex: 1, boxShadow: isDarkMode ? '0 2px 12px rgba(0,0,0,0.3)' : '0 2px 12px rgba(0,0,0,0.06)' }}>
-        <Table dataSource={filteredSources} columns={columns} rowKey="id" loading={loading} rowSelection={{ selectedRowKeys, onChange: setSelectedRowKeys }} style={{ background: isDarkMode ? '#141414' : '#fff', borderRadius: 12, overflow: 'hidden' }} scroll={{ x: 1040, y: 'calc(100vh - 64px - 48px - 55px - 56px - 32px)' }} />
+        <Table
+          dataSource={sources}
+          columns={columns}
+          rowKey="id"
+          loading={loading}
+          rowSelection={{ selectedRowKeys, onChange: setSelectedRowKeys }}
+          style={{ background: isDarkMode ? '#141414' : '#fff', borderRadius: 12, overflow: 'hidden' }}
+          scroll={{ x: 1040, y: 'calc(100vh - 64px - 48px - 55px - 56px - 32px)' }}
+          pagination={{
+            current: pagination.current,
+            pageSize: pagination.pageSize,
+            total: pagination.total,
+            showSizeChanger: true,
+            pageSizeOptions: ['20', '50', '100'],
+            showTotal: (total) => `共 ${total} 条记录`,
+          }}
+          onChange={handleTableChange}
+        />
       </div>
 
       <Modal title={editingSource ? '编辑书源' : '添加书源'} open={editModalOpen} onCancel={() => setEditModalOpen(false)} onOk={() => form.submit()} confirmLoading={submitting} width={780} destroyOnClose>

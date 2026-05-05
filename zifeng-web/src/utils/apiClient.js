@@ -26,23 +26,27 @@ backendAxios.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && !isLoggingOut) {
-      const msg = error.response?.data?.message || "";
-      const isTokenInvalid =
-        msg.includes("过期") ||
-        msg.includes("无效") ||
-        msg.includes("其他设备") ||
-        msg.includes("踢下线") ||
-        msg.includes("请先登录");
+      const hadToken = !!error.config?.headers?.["zifeng_token"];
+      if (hadToken) {
+        const msg = error.response?.data?.message || "";
+        const isTokenInvalid =
+          msg.includes("过期") ||
+          msg.includes("无效") ||
+          msg.includes("其他设备") ||
+          msg.includes("踢下线") ||
+          msg.includes("请先登录") ||
+          msg.includes("未提供登录凭证");
 
-      if (isTokenInvalid) {
-        isLoggingOut = true;
-        localStorage.removeItem("zifeng_token");
-        localStorage.removeItem("zifeng_user");
-        localStorage.removeItem("zifeng_token_expires");
-        window.dispatchEvent(new Event("auth-expired"));
-        setTimeout(() => {
-          isLoggingOut = false;
-        }, 3000);
+        if (isTokenInvalid) {
+          isLoggingOut = true;
+          localStorage.removeItem("zifeng_token");
+          localStorage.removeItem("zifeng_user");
+          localStorage.removeItem("zifeng_token_expires");
+          window.dispatchEvent(new Event("auth-expired"));
+          setTimeout(() => {
+            isLoggingOut = false;
+          }, 3000);
+        }
       }
     }
     return Promise.reject(error);

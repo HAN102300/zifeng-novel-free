@@ -236,13 +236,6 @@ public class AdminAuthService {
         long todayVisits = visitLogRepository.countByVisitDateBetween(todayStart, todayEnd);
         long totalIps = visitLogRepository.findDistinctIpsBetween(thirtyDaysAgo, todayEnd).size();
         long todayIps = visitLogRepository.findDistinctIpsBetween(todayStart, todayEnd).size();
-        long onlineUsers = 0;
-        try {
-            Set<String> keys = redisTemplate.keys("online:user:*");
-            if (keys != null) {
-                onlineUsers = keys.size();
-            }
-        } catch (Exception ignored) {}
         long totalUsers = userRepository.count();
         long totalBookshelfItems = bookshelfRepository.count();
         long totalReadingHistory = readingHistoryRepository.count();
@@ -322,13 +315,32 @@ public class AdminAuthService {
                 .todayVisits(todayVisits)
                 .totalIps(totalIps)
                 .todayIps(todayIps)
-                .onlineUsers(onlineUsers)
+                .onlineUsers(0)
                 .totalUsers(totalUsers)
                 .totalBookshelfItems(totalBookshelfItems)
                 .totalReadingHistory(totalReadingHistory)
                 .visitTrend(visitTrend)
                 .recentVisitLogs(recentVisitLogs)
                 .build();
+    }
+
+    public long getOnlineUsersCount() {
+        long count = 0;
+        try {
+            Set<String> userKeys = redisTemplate.keys("online:user:*");
+            if (userKeys != null) {
+                count += userKeys.size();
+            }
+            Set<String> visitorKeys = redisTemplate.keys("online:visitor:*");
+            if (visitorKeys != null) {
+                count += visitorKeys.size();
+            }
+        } catch (Exception e) {
+            try {
+                count = redisTemplate.getConnectionFactory().getConnection().dbSize();
+            } catch (Exception ignored) {}
+        }
+        return count;
     }
 
     public List<User> listUsers() {

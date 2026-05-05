@@ -143,6 +143,9 @@ const Shelf = () => {
           }
         } catch (error) {
           console.error('加载用户数据失败:', error);
+          if (error?.response?.status === 401) {
+            message.warning('登录已过期，请重新登录');
+          }
           if (!cancelled) {
             setFavoriteBooks([]);
             setReadingBooks([]);

@@ -45,6 +45,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
                             "/api/auth/reset-password",
                             "/api/sources/public/**",
                             "/api/user/avatars/**",
+                            "/api/user/heartbeat",
                             "/api/parse/**",
                             "/api/public/**"
                     )

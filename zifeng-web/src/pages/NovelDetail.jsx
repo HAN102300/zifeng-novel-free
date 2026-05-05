@@ -9,6 +9,7 @@ import { addToBookShelf, addToReadHistory, getUserInfo, getBookShelf } from '../
 import { getBookInfoAPI, getTocAPI, addToBookshelf as apiAddToBookshelf, checkBookInShelf } from '../utils/apiClient';
 import { getBookSources, getDefaultSource as getDefaultSourceFromManager } from '../utils/bookSourceManager';
 import { loadNovelCache, saveReaderCache, simpleHash, getDefaultSource, isDefaultSource } from '../utils/novelConfig';
+import { adaptBookInfo } from '../utils/bookAdapter';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -99,21 +100,22 @@ const NovelDetail = () => {
         }
 
         if (bookInfo) {
-          const coverUrl = cleanUrl(bookInfo.coverUrl || bookInfo.cover || '');
-          const tocUrl = cleanUrl(bookInfo.tocUrl || '');
+          const adapted = adaptBookInfo(bookInfo, { bookSourceUrl: effectiveSourceUrl, bookSourceName: source?.bookSourceName }) || {};
+          const coverUrl = cleanUrl(adapted.coverUrl || bookInfo.coverUrl || bookInfo.cover || '');
+          const tocUrl = cleanUrl(adapted.tocUrl || bookInfo.tocUrl || '');
           const mapped = {
-            novelId: bookInfo.id || bookInfo.novelId || novelId,
-            novelName: bookInfo.name || bookInfo.novelName || cachedBookData?.name || '',
-            authorName: bookInfo.author || bookInfo.authorName || cachedBookData?.author || '',
+            novelId: adapted.id || bookInfo.id || bookInfo.novelId || novelId,
+            novelName: adapted.name || cachedBookData?.name || '',
+            authorName: adapted.author || cachedBookData?.author || '',
             cover: coverUrl || cachedBookData?.cover || '',
-            summary: bookInfo.intro || bookInfo.summary || cachedBookData?.summary || '',
-            categoryNames: (bookInfo.kind || bookInfo.category) ? [{ className: bookInfo.kind || bookInfo.category }] : (cachedBookData?.category ? [{ className: cachedBookData.category }] : []),
-            averageScore: parseFloat(bookInfo.score) || cachedBookData?.score || 0,
+            summary: adapted.intro || cachedBookData?.summary || '',
+            categoryNames: adapted.kind ? [{ className: adapted.kind }] : (cachedBookData?.category ? [{ className: cachedBookData.category }] : []),
+            averageScore: parseFloat(adapted.score) || cachedBookData?.score || 0,
             tagNames: [],
-            wordNum: bookInfo.wordCount || '未知',
-            chapterNum: bookInfo.chapterCount || '未知',
-            lastUpdatedAt: bookInfo.lastUpdateTime || '未知',
-            lastChapter: bookInfo.lastChapter ? { chapterName: bookInfo.lastChapter } : null,
+            wordNum: adapted.wordCount || '未知',
+            chapterNum: adapted.chapterCount || bookInfo.chapterCount || '未知',
+            lastUpdatedAt: adapted.updateTime || bookInfo.lastUpdateTime || '未知',
+            lastChapter: adapted.lastChapter ? { chapterName: adapted.lastChapter } : null,
             _tocUrl: tocUrl || effectiveBookUrl,
             _sourceUrl: effectiveSourceUrl,
           };

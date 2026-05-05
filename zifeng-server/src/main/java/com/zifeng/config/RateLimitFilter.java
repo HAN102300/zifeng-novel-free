@@ -25,9 +25,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
-    private static final int GLOBAL_LIMIT = 100;
+    private static final int GLOBAL_LIMIT = 300;
     private static final int GLOBAL_WINDOW_SEC = 60;
-    private static final int API_LIMIT = 30;
+    private static final int API_LIMIT = 60;
     private static final int API_WINDOW_SEC = 60;
     private static final int AUTH_LIMIT = 5;
     private static final int AUTH_WINDOW_SEC = 60;
@@ -42,6 +42,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String uri = request.getRequestURI();
         if (!uri.startsWith("/api/")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if (isWhitelistedEndpoint(uri)) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -79,6 +84,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private boolean isAuthEndpoint(String uri) {
         return AUTH_PREFIX.equals(uri) || ADMIN_AUTH_PREFIX.equals(uri);
+    }
+
+    private boolean isWhitelistedEndpoint(String uri) {
+        return uri.equals("/api/user/heartbeat")
+                || uri.startsWith("/api/sources/public/")
+                || uri.startsWith("/api/parse/")
+                || uri.startsWith("/api/public/");
     }
 
     private boolean tryRedisRateLimit(String key, int limit, int windowSec) {

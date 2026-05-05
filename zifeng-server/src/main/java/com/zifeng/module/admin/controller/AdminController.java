@@ -59,6 +59,12 @@ public class AdminController {
         return ApiResponse.ok(adminAuthService.getDashboardStats());
     }
 
+    @GetMapping("/dashboard/online")
+    public ApiResponse<Map<String, Object>> getOnlineUsers() {
+        long onlineUsers = adminAuthService.getOnlineUsersCount();
+        return ApiResponse.ok(Map.of("onlineUsers", onlineUsers));
+    }
+
     @GetMapping("/users")
     @Cacheable(value = "users", key = "#keyword ?: 'all'")
     public ApiResponse<List<User>> listUsers(@RequestParam(required = false) String keyword) {

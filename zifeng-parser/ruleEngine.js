@@ -10,6 +10,7 @@ const {
   sourceVariables,
 } = require("./javaShim");
 const { resolveUrl, parseHeaders, sleep, classifyError, createTTLMap, MAX_RETRIES, RETRY_DELAY_BASE } = require("./utils");
+const { AnalyzeRule } = require("./legadoEngine");
 
 const ruleVariables = createTTLMap(5 * 60 * 1000, 30 * 60 * 1000, 2000);
 
@@ -115,9 +116,12 @@ function findRecursive(data, fieldName) {
   return null;
 }
 
-function resolveTemplate(template, data) {
+function resolveTemplate(template, data, context = {}) {
   if (!template || typeof template !== "string") return template;
   if (!template.includes("{{")) return template;
+
+  const book = context.book || {};
+  const source = context.source || {};
 
   return template.replace(/\{\{([^}]+)\}\}/g, (match, expr) => {
     if (expr.startsWith("$")) {
@@ -126,6 +130,19 @@ function resolveTemplate(template, data) {
     }
     if (expr.startsWith("result")) {
       return data != null ? String(data) : "";
+    }
+    if (expr.startsWith("book.")) {
+      const prop = expr.slice(5);
+      const value = book[prop] != null ? book[prop] : (data && data[prop] != null ? data[prop] : "");
+      return String(value);
+    }
+    if (expr.startsWith("source.")) {
+      const prop = expr.slice(7);
+      const value = source[prop] != null ? source[prop] : "";
+      return String(value);
+    }
+    if (data && data[expr] != null) {
+      return String(data[expr]);
     }
     return match;
   });
@@ -618,7 +635,7 @@ async function resolveSingleRule(data, rule, context) {
   }
 
   if (rule.includes("{{")) {
-    return resolveTemplate(rule, data);
+    return resolveTemplate(rule, data, context);
   }
 
   if (rule.startsWith("@XPath:")) {
@@ -645,7 +662,88 @@ async function resolveSingleRule(data, rule, context) {
     return data[rule] || null;
   }
 
+  const legadoResult = resolveWithLegadoEngine(data, rule, context);
+  if (legadoResult != null) return legadoResult;
+
   return rule;
+}
+
+function resolveWithLegadoEngine(data, rule, context = {}) {
+  try {
+    const analyzer = new AnalyzeRule(context.book || null, context.source || null);
+    const content = data?._html || data?._text || data;
+    const baseUrl = context.baseUrl || context.source?.bookSourceUrl || "";
+    analyzer.setContent(content, baseUrl);
+
+    if (rule.startsWith("@@")) {
+      return analyzer.getString(rule.substring(2));
+    }
+
+    const result = analyzer.getString(rule, null, rule.includes("@href") || rule.includes("@src"));
+    if (result && result !== rule) return result;
+
+    const listResult = analyzer.getStringList(rule);
+    if (listResult && listResult.length > 0) {
+      return listResult.join("\n");
+    }
+
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function parseBookListWithLegado(source, htmlStr, rules, ctx) {
+  try {
+    const analyzer = new AnalyzeRule(ctx.book || null, source);
+    analyzer.setContent(htmlStr, source.bookSourceUrl);
+
+    const bookListRule = rules.bookList || "$.data";
+    const elements = analyzer.getElements(bookListRule);
+    if (!elements || elements.length === 0) return [];
+
+    const results = [];
+    const searchFields = ['name', 'author', 'kind', 'coverUrl', 'intro', 'bookUrl', 'lastChapter', 'wordCount'];
+    const parsed = {};
+
+    for (const el of elements) {
+      const book = {
+        sourceUrl: source.bookSourceUrl,
+        sourceName: source.bookSourceName,
+      };
+
+      const elAnalyzer = new AnalyzeRule(null, source);
+      const elContent = el._html || el._text || el;
+      elAnalyzer.setContent(elContent, source.bookSourceUrl);
+
+      for (const field of searchFields) {
+        if (!rules[field]) continue;
+        try {
+          const value = elAnalyzer.getString(rules[field], null, field === 'bookUrl' || field === 'coverUrl');
+          if (value) book[field] = value;
+        } catch {}
+      }
+
+      if (book.name) {
+        if (book.bookUrl) {
+          book.bookUrl = resolveUrl(source.bookSourceUrl, book.bookUrl);
+        }
+        if (book.coverUrl) {
+          book.coverUrl = resolveUrl(source.bookSourceUrl, book.coverUrl);
+        }
+        book.cover = book.coverUrl || book.cover || "";
+        book.summary = book.intro || book.summary || "";
+        book.category = book.kind || book.category || "";
+        book.wordNum = book.wordCount || book.wordNum || "";
+        book._sourceUrl = book.bookUrl;
+        results.push(book);
+      }
+    }
+
+    return results;
+  } catch (e) {
+    return [];
+  }
 }
 
 async function parseBookListFromRules(source, responseData, rules, context = {}) {
@@ -713,8 +811,15 @@ async function parseBookListFromRules(source, responseData, rules, context = {})
         bookList = [bookList];
       }
     } else {
+      const legadoBookList = parseBookListWithLegado(source, htmlStr, rules, ctx);
+      if (legadoBookList.length > 0) return legadoBookList;
       return [];
     }
+  }
+
+  if (Array.isArray(bookList) && bookList.length === 0) {
+    const legadoBookList = parseBookListWithLegado(source, htmlStr, rules, ctx);
+    if (legadoBookList.length > 0) return legadoBookList;
   }
 
   const results = [];
@@ -758,10 +863,13 @@ async function parseBookListFromRules(source, responseData, rules, context = {})
         rules.wordCount,
       );
     } else {
-      const searchFields = ['name', 'author', 'bookUrl', 'coverUrl', 'intro', 'kind', 'lastChapter', 'wordCount'];
+      const searchFields = ['name', 'author', 'kind', 'coverUrl', 'intro', 'bookUrl', 'lastChapter', 'wordCount'];
+      const parsed = {};
       for (const field of searchFields) {
         try {
-          const value = await resolveRuleValue(item, rules[field], ctx);
+          const fieldCtx = { ...ctx, book: { ...parsed, ...ctx.book } };
+          const value = await resolveRuleValue(item, rules[field], fieldCtx);
+          parsed[field] = value;
           if (field === 'name') name = value;
           else if (field === 'author') author = value;
           else if (field === 'bookUrl') bookUrl = value;
@@ -821,9 +929,17 @@ async function parseBookListFromRules(source, responseData, rules, context = {})
       id: bookUrl || Math.random().toString(36).slice(2),
       name: String(name),
       author: String(author),
+      bookUrl: bookUrl,
+      coverUrl: coverUrl,
+      intro: String(intro),
+      kind: String(kind),
+      lastChapter: String(lastChapter),
+      wordCount: String(wordCount),
+      sourceUrl: source.bookSourceUrl || '',
+      sourceName: source.bookSourceName || '',
+      _raw: item._isHtmlElement ? undefined : item,
       cover: coverUrl,
       summary: String(intro),
-      lastChapter: String(lastChapter),
       wordNum: String(wordCount),
       category: String(kind),
       _sourceUrl: bookUrl,
@@ -962,10 +1078,13 @@ async function parseBookInfo(source, responseData, context = {}) {
   }
 
   const bookInfo = {};
-  const fields = ['name', 'author', 'coverUrl', 'intro', 'kind', 'lastChapter', 'tocUrl', 'wordCount'];
+  const fields = ['name', 'author', 'kind', 'coverUrl', 'intro', 'lastChapter', 'tocUrl', 'wordCount'];
+  const parsed = {};
   for (const field of fields) {
     try {
-      bookInfo[field] = await resolveRuleValue(data, rules[field], ctx);
+      const fieldCtx = { ...ctx, book: { ...parsed, ...(ctx.book || {}) } };
+      bookInfo[field] = await resolveRuleValue(data, rules[field], fieldCtx);
+      parsed[field] = bookInfo[field];
     } catch (e) {
       console.error(`[PARSE ERROR] ruleBookInfo.${field} failed: rule="${rules[field]}", error="${e.message}"`);
       bookInfo[field] = '';

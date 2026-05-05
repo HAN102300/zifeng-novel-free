@@ -12,6 +12,7 @@ const {
   buildSearchConfig,
   getSourceCompatibility,
   executeJsRule,
+  resolveTemplate,
 } = require("./ruleEngine");
 const { resolveUrl, parseHeaders, sleep, isRetryableError, classifyError, createTTLMap, MAX_RETRIES, RETRY_DELAY_BASE } = require("./utils");
 const { checkLoginState, injectAuthIntoConfig, isAuthFailure, persistAuthState, restoreAuthState } = require("./javaShim");
@@ -1015,7 +1016,13 @@ app.post("/api/book-info", async (req, res) => {
       const headers = parseHeaders(source.header);
       let requestUrl = bookUrl;
       if (source.ruleBookInfo && source.ruleBookInfo.bookInfoUrl) {
-        requestUrl = source.ruleBookInfo.bookInfoUrl.replace('{{bookUrl}}', bookUrl);
+        const bookInfoUrlTemplate = source.ruleBookInfo.bookInfoUrl;
+        const templateData = { bookUrl, ...bookData };
+        const templateContext = { book: { ...bookData, bookUrl }, source };
+        requestUrl = resolveTemplate(bookInfoUrlTemplate, templateData, templateContext);
+        if (requestUrl.includes('{{')) {
+          requestUrl = requestUrl.replace(/\{\{bookUrl\}\}/g, bookUrl);
+        }
       }
       if (!requestUrl.startsWith('http')) {
         requestUrl = source.bookSourceUrl + (requestUrl.startsWith('/') ? '' : '/') + requestUrl;
@@ -1060,31 +1067,35 @@ app.post("/api/toc", async (req, res) => {
       const headers = parseHeaders(source.header);
       let requestUrl = tocUrl;
       if (source.ruleToc && source.ruleToc.chapterListUrl) {
-        let cleanTocUrl = tocUrl;
-        const chapterListUrl = source.ruleToc.chapterListUrl;
-        const templateMatch = chapterListUrl.match(/^(.*?)\{\{tocUrl\}\}(.*)$/);
-        if (templateMatch) {
-          const prefix = templateMatch[1];
-          const suffix = templateMatch[2];
-          if (cleanTocUrl.startsWith(prefix) && prefix.length > 0) {
-            cleanTocUrl = cleanTocUrl.substring(prefix.length);
-          } else if (cleanTocUrl.startsWith('/') && prefix.startsWith('/')) {
-            const prefixParts = prefix.replace(/^\/+/, '').split('/');
-            const tocParts = cleanTocUrl.replace(/^\/+/, '').split('/');
-            let skipCount = 0;
-            for (let i = 0; i < prefixParts.length && i < tocParts.length; i++) {
-              if (prefixParts[i] === tocParts[i]) {
-                skipCount = i + 1;
-              } else {
-                break;
+        const chapterListUrlTemplate = source.ruleToc.chapterListUrl;
+        const templateData = { tocUrl, ...book };
+        const templateContext = { book: { ...book, tocUrl }, source };
+        requestUrl = resolveTemplate(chapterListUrlTemplate, templateData, templateContext);
+        if (requestUrl.includes('{{tocUrl}}')) {
+          let cleanTocUrl = tocUrl;
+          const templateMatch = chapterListUrlTemplate.match(/^(.*?)\{\{tocUrl\}\}(.*)$/);
+          if (templateMatch) {
+            const prefix = templateMatch[1];
+            if (cleanTocUrl.startsWith(prefix) && prefix.length > 0) {
+              cleanTocUrl = cleanTocUrl.substring(prefix.length);
+            } else if (cleanTocUrl.startsWith('/') && prefix.startsWith('/')) {
+              const prefixParts = prefix.replace(/^\/+/, '').split('/');
+              const tocParts = cleanTocUrl.replace(/^\/+/, '').split('/');
+              let skipCount = 0;
+              for (let i = 0; i < prefixParts.length && i < tocParts.length; i++) {
+                if (prefixParts[i] === tocParts[i]) {
+                  skipCount = i + 1;
+                } else {
+                  break;
+                }
+              }
+              if (skipCount > 0) {
+                cleanTocUrl = '/' + tocParts.slice(skipCount).join('/');
               }
             }
-            if (skipCount > 0) {
-              cleanTocUrl = '/' + tocParts.slice(skipCount).join('/');
-            }
           }
+          requestUrl = requestUrl.replace(/\{\{tocUrl\}\}/g, cleanTocUrl);
         }
-        requestUrl = chapterListUrl.replace('{{tocUrl}}', cleanTocUrl);
       }
       if (!requestUrl.startsWith('http')) {
         requestUrl = resolveUrl(source.bookSourceUrl, requestUrl);

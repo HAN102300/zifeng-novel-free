@@ -82,6 +82,7 @@ export const getCaptcha = () => adminApi.get('/auth/captcha');
 export const adminLogin = (data) => adminApi.post('/auth/login', data);
 export const getAdminInfo = () => cachedGet(() => adminApi.get('/auth/info'), 'adminInfo');
 export const getDashboard = () => cachedGet(() => adminApi.get('/dashboard'), 'dashboard');
+export const getOnlineUsers = () => adminApi.get('/dashboard/online');
 export const getUsers = (keyword) => cachedGet(() => adminApi.get('/users', { params: { keyword } }), `users:${keyword || 'all'}`);
 export const banUser = (id) => adminApi.put(`/users/${id}/ban`).then(r => { clearCache('users:'); return r; });
 export const unbanUser = (id) => adminApi.put(`/users/${id}/unban`).then(r => { clearCache('users:'); return r; });
@@ -137,10 +138,13 @@ sourceApi.interceptors.response.use(
 );
 
 export const getAdminSources = (keyword) => cachedGet(() => sourceApi.get('/admin/all', { params: { keyword } }), `sources:${keyword || 'all'}`);
+export const getAdminSourcesPaged = (keyword, page = 1, size = 20) =>
+  sourceApi.get('/admin/paged', { params: { keyword: keyword || undefined, page, size } });
 export const getAdminSourceStats = () => cachedGet(() => sourceApi.get('/admin/count'), 'sourceStats');
 export const createAdminSource = (data) => sourceApi.post('/admin', data).then(r => { clearCache('sources:'); clearCache('sourceStats'); return r; });
 export const updateAdminSource = (id, data) => sourceApi.put(`/admin/${id}`, data).then(r => { clearCache('sources:'); clearCache('sourceStats'); return r; });
 export const deleteAdminSource = (id) => sourceApi.delete(`/admin/${id}`).then(r => { clearCache('sources:'); clearCache('sourceStats'); return r; });
+export const batchDeleteAdminSources = (ids) => sourceApi.delete('/admin/batch', { data: { ids } }).then(r => { clearCache('sources:'); clearCache('sourceStats'); return r; });
 export const importAdminSources = (data) => sourceApi.post('/admin/import', data).then(r => { clearCache('sources:'); clearCache('sourceStats'); return r; });
 
 const parserApi = axios.create({

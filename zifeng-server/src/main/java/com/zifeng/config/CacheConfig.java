@@ -12,27 +12,30 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
+import static java.util.Map.entry;
+
 @Configuration
 @EnableCaching
 public class CacheConfig {
 
-    private static final Map<String, Long> TTL_MAP = Map.of(
-            "dashboard", TimeUnit.MINUTES.toMillis(2),
-            "sourceList", TimeUnit.MINUTES.toMillis(3),
-            "sourceStats", TimeUnit.MINUTES.toMillis(5),
-            "sources", TimeUnit.MINUTES.toMillis(5),
-            "users", TimeUnit.MINUTES.toMillis(5),
-            "admins", TimeUnit.MINUTES.toMillis(5),
-            "bookshelf", TimeUnit.MINUTES.toMillis(3),
-            "readingHistory", TimeUnit.MINUTES.toMillis(3),
-            "userInfo", TimeUnit.MINUTES.toMillis(10),
-            "adminInfo", TimeUnit.MINUTES.toMillis(10)
+    private static final Map<String, Long> TTL_MAP = Map.ofEntries(
+            entry("dashboard", TimeUnit.MINUTES.toMillis(2)),
+            entry("sourceList", TimeUnit.MINUTES.toMillis(3)),
+            entry("sourceStats", TimeUnit.MINUTES.toMillis(5)),
+            entry("publicSources", TimeUnit.MINUTES.toMillis(5)),
+            entry("sources", TimeUnit.MINUTES.toMillis(5)),
+            entry("users", TimeUnit.MINUTES.toMillis(5)),
+            entry("admins", TimeUnit.MINUTES.toMillis(5)),
+            entry("bookshelf", TimeUnit.MINUTES.toMillis(3)),
+            entry("readingHistory", TimeUnit.MINUTES.toMillis(3)),
+            entry("userInfo", TimeUnit.MINUTES.toMillis(10)),
+            entry("adminInfo", TimeUnit.MINUTES.toMillis(10))
     );
 
     @Bean
     public CacheManager cacheManager() {
         return new ConcurrentMapCacheManager(
-                "dashboard", "sources", "sourceList", "sourceStats",
+                "dashboard", "sources", "sourceList", "sourceStats", "publicSources",
                 "users", "admins", "bookshelf", "readingHistory",
                 "userInfo", "adminInfo"
         ) {

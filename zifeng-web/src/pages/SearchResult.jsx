@@ -1,8 +1,8 @@
 import React, { useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, Typography, Space, Empty, Button, Tag, Spin, Segmented, Select } from 'antd';
-import { SearchOutlined, AppstoreOutlined, OrderedListOutlined, BookOutlined, LoadingOutlined, SwapOutlined } from '@ant-design/icons';
+import { Card, Typography, Space, Empty, Button, Tag, Spin, Segmented, Select, Progress } from 'antd';
+import { SearchOutlined, AppstoreOutlined, OrderedListOutlined, BookOutlined, LoadingOutlined, SwapOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import BackButton from '../components/BackButton';
 import SummaryText from '../components/SummaryText';
 import { ThemeContext } from '../App';
@@ -11,6 +11,7 @@ import {
 } from '../utils/bookSourceManager';
 import { searchBooksAPI, getAllEnabledSources } from '../utils/apiClient';
 import { saveNovelCache, simpleHash } from '../utils/novelConfig';
+import { adaptSearchResult } from '../utils/bookAdapter';
 
 const { Text } = Typography;
 
@@ -35,6 +36,14 @@ const SearchResult = () => {
   const [activeSource, setActiveSourceState] = useState(null);
   const [availableSources, setAvailableSources] = useState([]);
   const [sourcesLoaded, setSourcesLoaded] = useState(false);
+  const [searchProgress, setSearchProgress] = useState(0);
+  const [searchCancelled, setSearchCancelled] = useState(false);
+
+  const abortControllerRef = useRef(null);
+  const loadingMoreRef = useRef(false);
+  const hasMoreRef = useRef(true);
+  const pageRef = useRef(1);
+  const searchTimerRef = useRef(null);
 
   useEffect(() => {
     const loadSources = async () => {
@@ -43,15 +52,7 @@ const SearchResult = () => {
         const res = await getAllEnabledSources();
         const backendSources = res.data?.data;
         if (backendSources && backendSources.length > 0) {
-          const parsed = backendSources.map(s => {
-            const result = { ...s };
-            try { if (typeof s.ruleSearch === 'string') result.ruleSearch = JSON.parse(s.ruleSearch); } catch {}
-            try { if (typeof s.ruleBookInfo === 'string') result.ruleBookInfo = JSON.parse(s.ruleBookInfo); } catch {}
-            try { if (typeof s.ruleToc === 'string') result.ruleToc = JSON.parse(s.ruleToc); } catch {}
-            try { if (typeof s.ruleContent === 'string') result.ruleContent = JSON.parse(s.ruleContent); } catch {}
-            return result;
-          });
-          enabled = parsed.filter(s => s.enabled);
+          enabled = backendSources.filter(s => s.enabled);
         }
       } catch {}
 
@@ -105,24 +106,16 @@ const SearchResult = () => {
     loadSources();
   }, []);
 
-  const loadingMoreRef = useRef(false);
-  const hasMoreRef = useRef(true);
-  const pageRef = useRef(1);
-
-  const handleSourceChange = (url) => {
-    const source = availableSources.find(s => s.bookSourceUrl === url);
-    if (source) {
-      setActiveSourceState(source);
-      saveActiveSource(url);
-      setResults([]);
-      setPage(1);
-      pageRef.current = 1;
-      setHasMore(true);
-      hasMoreRef.current = true;
-      setAllLoaded(false);
-      fetchSearchResults(keyword, 1, false, source);
+  const cancelSearch = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
-  };
+    setSearchCancelled(true);
+    setLoading(false);
+    setLoadingMore(false);
+    loadingMoreRef.current = false;
+  }, []);
 
   const fetchSearchResults = useCallback(async (searchKeyword, pageNum, isLoadMore = false, sourceOverride = null) => {
     if (!searchKeyword.trim()) return;
@@ -135,7 +128,21 @@ const SearchResult = () => {
       loadingMoreRef.current = true;
       setLoadingMore(true);
     } else {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+      setSearchCancelled(false);
+      setSearchProgress(0);
       setLoading(true);
+
+      if (searchTimerRef.current) clearInterval(searchTimerRef.current);
+      let elapsed = 0;
+      searchTimerRef.current = setInterval(() => {
+        elapsed += 100;
+        const progress = Math.min(90, (elapsed / 15000) * 90);
+        setSearchProgress(progress);
+      }, 100);
     }
 
     try {
@@ -147,21 +154,31 @@ const SearchResult = () => {
           list = result.results || [];
         }
       } catch (e) {
-        console.warn('服务端搜索失败，尝试前端回退:', e.message);
+        if (e.name === 'AbortError' || e.code === 'ERR_CANCELED') {
+          return;
+        }
+        console.warn('搜索失败:', e.message);
       }
+
+      if (searchCancelled) return;
 
       if (list === null) {
         list = [];
       }
 
-      if (list.length > 0) {
+      const adapted = list.map(item => {
+        const unified = adaptSearchResult(item, source);
+        return unified || item;
+      });
+
+      if (adapted.length > 0) {
         if (isLoadMore) {
-          setResults(prev => [...prev, ...list]);
+          setResults(prev => [...prev, ...adapted]);
         } else {
-          setResults(list);
+          setResults(adapted);
         }
 
-        if (list.length < 10) {
+        if (adapted.length < 10) {
           setHasMore(false);
           hasMoreRef.current = false;
           setAllLoaded(true);
@@ -183,6 +200,7 @@ const SearchResult = () => {
         }
       }
     } catch (error) {
+      if (error.name === 'AbortError') return;
       console.error('搜索失败:', error);
       if (!isLoadMore) {
         setResults([]);
@@ -191,11 +209,17 @@ const SearchResult = () => {
       hasMoreRef.current = false;
       setAllLoaded(true);
     } finally {
+      if (searchTimerRef.current) {
+        clearInterval(searchTimerRef.current);
+        searchTimerRef.current = null;
+      }
       setLoading(false);
       setLoadingMore(false);
       loadingMoreRef.current = false;
+      setSearchProgress(100);
+      abortControllerRef.current = null;
     }
-  }, [activeSource]);
+  }, [activeSource, searchCancelled]);
 
   useEffect(() => {
     if (keyword && sourcesLoaded) {
@@ -207,7 +231,23 @@ const SearchResult = () => {
       setResults([]);
       fetchSearchResults(keyword, 1);
     }
-  }, [keyword, fetchSearchResults, sourcesLoaded]);
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [keyword, sourcesLoaded]);
+
+  useEffect(() => {
+    if (!activeSource || !keyword) return;
+    setPage(1);
+    pageRef.current = 1;
+    setHasMore(true);
+    hasMoreRef.current = true;
+    setAllLoaded(false);
+    setResults([]);
+    fetchSearchResults(keyword, 1);
+  }, [activeSource]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -229,6 +269,14 @@ const SearchResult = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [keyword, fetchSearchResults, allLoaded]);
 
+  const handleSourceChange = (url) => {
+    const source = availableSources.find(s => s.bookSourceUrl === url);
+    if (source) {
+      setActiveSourceState(source);
+      saveActiveSource(url);
+    }
+  };
+
   const toggleLayout = (val) => {
     setLayout(val);
     localStorage.setItem('search_layout', val);
@@ -237,7 +285,7 @@ const SearchResult = () => {
   const navigateToDetail = (book) => {
     if (!activeSource) return;
     const sourceUrl = activeSource.bookSourceUrl;
-    const bookUrl = book._sourceUrl || book.bookUrl || book.url || String(book.id || '');
+    const bookUrl = book.bookUrl || book._sourceUrl || book.url || String(book.id || '');
     saveNovelCache(book, sourceUrl, bookUrl);
 
     const searchQuery = new URLSearchParams();
@@ -251,6 +299,9 @@ const SearchResult = () => {
   };
 
   const handleBack = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
     navigate(-1);
   };
 
@@ -390,10 +441,29 @@ const SearchResult = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: 300, gap: 16 }}
+              style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: 300, gap: 16, padding: '40px 20px' }}
             >
               <Spin size="large" indicator={<LoadingOutlined style={{ fontSize: 32, color }} spin />} />
-              <Text style={{ color: isDarkMode ? '#888' : '#999' }}>正在搜索中...</Text>
+              <div style={{ width: 200 }}>
+                <Progress
+                  percent={Math.round(searchProgress)}
+                  showInfo={false}
+                  strokeColor={color}
+                  trailColor={isDarkMode ? '#333' : '#f0f0f0'}
+                  size="small"
+                />
+              </div>
+              <Text style={{ color: isDarkMode ? '#888' : '#999' }}>
+                正在从「{activeSource?.bookSourceName || '书源'}」搜索...
+              </Text>
+              <Button
+                type="text"
+                icon={<CloseCircleOutlined />}
+                onClick={cancelSearch}
+                style={{ color: isDarkMode ? '#888' : '#999' }}
+              >
+                取消搜索
+              </Button>
             </motion.div>
           ) : results.length > 0 ? (
             <motion.div
@@ -431,8 +501,9 @@ const SearchResult = () => {
                           }}>
                             <img
                               alt={book.name}
-                              src={book.cover || `https://placehold.co/90x120/${colors[index % colors.length].replace('#', '')}/white?text=${encodeURIComponent(book.name.slice(0, 2))}`}
+                              src={book.coverUrl || book.cover || `https://placehold.co/90x120/${colors[index % colors.length].replace('#', '')}/white?text=${encodeURIComponent(book.name.slice(0, 2))}`}
                               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              loading="lazy"
                             />
                             <div style={{
                               position: 'absolute',
@@ -459,13 +530,13 @@ const SearchResult = () => {
                               <Text style={{ fontSize: 14, display: 'block', marginBottom: 6, color: isDarkMode ? '#a0a0a0' : '#666' }}>
                                 {book.author}
                               </Text>
-                              {book.summary && <SummaryText text={book.summary} />}
+                              {(book.intro || book.summary) && <SummaryText text={book.intro || book.summary} />}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                {book.category && (
+                                {(book.kind || book.category) && (
                                   <Tag style={{ fontSize: 11, padding: '0 6px', lineHeight: '20px', borderRadius: 4, borderColor: `${color}40`, color }}>
-                                    {book.category}
+                                    {book.kind || book.category}
                                   </Tag>
                                 )}
                                 {book.lastChapter && (
@@ -519,13 +590,14 @@ const SearchResult = () => {
                         }}>
                           <img
                             alt={book.name}
-                            src={book.cover || `https://placehold.co/200x300/${colors[index % colors.length].replace('#', '')}/white?text=${encodeURIComponent(book.name.slice(0, 2))}`}
+                            src={book.coverUrl || book.cover || `https://placehold.co/200x300/${colors[index % colors.length].replace('#', '')}/white?text=${encodeURIComponent(book.name.slice(0, 2))}`}
                             style={{
                               width: '100%',
                               height: '100%',
                               objectFit: 'cover',
                               transition: 'transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)'
                             }}
+                            loading="lazy"
                             onMouseEnter={(e) => e.target.style.transform = 'scale(1.06)'}
                             onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
                           />
@@ -578,9 +650,9 @@ const SearchResult = () => {
                             {book.author}
                           </Text>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            {book.category ? (
+                            {(book.kind || book.category) ? (
                               <Tag style={{ fontSize: 11, padding: '0 6px', lineHeight: '18px', borderRadius: 4, borderColor: `${color}40`, color }}>
-                                {book.category}
+                                {book.kind || book.category}
                               </Tag>
                             ) : <span />}
                             <Tag icon={<BookOutlined />} color={color} style={{ fontSize: 10, padding: '0 6px', lineHeight: '18px', borderRadius: 4 }}>
@@ -651,7 +723,7 @@ const SearchResult = () => {
                         未找到与「{keyword}」相关的小说
                       </Text>
                       <Text style={{ fontSize: 13, color: isDarkMode ? '#888' : '#999' }}>
-                        试试换个关键词搜索吧
+                        试试换个关键词或切换书源搜索
                       </Text>
                     </Space>
                   }

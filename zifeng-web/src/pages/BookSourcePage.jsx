@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import React, { useState, useEffect, useContext, useRef, useMemo, useCallback } from 'react';
 import { Card, Typography, Space, Switch, Tag, List, Input, Empty, Badge, Tooltip, Spin, message, Button } from 'antd';
 import {
   SearchOutlined,
@@ -106,17 +106,8 @@ const BookSourcePage = () => {
         const res = await getAllEnabledSources();
         const backendSources = res.data?.data;
         if (backendSources && backendSources.length > 0) {
-          const parsed = backendSources.map(s => {
-            const p = { ...s };
-            ['ruleSearch', 'ruleBookInfo', 'ruleToc', 'ruleContent', 'ruleExplore'].forEach(key => {
-              if (typeof p[key] === 'string' && p[key]) {
-                try { p[key] = JSON.parse(p[key]); } catch {}
-              }
-            });
-            return p;
-          });
-          sources = parsed;
-          syncToLocal(parsed);
+          sources = backendSources;
+          syncToLocal(backendSources);
         } else {
           sources = getBookSources();
           if (sources.length > 0) {
@@ -162,20 +153,11 @@ const BookSourcePage = () => {
       const res = await getAllEnabledSources();
       const backendSources = res.data?.data;
       if (backendSources && backendSources.length > 0) {
-        const parsed = backendSources.map(s => {
-          const p = { ...s };
-          ['ruleSearch', 'ruleBookInfo', 'ruleToc', 'ruleContent', 'ruleExplore'].forEach(key => {
-            if (typeof p[key] === 'string' && p[key]) {
-              try { p[key] = JSON.parse(p[key]); } catch {}
-            }
-          });
-          return p;
-        });
-        setSources(parsed);
-        syncToLocal(parsed);
-        const activeUrl = resolveActiveUrl(parsed);
+        setSources(backendSources);
+        syncToLocal(backendSources);
+        const activeUrl = resolveActiveUrl(backendSources);
         setActiveSourceUrl(activeUrl);
-        message.success(`已从服务器同步 ${parsed.length} 个书源`);
+        message.success(`已从服务器同步 ${backendSources.length} 个书源`);
       } else {
         message.info('服务器暂无书源数据');
       }
@@ -209,17 +191,17 @@ const BookSourcePage = () => {
     message.info(enabled ? '已启用该书源，搜索时可使用' : '已禁用该书源，搜索时将跳过');
   };
 
-  const filteredSources = sources.filter(s => {
-    if (!searchText) return true;
+  const filteredSources = useMemo(() => {
+    if (!searchText) return sources;
     const q = searchText.toLowerCase();
-    return (
+    return sources.filter(s =>
       (s.bookSourceName || '').toLowerCase().includes(q) ||
       (s.bookSourceUrl || '').toLowerCase().includes(q) ||
       (s.bookSourceGroup || '').toLowerCase().includes(q)
     );
-  });
+  }, [sources, searchText]);
 
-  const enabledCount = sources.filter(s => s.enabled).length;
+  const enabledCount = useMemo(() => sources.filter(s => s.enabled).length, [sources]);
 
   const glassStyle = (extra = {}) => ({
     background: glassMode

@@ -601,13 +601,17 @@ function createBookShim(bookData = {}) {
   const proxy = {
     name: bookData.name || "",
     author: bookData.author || "",
-    bookUrl: bookData._sourceUrl || "",
-    coverUrl: bookData.cover || "",
-    intro: bookData.summary || "",
+    bookUrl: bookData.bookUrl || bookData._sourceUrl || "",
+    coverUrl: bookData.coverUrl || bookData.cover || "",
+    intro: bookData.intro || bookData.summary || "",
+    kind: bookData.kind || bookData.category || "",
+    wordCount: bookData.wordCount || bookData.wordNum || "",
+    lastChapter: bookData.lastChapter || "",
     tocUrl: bookData.tocUrl || "",
     durChapterIndex: bookData.durChapterIndex || 0,
     durChapterName: bookData.durChapterName || "",
     type: bookData.type || 0,
+    sourceUrl: bookData.sourceUrl || bookData._sourceUrl || "",
     getVariable: (key) => bookData._variables?.[key] || "",
     setVariable: (key, value) => {
       if (!bookData._variables) bookData._variables = {};

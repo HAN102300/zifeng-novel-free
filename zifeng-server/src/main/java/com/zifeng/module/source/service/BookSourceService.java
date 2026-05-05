@@ -5,6 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zifeng.module.source.entity.BookSource;
 import com.zifeng.module.source.repository.BookSourceRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -103,7 +107,10 @@ public class BookSourceService {
 
     private void updateSourceFromMap(BookSource source, Map<String, Object> data) {
         if (data.get("bookSourceName") != null) source.setBookSourceName(toStringSafe(data.get("bookSourceName")));
-        if (data.get("bookSourceUrl") != null) source.setBookSourceUrl(toStringSafe(data.get("bookSourceUrl")));
+        if (data.get("bookSourceUrl") != null) {
+            String url = toStringSafe(data.get("bookSourceUrl")).trim();
+            source.setBookSourceUrl(url);
+        }
         if (data.get("bookSourceGroup") != null) source.setBookSourceGroup(toStringSafe(data.get("bookSourceGroup")));
         if (data.get("bookSourceType") != null) source.setBookSourceType(toIntSafe(data.get("bookSourceType")));
         if (data.get("enabled") != null) source.setEnabled(toBooleanSafe(data.get("enabled")));
@@ -163,12 +170,34 @@ public class BookSourceService {
     }
 
     public BookSource updateSource(Long userId, Map<String, Object> sourceData) {
-        String url = toStringSafe(sourceData.get("bookSourceUrl"));
-        if (url == null || url.isBlank()) {
-            throw new RuntimeException("书源地址不能为空");
+        Object idObj = sourceData.get("id");
+        BookSource existing;
+        if (idObj != null) {
+            Long id = ((Number) idObj).longValue();
+            existing = bookSourceRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("书源不存在"));
+            if (!existing.getUserId().equals(userId)) {
+                throw new RuntimeException("无权修改此书源");
+            }
+        } else {
+            String url = toStringSafe(sourceData.get("bookSourceUrl"));
+            if (url == null || url.isBlank()) {
+                throw new RuntimeException("书源地址不能为空");
+            }
+            existing = bookSourceRepository.findByUserIdAndBookSourceUrl(userId, url)
+                    .orElseThrow(() -> new RuntimeException("书源不存在"));
         }
-        BookSource existing = bookSourceRepository.findByUserIdAndBookSourceUrl(userId, url)
-                .orElseThrow(() -> new RuntimeException("书源不存在"));
+
+        String newUrl = sourceData.get("bookSourceUrl") != null ? toStringSafe(sourceData.get("bookSourceUrl")).trim() : null;
+        if (newUrl != null && !newUrl.equals(existing.getBookSourceUrl())) {
+            bookSourceRepository.findByUserIdAndBookSourceUrl(userId, newUrl)
+                    .ifPresent(dup -> {
+                        if (!dup.getId().equals(existing.getId())) {
+                            throw new RuntimeException("书源URL已存在: " + newUrl);
+                        }
+                    });
+        }
+
         updateSourceFromMap(existing, sourceData);
         return bookSourceRepository.save(existing);
     }
@@ -196,6 +225,17 @@ public class BookSourceService {
     public BookSource adminUpdateSource(Long id, Map<String, Object> sourceData) {
         BookSource source = bookSourceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("书源不存在"));
+
+        String newUrl = sourceData.get("bookSourceUrl") != null ? toStringSafe(sourceData.get("bookSourceUrl")).trim() : null;
+        if (newUrl != null && !newUrl.equals(source.getBookSourceUrl())) {
+            bookSourceRepository.findByUserIdAndBookSourceUrl(source.getUserId(), newUrl)
+                    .ifPresent(existing -> {
+                        if (!existing.getId().equals(id)) {
+                            throw new RuntimeException("书源URL已存在: " + newUrl);
+                        }
+                    });
+        }
+
         updateSourceFromMap(source, sourceData);
         return bookSourceRepository.save(source);
     }
@@ -225,5 +265,20 @@ public class BookSourceService {
             throw new RuntimeException("书源地址不能为空");
         }
         return bookSourceRepository.save(source);
+    }
+
+    public Page<BookSource> adminListSourcesPaged(String keyword, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
+        if (keyword != null && !keyword.isBlank()) {
+            return bookSourceRepository.findByBookSourceNameContainingOrBookSourceUrlContaining(keyword, keyword, pageable);
+        }
+        return bookSourceRepository.findAll(pageable);
+    }
+
+    @Transactional
+    public long adminBatchDeleteSources(List<Long> ids) {
+        long count = ids.size();
+        bookSourceRepository.deleteAllByIdIn(ids);
+        return count;
     }
 }

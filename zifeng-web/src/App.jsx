@@ -281,6 +281,7 @@ function App() {
     const handleAuthExpired = () => {
       setIsLoggedIn(false);
       setUserInfo(null);
+      message.warning('登录已过期，请重新登录');
     };
     window.addEventListener('auth-expired', handleAuthExpired);
     return () => window.removeEventListener('auth-expired', handleAuthExpired);
@@ -315,12 +316,20 @@ function App() {
 
   useEffect(() => {
     let failCount = 0;
-    const interval = setInterval(async () => {
+    const sendHeartbeat = async () => {
+      try {
+        const token = localStorage.getItem('zifeng_token');
+        const headers = {};
+        if (token) headers['zifeng_token'] = token;
+        await axios.post('/api/user/heartbeat', null, { headers, timeout: 5000 });
+      } catch {}
+    };
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 120000);
+
+    const tokenCheckInterval = setInterval(async () => {
       const token = localStorage.getItem('zifeng_token');
       if (token) {
-        try {
-          await backendAxios.post('/user/heartbeat');
-        } catch {}
         try {
           const user = await getCurrentUser();
           if (user) {
@@ -331,7 +340,7 @@ function App() {
         } catch (e) {
           if (e.response?.status === 401) {
             const msg = e.response?.data?.message || "";
-            if (msg.includes("过期") || msg.includes("无效") || msg.includes("其他设备") || msg.includes("踢下线")) {
+            if (msg.includes("过期") || msg.includes("无效") || msg.includes("其他设备") || msg.includes("踢下线") || msg.includes("未提供登录凭证")) {
               localStorage.removeItem('zifeng_token');
               localStorage.removeItem('zifeng_user');
               localStorage.removeItem('zifeng_token_expires');
@@ -348,7 +357,10 @@ function App() {
       }
     }, 120000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearInterval(tokenCheckInterval);
+    };
   }, []);
 
   // 初始化数据
