@@ -214,7 +214,7 @@ const UserCenter = ({ setIsLoggedIn, setUserInfo }) => {
             overflow: 'hidden',
             background: isDarkMode ? '#141414' : '#ffffff'
           }}
-          bodyStyle={{ padding: 0 }}
+          styles={{ body: { padding: 0 } }}
         >
           <Row gutter={[24, 24]} style={{ padding: '32px 24px' }}>
             {/* 左侧：头像和基本信息 */}
@@ -274,7 +274,7 @@ const UserCenter = ({ setIsLoggedIn, setUserInfo }) => {
                     background: isDarkMode ? '#1e1e1e' : '#f9f9f9',
                     marginBottom: 24
                   }}
-                  bodyStyle={{ padding: 20 }}
+                  styles={{ body: { padding: 20 } }}
                 >
                   <Descriptions 
                     column={2} 

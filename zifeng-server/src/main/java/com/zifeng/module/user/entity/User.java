@@ -41,6 +41,13 @@ public class User {
     @Column(nullable = false)
     private Integer status = 1;
 
+    @Column(name = "user_level", length = 20)
+    @Builder.Default
+    private String userLevel = "normal";
+
+    @Column(name = "invite_code_id")
+    private Long inviteCodeId;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

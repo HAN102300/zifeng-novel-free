@@ -6,10 +6,10 @@ import { CheckOutlined } from '@ant-design/icons';
 import BackButton from '../components/BackButton';
 import { ThemeContext } from '../App';
 import { addToBookShelf, addToReadHistory, getUserInfo, getBookShelf } from '../utils/storage';
-import { getBookInfoAPI, getTocAPI, addToBookshelf as apiAddToBookshelf, checkBookInShelf } from '../utils/apiClient';
+import { getBookInfoAPI, getTocAPI, addToBookshelf as apiAddToBookshelf, checkBookInShelf, unifiedBookInfoAPI } from '../utils/apiClient';
 import { getBookSources, getDefaultSource as getDefaultSourceFromManager } from '../utils/bookSourceManager';
 import { loadNovelCache, saveReaderCache, simpleHash, getDefaultSource, isDefaultSource } from '../utils/novelConfig';
-import { adaptBookInfo } from '../utils/bookAdapter';
+import { adaptBookInfo, computeCompleteness } from '../utils/bookAdapter';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -29,6 +29,8 @@ const NovelDetail = () => {
   const [error, setError] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
   const [isInShelf, setIsInShelf] = useState(false);
+  const [fieldSources, setFieldSources] = useState({});
+  const [completeness, setCompleteness] = useState(0);
 
   const color = themeConfigs[currentTheme].colors[0];
 
@@ -91,11 +93,33 @@ const NovelDetail = () => {
           source = getDefaultSourceFromManager();
         }
 
-        let bookInfo;
+        let bookInfo = null;
+        let unifiedResult = null;
+        let sourceName = source?.bookSourceName || '';
+
         if (effectiveBookUrl && source) {
-          const result = await getBookInfoAPI(source, effectiveBookUrl, cachedBookData);
-          if (result.success && result.bookInfo) {
-            bookInfo = result.bookInfo;
+          try {
+            const unifiedRes = await unifiedBookInfoAPI(
+              source,
+              effectiveBookUrl,
+              cachedBookData
+            );
+            if (unifiedRes && unifiedRes.success !== false) {
+              unifiedResult = unifiedRes;
+              bookInfo = unifiedRes.bookInfo || unifiedRes;
+            } else {
+              const result = await getBookInfoAPI(source, effectiveBookUrl, cachedBookData);
+              if (result.success && result.bookInfo) {
+                bookInfo = result.bookInfo;
+              }
+            }
+          } catch {
+            try {
+              const result = await getBookInfoAPI(source, effectiveBookUrl, cachedBookData);
+              if (result.success && result.bookInfo) {
+                bookInfo = result.bookInfo;
+              }
+            } catch {}
           }
         }
 
@@ -112,14 +136,29 @@ const NovelDetail = () => {
             categoryNames: adapted.kind ? [{ className: adapted.kind }] : (cachedBookData?.category ? [{ className: cachedBookData.category }] : []),
             averageScore: parseFloat(adapted.score) || cachedBookData?.score || 0,
             tagNames: [],
-            wordNum: adapted.wordCount || '未知',
+            wordNum: adapted.wordCount || bookInfo.wordCount || '未知',
             chapterNum: adapted.chapterCount || bookInfo.chapterCount || '未知',
             lastUpdatedAt: adapted.updateTime || bookInfo.lastUpdateTime || '未知',
             lastChapter: adapted.lastChapter ? { chapterName: adapted.lastChapter } : null,
             _tocUrl: tocUrl || effectiveBookUrl,
             _sourceUrl: effectiveSourceUrl,
+            sourceName: sourceName || adapted.sourceName || bookInfo.sourceName,
+            availableSourceNames: unifiedResult?.availableSourceNames || bookInfo.availableSourceNames || [sourceName].filter(Boolean),
           };
           setNovel(mapped);
+
+          const comp = bookInfo.completeness || computeCompleteness(adapted);
+          setCompleteness(comp);
+
+          const sources = {};
+          if (unifiedResult?.availableSourceNames && unifiedResult.availableSourceNames.length > 1) {
+            sources.sourceName = unifiedResult.availableSourceNames.join(', ');
+          }
+          if (unifiedResult?.extra) {
+            if (unifiedResult.extra.coverUrl_source) sources.coverUrl = unifiedResult.extra.coverUrl_source;
+            if (unifiedResult.extra.intro_source) sources.intro = unifiedResult.extra.intro_source;
+          }
+          setFieldSources(sources);
         } else if (cachedBookData) {
           const mapped = {
             novelId: cachedBookData.id || novelId,
@@ -354,7 +393,7 @@ const NovelDetail = () => {
             overflow: 'hidden',
             background: isDarkMode ? '#141414' : '#ffffff',
           }}
-          bodyStyle={{ padding: 0 }}
+          styles={{ body: { padding: 0 } }}
         >
           <Row gutter={[24, 24]} style={{ padding: '32px 24px' }}>
             <Col xs={24} md={6}>
@@ -387,7 +426,17 @@ const NovelDetail = () => {
                 transition={{ duration: 0.4, delay: 0.4 }}
               >
                 <Title level={3} style={{ margin: 0, color, marginBottom: 12 }}>{novel.novelName}</Title>
-                <Text type="secondary" style={{ fontSize: 16, marginBottom: 20, display: 'block' }}>作者：{novel.authorName}</Text>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                  <Text type="secondary" style={{ fontSize: 16 }}>作者：{novel.authorName}</Text>
+                  {fieldSources.sourceName && (
+                    <Tag style={{ fontSize: 11, padding: '0 6px', background: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f5f5f5', border: `1px solid ${color}30`, color }}>
+                      数据来源: {fieldSources.sourceName}
+                    </Tag>
+                  )}
+                  <Tag color={completeness >= 70 ? 'green' : completeness >= 40 ? 'orange' : 'red'} style={{ fontSize: 11, padding: '0 6px' }}>
+                    完整性 {completeness}%
+                  </Tag>
+                </div>
 
                 <Space wrap style={{ marginBottom: 24 }}>
                   {novel.categoryNames && novel.categoryNames.map((category, index) => (
@@ -398,8 +447,8 @@ const NovelDetail = () => {
                   )}
                 </Space>
 
-                <Descriptions column={2} bordered style={{ borderRadius: 8, overflow: 'hidden', marginBottom: 24 }}>
-                  <Descriptions.Item label="字数">{novel.wordNum || '未知'}</Descriptions.Item>
+                <Descriptions column={2} bordered style={{ borderRadius: 8, overflow: 'hidden', marginBottom: 24 }} size="small">
+                  <Descriptions.Item label="字数">{novel.wordNum || '未知'} {novel.wordNum !== '未知' && fieldSources.coverUrl && <Tag color={color} style={{fontSize:10,marginLeft:4}}>{fieldSources.coverUrl}</Tag>}</Descriptions.Item>
                   <Descriptions.Item label="章节数">{novel.chapterNum || '未知'}</Descriptions.Item>
                   <Descriptions.Item label="最后更新">{novel.lastUpdatedAt || '未知'}</Descriptions.Item>
                   <Descriptions.Item label="最后章节">{novel.lastChapter?.chapterName || '未知'}</Descriptions.Item>
@@ -408,7 +457,7 @@ const NovelDetail = () => {
                 <Divider orientation="left" style={{ fontWeight: 'bold', color }}>简介</Divider>
                 <Card
                   style={{ borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', background: isDarkMode ? '#1e1e1e' : '#f9f9f9' }}
-                  bodyStyle={{ padding: 20 }}
+                  styles={{ body: { padding: 20 } }}
                 >
                   <Paragraph style={{ lineHeight: 1.8, margin: 0 }}>
                     {novel.summary || '暂无简介'}

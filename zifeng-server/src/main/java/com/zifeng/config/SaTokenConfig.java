@@ -47,7 +47,8 @@ public class SaTokenConfig implements WebMvcConfigurer {
                             "/api/user/avatars/**",
                             "/api/user/heartbeat",
                             "/api/parse/**",
-                            "/api/public/**"
+                            "/api/public/**",
+                            "/api/admin/invite-codes/validate"
                     )
                     .check(r -> StpUtil.checkLogin());
         })).addPathPatterns("/api/**");

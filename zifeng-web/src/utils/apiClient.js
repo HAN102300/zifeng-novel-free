@@ -342,3 +342,58 @@ export const importBookSources = async (sources) => {
   const res = await backendAxios.post("/sources/import", sources);
   return res.data;
 };
+
+// ========== Aggregated APIs (通过SpringBoot后端) ==========
+
+export const aggregatedSearchAPI = async (keyword, page = 1) => {
+  const res = await backendAxios.post("/parse/search/aggregated", {
+    keyword,
+    page,
+  }, { timeout: 30000 });
+  return res.data?.data || res.data;
+};
+
+export const unifiedBookInfoAPI = async (source, bookUrl, bookData) => {
+  const res = await backendAxios.post("/parse/book-info/unified", {
+    source,
+    bookUrl,
+    book: bookData,
+  }, { timeout: 15000 });
+  return res.data?.data || res.data;
+};
+
+export const unifiedTocAPI = async (source, tocUrl, bookData) => {
+  const res = await backendAxios.post("/parse/toc/unified", {
+    source,
+    tocUrl,
+    book: bookData,
+  }, { timeout: 15000 });
+  return res.data?.data || res.data;
+};
+
+export const unifiedContentAPI = async (source, chapterUrl, bookData, chapterData) => {
+  const res = await backendAxios.post("/parse/content/unified", {
+    source,
+    chapterUrl,
+    book: bookData,
+    chapter: chapterData,
+  }, { timeout: 15000 });
+  return res.data?.data || res.data;
+};
+
+export const healthCheckAllSourcesAPI = async () => {
+  const res = await backendAxios.post("/parse/health-check", {}, { timeout: 60000 });
+  return res.data?.data || res.data;
+};
+
+// ========== Feedback (反馈系统) ==========
+
+export const submitFeedback = async (data) => {
+  const res = await backendAxios.post("/feedback", data, { timeout: 15000 });
+  return res.data?.data || res.data;
+};
+
+export const getMyFeedbacks = async () => {
+  const res = await backendAxios.get("/feedback/mine");
+  return res.data?.data || res.data;
+};

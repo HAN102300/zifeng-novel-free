@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect, useCallback, useRef } from 'rea
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, Typography, Space, Empty, Button, Tag, Spin, Segmented, Select, Progress } from 'antd';
-import { SearchOutlined, AppstoreOutlined, OrderedListOutlined, BookOutlined, LoadingOutlined, SwapOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { SearchOutlined, AppstoreOutlined, OrderedListOutlined, BookOutlined, LoadingOutlined, SwapOutlined, CloseCircleOutlined, SyncOutlined } from '@ant-design/icons';
 import BackButton from '../components/BackButton';
 import SummaryText from '../components/SummaryText';
 import { ThemeContext } from '../App';
@@ -11,7 +11,8 @@ import {
 } from '../utils/bookSourceManager';
 import { searchBooksAPI, getAllEnabledSources } from '../utils/apiClient';
 import { saveNovelCache, simpleHash } from '../utils/novelConfig';
-import { adaptSearchResult } from '../utils/bookAdapter';
+import { adaptSearchResult, computeCompleteness } from '../utils/bookAdapter';
+import { BatchSearchController } from '../utils/batchSearch';
 
 const { Text } = Typography;
 
@@ -38,6 +39,16 @@ const SearchResult = () => {
   const [sourcesLoaded, setSourcesLoaded] = useState(false);
   const [searchProgress, setSearchProgress] = useState(0);
   const [searchCancelled, setSearchCancelled] = useState(false);
+
+  const [searchMode, setSearchMode] = useState(() => {
+    try { return localStorage.getItem('zifeng_search_mode') || 'aggregated'; }
+    catch { return 'aggregated'; }
+  });
+  const [aggregatedMeta, setAggregatedMeta] = useState(null);
+  const [sourceDetails, setSourceDetails] = useState([]);
+  const [batchProgress, setBatchProgress] = useState(null);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const batchControllerRef = useRef(null);
 
   const abortControllerRef = useRef(null);
   const loadingMoreRef = useRef(false);
@@ -107,6 +118,10 @@ const SearchResult = () => {
   }, []);
 
   const cancelSearch = useCallback(() => {
+    if (batchControllerRef.current) {
+      batchControllerRef.current.abort();
+      batchControllerRef.current = null;
+    }
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -115,6 +130,12 @@ const SearchResult = () => {
     setLoading(false);
     setLoadingMore(false);
     loadingMoreRef.current = false;
+    setBatchRunning(false);
+    setBatchProgress(null);
+    if (searchTimerRef.current) {
+      clearInterval(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
   }, []);
 
   const fetchSearchResults = useCallback(async (searchKeyword, pageNum, isLoadMore = false, sourceOverride = null) => {
@@ -221,6 +242,92 @@ const SearchResult = () => {
     }
   }, [activeSource, searchCancelled]);
 
+  const startBatchSearch = useCallback(async (searchKeyword, availableSourceList) => {
+    if (!searchKeyword.trim()) return;
+
+    cancelSearch();
+
+    setSearchCancelled(false);
+    setLoading(true);
+    setSearchProgress(0);
+    setResults([]);
+    setAggregatedMeta(null);
+    setSourceDetails([]);
+    setBatchProgress(null);
+    setBatchRunning(true);
+    setHasMore(false);
+    hasMoreRef.current = false;
+    setAllLoaded(true);
+
+    const controller = new BatchSearchController(availableSourceList, searchKeyword);
+    batchControllerRef.current = controller;
+
+    const startTime = Date.now();
+    const totalSources = availableSourceList.length;
+
+    const progressTimer = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      if (totalSources <= 10) {
+        setSearchProgress(Math.min(90, (elapsed / 10000) * 90));
+      } else {
+        setSearchProgress(Math.min(70, (elapsed / 20000) * 70));
+      }
+    }, 200);
+
+    try {
+      let firstDone = false;
+
+      for await (const progress of controller.execute()) {
+        if (searchCancelled || controller.aborted) break;
+
+        setResults(progress.books);
+        setSourceDetails(progress.sourceDetails);
+        setBatchProgress(progress);
+
+        setAggregatedMeta({
+          totalSources,
+          succeededSources: progress.succeededSources,
+          failedSources: progress.failedSources,
+          totalResults: progress.totalResults,
+          deduplicatedResults: progress.books.length,
+          elapsedMs: progress.elapsedMs,
+        });
+
+        if (!firstDone && progress.books.length > 0) {
+          firstDone = true;
+          setLoading(false);
+          setSearchProgress(100);
+        }
+
+        if (progress.finished) break;
+      }
+    } catch (err) {
+      console.error('分批搜索出错:', err);
+    } finally {
+      clearInterval(progressTimer);
+      setLoading(false);
+      setSearchProgress(100);
+      setBatchRunning(false);
+
+      if (!controller.aborted) {
+        const final = controller.buildProgress();
+        setBatchProgress(final);
+        setResults(final.books);
+        setSourceDetails(final.sourceDetails);
+        setAggregatedMeta({
+          totalSources,
+          succeededSources: final.succeededSources,
+          failedSources: final.failedSources,
+          totalResults: final.totalResults,
+          deduplicatedResults: final.books.length,
+          elapsedMs: final.elapsedMs,
+        });
+      }
+
+      batchControllerRef.current = null;
+    }
+  }, [searchCancelled, cancelSearch]);
+
   useEffect(() => {
     if (keyword && sourcesLoaded) {
       setPage(1);
@@ -229,17 +336,30 @@ const SearchResult = () => {
       hasMoreRef.current = true;
       setAllLoaded(false);
       setResults([]);
-      fetchSearchResults(keyword, 1);
+      setAggregatedMeta(null);
+      setSourceDetails([]);
+      setBatchProgress(null);
+      if (searchMode === 'aggregated') {
+        const enabledSources = availableSources.filter(s => s.enabled !== false);
+        startBatchSearch(keyword, enabledSources);
+      } else if (activeSource) {
+        fetchSearchResults(keyword, 1);
+      }
     }
     return () => {
+      if (batchControllerRef.current) {
+        batchControllerRef.current.abort();
+        batchControllerRef.current = null;
+      }
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
     };
-  }, [keyword, sourcesLoaded]);
+  }, [keyword, sourcesLoaded, searchMode]);
 
   useEffect(() => {
     if (!activeSource || !keyword) return;
+    if (searchMode !== 'single') return;
     setPage(1);
     pageRef.current = 1;
     setHasMore(true);
@@ -404,7 +524,23 @@ const SearchResult = () => {
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                {sourcesLoaded && activeSource && (
+                <Segmented
+                  value={searchMode}
+                  onChange={(val) => {
+                    setSearchMode(val);
+                    localStorage.setItem('zifeng_search_mode', val);
+                  }}
+                  size="small"
+                  options={[
+                    { value: 'aggregated', label: '全部书源' },
+                    { value: 'single', label: '单书源' }
+                  ]}
+                  style={{
+                    background: isDarkMode ? '#333' : '#f0f0f0',
+                    borderRadius: 8
+                  }}
+                />
+                {sourcesLoaded && activeSource && searchMode === 'single' && (
                   <Select
                     value={activeSource.bookSourceUrl}
                     onChange={handleSourceChange}
@@ -435,7 +571,7 @@ const SearchResult = () => {
         </div>
 
         <AnimatePresence mode="wait">
-          {loading ? (
+          {loading && results.length === 0 ? (
             <motion.div
               key="loading"
               initial={{ opacity: 0 }}
@@ -454,8 +590,32 @@ const SearchResult = () => {
                 />
               </div>
               <Text style={{ color: isDarkMode ? '#888' : '#999' }}>
-                正在从「{activeSource?.bookSourceName || '书源'}」搜索...
+                {searchMode === 'aggregated'
+                  ? (batchProgress
+                    ? `正在搜索书源... 已搜索 ${batchProgress.completedSources}/${batchProgress.totalSources} 个书源（${batchProgress.succeededSources} 个成功，${batchProgress.failedSources} 个失败）`
+                    : `正在准备搜索「${availableSources.length}」个书源...`)
+                  : `正在从「${activeSource?.bookSourceName || '书源'}」搜索...`}
               </Text>
+              {searchMode === 'aggregated' && sourceDetails.length > 0 && (
+                <div style={{ maxWidth: 600, width: '100%' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+                    {sourceDetails.slice(-20).map((sd, i) => (
+                      <Tag
+                        key={i}
+                        color={sd.success ? (sd.resultCount > 0 ? 'green' : 'orange') : 'red'}
+                        style={{ fontSize: 11 }}
+                      >
+                        {sd.sourceName} {sd.success ? (sd.resultCount > 0 ? `(${sd.resultCount})` : '无结果') : '✗'}
+                      </Tag>
+                    ))}
+                    {sourceDetails.length > 20 && (
+                      <Tag style={{ fontSize: 11, color: isDarkMode ? '#888' : '#999' }}>
+                        ...等 {sourceDetails.length} 个书源
+                      </Tag>
+                    )}
+                  </div>
+                </div>
+              )}
               <Button
                 type="text"
                 icon={<CloseCircleOutlined />}
@@ -473,6 +633,48 @@ const SearchResult = () => {
               exit={{ opacity: 0 }}
               style={{ padding: '20px 20px' }}
             >
+
+              {searchMode === 'aggregated' && aggregatedMeta && (
+                <div style={{ marginBottom: 16 }}>
+                  <Card size="small" style={itemCardStyle({ marginBottom: 12 })}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <Text strong>
+                          {batchRunning
+                            ? `正在搜索 ${aggregatedMeta.deduplicatedResults} 条结果（已去重）`
+                            : `搜索完成，共 ${aggregatedMeta.deduplicatedResults} 条结果（去重前 ${aggregatedMeta.totalResults} 条）`}
+                        </Text>
+                        {batchRunning && (
+                          <Tag color="processing" style={{ fontSize: 11 }}>
+                            <SyncOutlined spin style={{ marginRight: 4 }} />
+                            {batchProgress
+                              ? `已搜索 ${batchProgress.completedSources}/${batchProgress.totalSources}`
+                              : '搜索中...'}
+                          </Tag>
+                        )}
+                      </div>
+                      <Text style={{ color: isDarkMode ? '#888' : '#999' }}>
+                        {aggregatedMeta.succeededSources}/{aggregatedMeta.totalSources} 个书源{batchRunning ? '已' : '成功'}，耗时 {aggregatedMeta.elapsedMs}ms
+                        {batchRunning && `（更多结果载入中...）`}
+                      </Text>
+                    </div>
+                  </Card>
+                  {sourceDetails.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {sourceDetails.map((sd, i) => (
+                        <Tag
+                          key={i}
+                          color={sd.success ? (sd.resultCount > 0 ? 'green' : 'orange') : 'red'}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          {sd.sourceName} {sd.success ? (sd.resultCount > 0 ? `(${sd.resultCount})` : '无结果') : '✗'} {sd.latencyMs}ms
+                        </Tag>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {layout === 'list' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {results.map((book, index) => (
@@ -486,7 +688,7 @@ const SearchResult = () => {
                       <Card
                         hoverable
                         style={itemCardStyle()}
-                        bodyStyle={{ padding: 0 }}
+                        styles={{ body: { padding: 0 } }}
                         onClick={() => navigateToDetail(book)}
                       >
                         <div style={{ display: 'flex', alignItems: 'stretch', padding: 16, gap: 16 }}>
@@ -521,6 +723,26 @@ const SearchResult = () => {
                                 <Text strong style={{ fontSize: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                   {book.name}
                                 </Text>
+                                {(book.sourceTag || book.sourceName) && (
+                                  <Tag
+                                    style={{
+                                      fontSize: 10,
+                                      padding: '0 5px',
+                                      lineHeight: '18px',
+                                      borderRadius: 4,
+                                      flexShrink: 0,
+                                      maxWidth: 160,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      background: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                                      borderColor: `${color}60`,
+                                      color,
+                                    }}
+                                  >
+                                    {book.sourceTag || book.sourceName}
+                                  </Tag>
+                                )}
                                 {book.score > 0 && (
                                   <Tag color={color} style={{ fontSize: 11, padding: '0 6px', lineHeight: '20px', borderRadius: 4, flexShrink: 0 }}>
                                     {book.score}分
@@ -579,7 +801,7 @@ const SearchResult = () => {
                       <Card
                         hoverable
                         style={itemCardStyle()}
-                        bodyStyle={{ padding: 0 }}
+                        styles={{ body: { padding: 0 } }}
                         onClick={() => navigateToDetail(book)}
                       >
                         <div style={{
@@ -673,7 +895,25 @@ const SearchResult = () => {
                 </div>
               )}
 
-              {allLoaded && !loadingMore && (
+              {batchRunning && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '24px 0', gap: 8 }}>
+                  <SyncOutlined spin style={{ color, fontSize: 16 }} />
+                  <Text style={{ color: isDarkMode ? '#888' : '#999' }}>
+                    正在搜索更多书源... ({batchProgress ? `${batchProgress.completedSources}/${batchProgress.totalSources}` : ''})
+                  </Text>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<CloseCircleOutlined />}
+                    onClick={cancelSearch}
+                    style={{ color: isDarkMode ? '#888' : '#999', fontSize: 12 }}
+                  >
+                    停止
+                  </Button>
+                </div>
+              )}
+
+              {allLoaded && !loadingMore && !batchRunning && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -706,7 +946,7 @@ const SearchResult = () => {
                 </motion.div>
               )}
             </motion.div>
-          ) : keyword ? (
+          ) : keyword && !batchRunning ? (
             <motion.div
               key="empty"
               initial={{ opacity: 0, y: 20 }}
@@ -738,6 +978,32 @@ const SearchResult = () => {
                   </Button>
                 </Empty>
               </Card>
+              {searchMode === 'aggregated' && sourceDetails.length > 0 && (
+                <Card size="small" style={{ ...glassCardStyle(), marginTop: 12 }}>
+                  <div style={{ marginBottom: 8 }}>
+                    <Text strong style={{ fontSize: 13 }}>
+                      书源搜索状态
+                    </Text>
+                    {aggregatedMeta && (
+                      <Text style={{ fontSize: 12, color: isDarkMode ? '#888' : '#999', marginLeft: 8 }}>
+                        {aggregatedMeta.succeededSources} 个成功（其中 {sourceDetails.filter(sd => sd.success && sd.resultCount > 0).length} 个有结果），{aggregatedMeta.failedSources} 个失败，耗时 {aggregatedMeta.elapsedMs}ms
+                      </Text>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {sourceDetails.map((sd, i) => (
+                      <Tag
+                        key={i}
+                        color={sd.success ? (sd.resultCount > 0 ? 'green' : 'orange') : 'red'}
+                        style={{ fontSize: 11, cursor: 'default' }}
+                        title={sd.error ? `${sd.sourceName}: ${sd.error}` : undefined}
+                      >
+                        {sd.sourceName} {sd.success ? (sd.resultCount > 0 ? `(${sd.resultCount})` : '无结果') : `✗ ${sd.error || ''}`}
+                      </Tag>
+                    ))}
+                  </div>
+                </Card>
+              )}
             </motion.div>
           ) : (
             <motion.div

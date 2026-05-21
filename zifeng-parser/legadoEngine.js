@@ -2,6 +2,8 @@ const cheerio = require("cheerio");
 const { JSONPath } = require("jsonpath-plus");
 const xpath = require("xpath");
 const { DOMParser } = require("@xmldom/xmldom");
+const axios = require("axios");
+const iconv = require("iconv-lite");
 
 const JS_PATTERN = /<(js|script)>([\s\S]*?)<\/\1>/i;
 const JS_PATTERN2 = /@(js|JS):([\s\S]*)$/;
@@ -118,32 +120,32 @@ class AnalyzeRule {
     return this;
   }
 
-  getString(ruleStr, mContent = null, isUrl = false) {
+  async getString(ruleStr, mContent = null, isUrl = false) {
     if (!ruleStr) return "";
     const ruleList = this._splitSourceRule(ruleStr);
     return this._getString(ruleList, mContent, isUrl);
   }
 
-  getStringList(ruleStr, mContent = null, isUrl = false) {
+  async getStringList(ruleStr, mContent = null, isUrl = false) {
     if (!ruleStr) return null;
     const ruleList = this._splitSourceRule(ruleStr);
     return this._getStringList(ruleList, mContent, isUrl);
   }
 
-  getElements(ruleStr) {
+  async getElements(ruleStr) {
     if (!ruleStr) return [];
     const ruleList = this._splitSourceRule(ruleStr, true);
     return this._getElements(ruleList);
   }
 
-  getElement(ruleStr) {
+  async getElement(ruleStr) {
     if (!ruleStr) return null;
     const ruleList = this._splitSourceRule(ruleStr, true);
-    const results = this._getElements(ruleList);
+    const results = await this._getElements(ruleList);
     return results.length > 0 ? results[0] : null;
   }
 
-  _getString(ruleList, mContent = null, isUrl = false) {
+  async _getString(ruleList, mContent = null, isUrl = false) {
     const content = mContent != null ? mContent : this.content;
     if (content == null || ruleList.length === 0) return "";
 
@@ -156,7 +158,7 @@ class AnalyzeRule {
 
       const rule = sourceRule.rule;
       if (rule || sourceRule.replaceRegex) {
-        result = this._applyRule(result, sourceRule, isUrl);
+        result = await this._applyRule(result, sourceRule, isUrl);
       }
 
       if (result != null && sourceRule.replaceRegex) {
@@ -175,7 +177,7 @@ class AnalyzeRule {
     return this._unescapeHtml(resultStr);
   }
 
-  _getStringList(ruleList, mContent = null, isUrl = false) {
+  async _getStringList(ruleList, mContent = null, isUrl = false) {
     const content = mContent != null ? mContent : this.content;
     if (content == null || ruleList.length === 0) return null;
 
@@ -188,7 +190,7 @@ class AnalyzeRule {
 
       const rule = sourceRule.rule;
       if (rule) {
-        result = this._applyRuleList(result, sourceRule);
+        result = await this._applyRuleList(result, sourceRule);
       }
 
       if (sourceRule.replaceRegex && Array.isArray(result)) {
@@ -218,7 +220,7 @@ class AnalyzeRule {
     return result.map(String);
   }
 
-  _getElements(ruleList) {
+  async _getElements(ruleList) {
     const content = this.content;
     if (content == null || ruleList.length === 0) return [];
 
@@ -229,7 +231,7 @@ class AnalyzeRule {
       if (result == null) continue;
 
       const rule = sourceRule.rule;
-      result = this._applyElementsRule(result, sourceRule);
+      result = await this._applyElementsRule(result, sourceRule);
 
       if (sourceRule.replaceRegex) {
         result = this._replaceRegex(String(result), sourceRule);
@@ -240,13 +242,13 @@ class AnalyzeRule {
     return result != null ? [result] : [];
   }
 
-  _applyRule(content, sourceRule, isUrl = false) {
+  async _applyRule(content, sourceRule, isUrl = false) {
     const rule = sourceRule.rule;
     if (!rule) return content;
 
     switch (sourceRule.mode) {
       case MODE_JS:
-        return this._evalJS(rule, content);
+        return await this._evalJS(rule, content);
       case MODE_JSON:
         return this._analyzeByJsonPath(content, rule);
       case MODE_XPATH:
@@ -260,13 +262,13 @@ class AnalyzeRule {
     }
   }
 
-  _applyRuleList(content, sourceRule) {
+  async _applyRuleList(content, sourceRule) {
     const rule = sourceRule.rule;
     if (!rule) return content;
 
     switch (sourceRule.mode) {
       case MODE_JS:
-        return this._evalJS(rule, content);
+        return await this._evalJS(rule, content);
       case MODE_JSON:
         return this._analyzeByJsonPathList(content, rule);
       case MODE_XPATH:
@@ -280,13 +282,13 @@ class AnalyzeRule {
     }
   }
 
-  _applyElementsRule(content, sourceRule) {
+  async _applyElementsRule(content, sourceRule) {
     const rule = sourceRule.rule;
     if (!rule) return content;
 
     switch (sourceRule.mode) {
       case MODE_JS:
-        return this._evalJS(rule, content);
+        return await this._evalJS(rule, content);
       case MODE_JSON:
         return this._analyzeByJsonPathElements(content, rule);
       case MODE_XPATH:
@@ -544,12 +546,16 @@ class AnalyzeRule {
       const java = this._createJavaShim();
       const baseUrl = this.baseUrl || "";
 
-      const fn = new Function("result", "book", "source", "java", "baseUrl", "cookie", "cache",
-        `"use strict"; try { return (function() { ${rule} })(); } catch(e) { return ''; }`
+      const AsyncFunction = Object.getPrototypeOf(
+        async function () {},
+      ).constructor;
+
+      const fn = new AsyncFunction("result", "book", "source", "java", "baseUrl", "cookie", "cache",
+        `"use strict"; try { var _fn=function() { ${rule} }; var _r = _fn(); return (_r != null && typeof _r === 'object' && typeof _r.then === 'function') ? await _r : _r; } catch(e) { return ''; }`
       );
-      return fn(result, book, source, java, baseUrl, this._createCookieShim(), this._createCacheShim());
+      return fn(result, book, source, java, baseUrl, this._createCookieShim(), this._createCacheShim()).catch(() => '');
     } catch (e) {
-      return "";
+      return Promise.resolve("");
     }
   }
 
@@ -675,11 +681,64 @@ class AnalyzeRule {
   }
 
   _createJavaShim() {
+    const self = this;
+    const baseUrl = this.baseUrl || "";
+    const sourceData = this.source || {};
+
+    const parseHeaders = (headerStr) => {
+      const result = {};
+      if (!headerStr || typeof headerStr !== "string") return result;
+      headerStr.split("\n").forEach(line => {
+        const colonIdx = line.indexOf(":");
+        if (colonIdx > 0) {
+          result[line.slice(0, colonIdx).trim()] = line.slice(colonIdx + 1).trim();
+        }
+      });
+      return result;
+    };
+
+    const sourceHeaders = parseHeaders(sourceData.header);
+
+    const ajaxFn = async (url, headers) => {
+      let fullUrl = url;
+      if (!fullUrl || typeof fullUrl !== "string") return "";
+      if (!fullUrl.startsWith("http")) {
+        fullUrl = baseUrl + (fullUrl.startsWith("/") ? "" : "/") + fullUrl;
+      }
+      const mergedHeaders = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+        Referer: baseUrl,
+        ...sourceHeaders,
+        ...(typeof headers === "object" ? headers : {}),
+      };
+      try {
+        const res = await axios.get(fullUrl, {
+          headers: mergedHeaders,
+          timeout: 20000,
+          responseType: "arraybuffer",
+        });
+        const buf = Buffer.from(res.data);
+        const ctype = res.headers["content-type"] || "";
+        const charsetMatch = ctype.match(/charset=([^\s;]+)/i);
+        if (charsetMatch && !/utf-?8/i.test(charsetMatch[1])) {
+          return iconv.decode(buf, charsetMatch[1].trim());
+        }
+        return buf.toString("utf-8");
+      } catch (e) {
+        return "";
+      }
+    };
+
     return {
       log: (...args) => console.log("[AnalyzeRule JS]", ...args),
-      ajax: (url) => { throw new Error("java.ajax not supported in AnalyzeRule"); },
-      get: (key) => this._variables[key] || "",
-      put: (key, value) => { this._variables[key] = String(value); },
+      ajax: ajaxFn,
+      connect: ajaxFn,
+      get: (key) => self._variables[key] || "",
+      put: (key, value) => { self._variables[key] = String(value); },
+      base64Decode: (str) => { try { return Buffer.from(String(str), "base64").toString("utf-8"); } catch { return str; } },
+      base64Encode: (str) => { try { return Buffer.from(String(str), "utf-8").toString("base64"); } catch { return str; } },
+      md5Encode: (str) => require("crypto").createHash("md5").update(String(str)).digest("hex"),
     };
   }
 

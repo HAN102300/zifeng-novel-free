@@ -28,6 +28,7 @@ import Shelf from './pages/Shelf';
 import Setting from './pages/Setting';
 import Login from './pages/Login';
 import { cleanLocalStorageCache } from './utils/novelConfig';
+import FeedbackButton from './components/FeedbackButton';
 
 const NovelDetail = lazy(() => import('./pages/NovelDetail'));
 const RankDetail = lazy(() => import('./pages/RankDetail'));
@@ -229,17 +230,7 @@ function App() {
       }
     } catch (error) {
       console.error(`获取${key}榜单数据失败: ${error.message}`);
-      const mockData = Array.from({ length: limit }, (_, i) => ({
-        id: i + 1,
-        name: `${key === 'mustRead' ? '必读' : key === 'potential' ? '潜力' : key === 'completed' ? '完本' : key === 'updated' ? '更新' : key === 'search' ? '搜索' : '评论'}小说 ${i + 1}`,
-        author: `作者${i + 1}`,
-        cover: '',
-        category: '玄幻',
-        score: (Math.random() * 2 + 8).toFixed(1),
-        rankInfo: `${i + 1}. 热度未知`,
-        rank: i + 1
-      }));
-      setNovels(prev => ({ ...prev, [key]: mockData }));
+      setNovels(prev => ({ ...prev, [key]: [] }));
     }
   };
 
@@ -562,6 +553,7 @@ const AppLayout = ({ currentThemeConfig, isDarkMode, isLoggedIn, userInfo, setIs
         </div>
         </div>
       </Content>
+      {isLoggedIn && <FeedbackButton />}
     </Layout>
     </AuthContext.Provider>
   );

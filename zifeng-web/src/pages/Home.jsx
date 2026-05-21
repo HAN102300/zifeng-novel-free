@@ -100,7 +100,7 @@ const NovelCard = ({ novel, index, color }) => {
             </div>
           </div>
         }
-        bodyStyle={{ padding: 12 }}
+        styles={{ body: { padding: 12 } }}
       >
         <div style={{ height: 80, display: 'flex', flexDirection: 'column' }}>
           <Text strong style={{ 
@@ -206,7 +206,7 @@ const NovelSection = ({ title, icon, novels, color, span = 24, rankType, navigat
           boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
           overflow: 'hidden'
         }}
-        bodyStyle={{ padding: 0 }}
+        styles={{ body: { padding: 0 } }}
       >
         <div style={{ padding: '0 0 20px 0' }}>
           <SectionHeader 
@@ -269,7 +269,7 @@ const Home = () => {
               boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
               height: '100%'
             }}
-            bodyStyle={{ padding: 0 }}
+            styles={{ body: { padding: 0 } }}
           >
             <div style={{ padding: '0 0 20px 0' }}>
               <SectionHeader 
@@ -300,7 +300,7 @@ const Home = () => {
               boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
               height: '100%'
             }}
-            bodyStyle={{ padding: 0 }}
+            styles={{ body: { padding: 0 } }}
           >
             <div style={{ padding: '0 0 20px 0' }}>
               <SectionHeader 
@@ -331,7 +331,7 @@ const Home = () => {
               boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
               height: '100%'
             }}
-            bodyStyle={{ padding: 0 }}
+            styles={{ body: { padding: 0 } }}
           >
             <div style={{ padding: '0 0 20px 0' }}>
               <SectionHeader 
@@ -362,7 +362,7 @@ const Home = () => {
               boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
               height: '100%'
             }}
-            bodyStyle={{ padding: 0 }}
+            styles={{ body: { padding: 0 } }}
           >
             <div style={{ padding: '0 0 20px 0' }}>
               <SectionHeader 
@@ -393,7 +393,7 @@ const Home = () => {
               boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
               height: '100%'
             }}
-            bodyStyle={{ padding: 0 }}
+            styles={{ body: { padding: 0 } }}
           >
             <div style={{ padding: '0 0 20px 0' }}>
               <SectionHeader 

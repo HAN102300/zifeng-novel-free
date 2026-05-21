@@ -288,21 +288,21 @@ const BookSourcePage = () => {
       <div ref={statsRef} style={{
         display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap'
       }}>
-        <Card size="small" style={{ borderRadius: 12, flex: 1, minWidth: 100, ...glassStyle() }} bodyStyle={{ padding: '12px 16px', textAlign: 'center' }}>
+        <Card size="small" style={{ borderRadius: 12, flex: 1, minWidth: 100, ...glassStyle() }} styles={{ body: { padding: '12px 16px', textAlign: 'center' } }}>
           <Text type="secondary" style={{ fontSize: 12 }}>总书源</Text>
           <div style={{ fontSize: 24, fontWeight: 'bold', color }}>{sources.length}</div>
         </Card>
-        <Card size="small" style={{ borderRadius: 12, flex: 1, minWidth: 100, ...glassStyle() }} bodyStyle={{ padding: '12px 16px', textAlign: 'center' }}>
+        <Card size="small" style={{ borderRadius: 12, flex: 1, minWidth: 100, ...glassStyle() }} styles={{ body: { padding: '12px 16px', textAlign: 'center' } }}>
           <Text type="secondary" style={{ fontSize: 12 }}>已启用</Text>
           <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>{enabledCount}</div>
         </Card>
-        <Card size="small" style={{ borderRadius: 12, flex: 1, minWidth: 100, ...glassStyle() }} bodyStyle={{ padding: '12px 16px', textAlign: 'center' }}>
+        <Card size="small" style={{ borderRadius: 12, flex: 1, minWidth: 100, ...glassStyle() }} styles={{ body: { padding: '12px 16px', textAlign: 'center' } }}>
           <Text type="secondary" style={{ fontSize: 12 }}>已禁用</Text>
           <div style={{ fontSize: 24, fontWeight: 'bold', color: isDarkMode ? '#666' : '#bbb' }}>{sources.length - enabledCount}</div>
         </Card>
       </div>
 
-      <Card ref={listRef} style={{ borderRadius: 16, ...glassStyle() }} bodyStyle={{ padding: 0 }}>
+      <Card ref={listRef} style={{ borderRadius: 16, ...glassStyle() }} styles={{ body: { padding: 0 } }}>
         {filteredSources.length > 0 ? (
           <div style={{ maxHeight: '60vh', overflowY: 'auto', overflowX: 'hidden' }}>
             <List

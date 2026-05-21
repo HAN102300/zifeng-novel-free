@@ -1,0 +1,24 @@
+- [ ] React Bits 6 个组件（BlurText、CountUp、ShinyText、DecryptedText）已安装到 `src/components/react-bits/` 目录
+- [ ] `src/components/react-bits/index.js` 统一导出文件存在且可正常导入
+- [ ] ReactBitsErrorBoundary 组件已创建，每个 React Bits 组件导出均被包装
+- [ ] batchSearch.js 的 BATCH_SIZE 改为动态计算值
+- [ ] batchSearch.js 的 execute() 方法实现逐源流式推送（每个书源完成后立即 yield）
+- [ ] batchSearch.js 实现增量去重合并（每源完成后合并，非整批合并）
+- [ ] SOURCE_TIMEOUT_MS 可配置，默认 8000ms
+- [ ] 搜索结果缓存机制已实现（内存缓存，5 分钟有效期）
+- [ ] SearchResult.jsx 实现递增式结果显示（新结果逐条追加，非整批替换）
+- [ ] SearchResult.jsx 搜索结果计数使用 CountUp 滚动动画
+- [ ] SearchResult.jsx 聚合搜索标记使用 ShinyText 光泽效果
+- [ ] SearchResult.jsx 空结果提示使用 DecryptedText hover 解密效果
+- [ ] SearchResult.jsx 新追加的搜索结果卡片有模糊淡入入场动画
+- [ ] 所有 React Bits 组件使用处均被 ReactBitsErrorBoundary 包装
+- [ ] Home.jsx 榜单区上方有 Hero 区域，品牌 Slogan 使用 BlurText 逐词模糊淡入
+- [ ] Home.jsx 榜单标题使用 BlurText 逐词模糊入场
+- [ ] Shelf.jsx 空书架引导文字使用 DecryptedText hover 解密效果
+- [ ] NovelDetail.jsx 书名使用 ShinyText 光泽扫过效果
+- [ ] NovelDetail.jsx 小说字数/阅读量使用 CountUp 滚动显示
+- [ ] Reader.jsx 阅读进度百分比使用 CountUp 滚动显示
+- [ ] Browser-act 自动化测试已执行，搜索功能正常
+- [ ] Browser-act 自动化测试验证递增式结果显示正常
+- [ ] Browser-act 自动化测试验证 React Bits 动效正常
+- [ ] 所有发现的问题已修复

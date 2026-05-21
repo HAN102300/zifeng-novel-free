@@ -220,7 +220,23 @@ const Reader = () => {
         } else {
           const source = getSource();
           const effectiveTocUrl = tocUrl || bookUrl;
-          const result = await getTocAPI(source, effectiveTocUrl, bookData);
+          let result;
+          try {
+            result = await getTocAPI(source, effectiveTocUrl, bookData);
+          } catch (tocError) {
+            console.warn('获取章节列表失败:', tocError.message);
+            const fallbackSources = getBookSources().filter(s => s.enabled && s.bookSourceUrl !== sourceUrl);
+            if (fallbackSources.length > 0) {
+              try {
+                result = await getTocAPI(fallbackSources[0], effectiveTocUrl, bookData);
+                if (result.success) {
+                  message.info(`已自动切换到书源获取目录: ${fallbackSources[0].bookSourceName}`);
+                }
+              } catch (fbError) {
+                console.warn('备选书源目录获取也失败:', fbError.message);
+              }
+            }
+          }
 
           if (result.success && result.chapters && result.chapters.length > 0) {
             const chapterList = result.chapters.map((ch, i) => ({
@@ -249,26 +265,78 @@ const Reader = () => {
     fetchChapters();
   }, [sourceUrl, bookUrl, tocUrl, currentChapterIndex, getSource, bookData]);
 
-  const fetchChapterContent = useCallback(async (chapter) => {
+  const fetchChapterContent = useCallback(async (chapter, retryCount = 0) => {
     if (!chapter) return;
     setLoading(true);
     try {
       const chapterUrl = chapter.chapterUrl || chapter.url || chapter.path || '';
       const cachedContent = cache.getContent(chapterUrl);
-      if (cachedContent) {
+      if (cachedContent && retryCount === 0) {
         setContent(cachedContent);
       } else {
         const source = getSource();
-        const result = await getContentAPI(source, chapterUrl, bookData, {
-          index: chapter.index,
-          title: chapter.chapterName,
-          url: chapterUrl,
-        });
+        let result;
+        try {
+          result = await getContentAPI(source, chapterUrl, bookData, {
+            index: chapter.index,
+            title: chapter.chapterName,
+            url: chapterUrl,
+          });
+        } catch (firstError) {
+          console.warn(`获取章节内容失败(第1次):`, firstError.message);
+          if (retryCount < 2) {
+            const delay = Math.pow(2, retryCount) * 1000;
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return fetchChapterContent(chapter, retryCount + 1);
+          }
+          if (retryCount < 3) {
+            const allSources = getBookSources().filter(s => s.enabled && s.bookSourceUrl !== sourceUrl);
+            if (allSources.length > 0) {
+              console.warn(`尝试从备选书源 "${allSources[0].bookSourceName}" 获取内容...`);
+              try {
+                result = await getContentAPI(allSources[0], chapterUrl, bookData, {
+                  index: chapter.index,
+                  title: chapter.chapterName,
+                  url: chapterUrl,
+                });
+                if (result && result.success) {
+                  message.info(`已自动切换到书源: ${allSources[0].bookSourceName}`);
+                }
+              } catch (secondError) {
+                console.warn('备选书源也失败:', secondError.message);
+              }
+            }
+          }
+          if (!result || !result.success) {
+            setContent('获取章节内容失败，已尝试多次。点击重试可重新加载。');
+            return;
+          }
+        }
 
         if (result.success && result.content) {
           const chapterContent = String(result.content);
           cache.setContent(chapterUrl, chapterContent);
           setContent(chapterContent);
+
+          const nextIdx = chapter.index + 1;
+          if (nextIdx < chapters.length) {
+            const nextChapter = chapters[nextIdx];
+            const nextUrl = nextChapter.chapterUrl || nextChapter.url || '';
+            if (nextUrl && !cache.getContent(nextUrl)) {
+              setTimeout(() => {
+                const src = getSource();
+                getContentAPI(src, nextUrl, bookData, {
+                  index: nextIdx,
+                  title: nextChapter.chapterName,
+                  url: nextUrl,
+                }).then(res => {
+                  if (res.success && res.content) {
+                    cache.setContent(nextUrl, String(res.content));
+                  }
+                }).catch(() => {});
+              }, 1000);
+            }
+          }
         } else {
           const fallback = result.message || '获取章节内容失败，内容为空！';
           setContent(fallback);
@@ -280,7 +348,7 @@ const Reader = () => {
     } finally {
       setLoading(false);
     }
-  }, [getSource, bookData]);
+  }, [sourceUrl, bookUrl, bookData, getSource, chapters]);
 
   const saveProgress = useCallback(() => {
     if (!isLoggedIn || !userInfo || !currentChapter || chapters.length === 0) return;

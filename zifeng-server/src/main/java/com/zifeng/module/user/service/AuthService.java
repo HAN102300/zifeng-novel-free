@@ -1,11 +1,14 @@
 package com.zifeng.module.user.service;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.zifeng.module.invite.entity.InviteCode;
+import com.zifeng.module.invite.service.InviteCodeService;
 import com.zifeng.module.user.dto.*;
 import com.zifeng.module.user.entity.User;
 import com.zifeng.module.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,6 +24,10 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final InviteCodeService inviteCodeService;
+
+    @Value("${invite-code.required:false}")
+    private boolean inviteCodeRequired;
 
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByUsername(request.getUsername())
@@ -51,6 +58,13 @@ public class AuthService {
     }
 
     public AuthResponse register(RegisterRequest request) {
+        if (inviteCodeRequired) {
+            if (request.getInviteCode() == null || request.getInviteCode().isBlank()) {
+                throw new RuntimeException("内测期间需要邀请码才能注册");
+            }
+            inviteCodeService.validateCode(request.getInviteCode());
+        }
+
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new RuntimeException("用户名已存在");
         }
@@ -59,14 +73,29 @@ public class AuthService {
             throw new RuntimeException("邮箱已被注册");
         }
 
+        String userLevel = "normal";
+        Long inviteCodeId = null;
+        if (inviteCodeRequired && request.getInviteCode() != null) {
+            InviteCode code = inviteCodeService.validateCode(request.getInviteCode());
+            userLevel = code.getUserLevel();
+            inviteCodeId = code.getId();
+        }
+
         User user = User.builder()
                 .username(request.getUsername())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .email(request.getEmail())
+                .userLevel(userLevel)
+                .inviteCodeId(inviteCodeId)
                 .status(1)
                 .build();
 
         user = userRepository.save(user);
+
+        if (inviteCodeRequired && request.getInviteCode() != null) {
+            inviteCodeService.useCode(request.getInviteCode(), user.getId());
+        }
+
         StpUtil.login(user.getId(), 7200);
         String token = StpUtil.getTokenValue();
 

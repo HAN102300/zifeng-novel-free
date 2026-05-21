@@ -43,7 +43,13 @@ async function getBrowserInstance() {
   }
   _browserLaunchPromise = (async () => {
     try {
-      const puppeteer = require("puppeteer");
+      let puppeteer;
+      try {
+        puppeteer = require("puppeteer");
+      } catch {
+        console.warn("[PUPPETEER] Puppeteer not installed (optional dependency). Install with: npm install puppeteer");
+        throw new Error("Puppeteer not installed");
+      }
       const chromePaths = [
         process.env.CHROME_PATH,
         "C:/Program Files/Google/Chrome/Application/chrome.exe",

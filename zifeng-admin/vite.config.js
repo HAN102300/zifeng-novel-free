@@ -69,6 +69,10 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/api/parse': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
       '/api/admin': {
         target: 'http://localhost:8080',
         changeOrigin: true,

@@ -250,7 +250,7 @@ const Setting = () => {
                         cursor: 'pointer',
                         transition: 'all 0.3s ease'
                       }}
-                      bodyStyle={{ padding: 16, textAlign: 'center' }}
+                      styles={{ body: { padding: 16, textAlign: 'center' } }}
                     >
                       <Space direction="vertical" size="small" style={{ width: '100%' }}>
                         <div style={{
@@ -302,7 +302,7 @@ const Setting = () => {
                   border: `2px solid ${themeConfigs[currentTheme].primaryColor}`,
                   boxShadow: `0 4px 16px ${themeConfigs[currentTheme].primaryColor}15`
                 }}
-                bodyStyle={{ padding: 24 }}
+                styles={{ body: { padding: 24 } }}
               >
                 <Row justify="space-between" align="middle">
                   <Col>
@@ -346,7 +346,7 @@ const Setting = () => {
                     : 'none',
                   transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
                 }}
-                bodyStyle={{ padding: 24 }}
+                styles={{ body: { padding: 24 } }}
               >
                 <Row justify="space-between" align="middle">
                   <Col>

@@ -352,6 +352,10 @@ async function executeJsRule(code, resultValue, context) {
        const __dirname = undefined;
        const constructor = undefined;
        const __proto__ = undefined;
+       const module = undefined;
+       const exports = undefined;
+       const eval = undefined;
+       const Function = undefined;
        Object.defineProperty(this, 'constructor', { value: undefined, writable: false, configurable: false });
        ${jsLibCode}
        ${wrappedCode}`,
@@ -359,26 +363,31 @@ async function executeJsRule(code, resultValue, context) {
 
     const safeThis = Object.create(null);
     Object.defineProperty(safeThis, 'constructor', { value: undefined, writable: false, configurable: false });
+    Object.defineProperty(safeThis, '__proto__', { value: undefined, writable: false, configurable: false });
+    Object.freeze(safeThis);
 
-    const cryptoShim = {
-      MD5: (str) => ({
-        toString: () =>
-          require("crypto").createHash("md5").update(str).digest("hex"),
-      }),
-      HmacMD5: (str, key) => ({
-        toString: () =>
-          require("crypto").createHmac("md5", key).update(str).digest("hex"),
-      }),
-      HmacSHA256: (str, key) => ({
-        toString: () =>
-          require("crypto").createHmac("sha256", key).update(str).digest("hex"),
-      }),
-      enc: { Utf8: "utf8", Base64: "base64", Hex: "hex" },
-      AES: {
-        decrypt: (str, key, opts) => str,
-        encrypt: (str, key, opts) => str,
-      },
-    };
+    const cryptoShim = (() => {
+      const crypto = require("crypto");
+      return {
+        MD5: (str) => ({
+          toString: () =>
+            crypto.createHash("md5").update(String(str)).digest("hex"),
+        }),
+        HmacMD5: (str, key) => ({
+          toString: () =>
+            crypto.createHmac("md5", String(key)).update(String(str)).digest("hex"),
+        }),
+        HmacSHA256: (str, key) => ({
+          toString: () =>
+            crypto.createHmac("sha256", String(key)).update(String(str)).digest("hex"),
+        }),
+        enc: { Utf8: "utf8", Base64: "base64", Hex: "hex" },
+        AES: {
+          decrypt: (str, key, opts) => str,
+          encrypt: (str, key, opts) => str,
+        },
+      };
+    })();
 
     const execResult = await fn.call(
       safeThis,
@@ -662,13 +671,13 @@ async function resolveSingleRule(data, rule, context) {
     return data[rule] || null;
   }
 
-  const legadoResult = resolveWithLegadoEngine(data, rule, context);
+  const legadoResult = await resolveWithLegadoEngine(data, rule, context);
   if (legadoResult != null) return legadoResult;
 
   return rule;
 }
 
-function resolveWithLegadoEngine(data, rule, context = {}) {
+async function resolveWithLegadoEngine(data, rule, context = {}) {
   try {
     const analyzer = new AnalyzeRule(context.book || null, context.source || null);
     const content = data?._html || data?._text || data;
@@ -676,13 +685,13 @@ function resolveWithLegadoEngine(data, rule, context = {}) {
     analyzer.setContent(content, baseUrl);
 
     if (rule.startsWith("@@")) {
-      return analyzer.getString(rule.substring(2));
+      return await analyzer.getString(rule.substring(2));
     }
 
-    const result = analyzer.getString(rule, null, rule.includes("@href") || rule.includes("@src"));
+    const result = await analyzer.getString(rule, null, rule.includes("@href") || rule.includes("@src"));
     if (result && result !== rule) return result;
 
-    const listResult = analyzer.getStringList(rule);
+    const listResult = await analyzer.getStringList(rule);
     if (listResult && listResult.length > 0) {
       return listResult.join("\n");
     }
@@ -693,18 +702,17 @@ function resolveWithLegadoEngine(data, rule, context = {}) {
   }
 }
 
-function parseBookListWithLegado(source, htmlStr, rules, ctx) {
+async function parseBookListWithLegado(source, htmlStr, rules, ctx) {
   try {
     const analyzer = new AnalyzeRule(ctx.book || null, source);
     analyzer.setContent(htmlStr, source.bookSourceUrl);
 
     const bookListRule = rules.bookList || "$.data";
-    const elements = analyzer.getElements(bookListRule);
+    const elements = await analyzer.getElements(bookListRule);
     if (!elements || elements.length === 0) return [];
 
     const results = [];
     const searchFields = ['name', 'author', 'kind', 'coverUrl', 'intro', 'bookUrl', 'lastChapter', 'wordCount'];
-    const parsed = {};
 
     for (const el of elements) {
       const book = {
@@ -719,7 +727,7 @@ function parseBookListWithLegado(source, htmlStr, rules, ctx) {
       for (const field of searchFields) {
         if (!rules[field]) continue;
         try {
-          const value = elAnalyzer.getString(rules[field], null, field === 'bookUrl' || field === 'coverUrl');
+          const value = await elAnalyzer.getString(rules[field], null, field === 'bookUrl' || field === 'coverUrl');
           if (value) book[field] = value;
         } catch {}
       }
@@ -811,14 +819,14 @@ async function parseBookListFromRules(source, responseData, rules, context = {})
         bookList = [bookList];
       }
     } else {
-      const legadoBookList = parseBookListWithLegado(source, htmlStr, rules, ctx);
+      const legadoBookList = await parseBookListWithLegado(source, htmlStr, rules, ctx);
       if (legadoBookList.length > 0) return legadoBookList;
       return [];
     }
   }
 
   if (Array.isArray(bookList) && bookList.length === 0) {
-    const legadoBookList = parseBookListWithLegado(source, htmlStr, rules, ctx);
+    const legadoBookList = await parseBookListWithLegado(source, htmlStr, rules, ctx);
     if (legadoBookList.length > 0) return legadoBookList;
   }
 
@@ -1346,8 +1354,9 @@ async function buildSearchConfig(source, keyword, page) {
         .replace(/\{\{source\.(\w+)\(([^)]*)\)\}\}/g, (match, method, arg) => {
           if (method === 'getKey') return source.bookSourceUrl || '';
           if (method === 'getVariable' || method === 'getVar') {
-            const vars = sourceVariables.get(source.bookSourceUrl) || {};
-            return vars[arg] || '';
+            const vars = sourceVariables.get(source.bookSourceUrl);
+            if (vars instanceof Map) return vars.get(arg) || '';
+            return '';
           }
           return '';
         })
@@ -1368,8 +1377,8 @@ async function buildSearchConfig(source, keyword, page) {
           } catch { return _; }
         })
         .replace(/\{\{([a-zA-Z_]\w*)\}\}/g, (match, varName) => {
-          const vars = sourceVariables.get(source.bookSourceUrl) || {};
-          if (vars[varName] != null) return String(vars[varName]);
+          const vars = sourceVariables.get(source.bookSourceUrl);
+          if (vars instanceof Map && vars.get(varName) != null) return String(vars.get(varName));
           return match;
         })
         .replace(/\{\{cookie\.\w+\([^)]*\)\}\}/g, "")
@@ -1394,8 +1403,8 @@ async function buildSearchConfig(source, keyword, page) {
         } catch { return _; }
       })
       .replace(/\{\{([a-zA-Z_]\w*)\}\}/g, (match, varName) => {
-        const vars = sourceVariables.get(source.bookSourceUrl) || {};
-        if (vars[varName] != null) return String(vars[varName]);
+        const vars = sourceVariables.get(source.bookSourceUrl);
+        if (vars instanceof Map && vars.get(varName) != null) return String(vars.get(varName));
         return match;
       })
       .replace(/\{\{cookie\.\w+\([^)]*\)\}\}/g, "")

@@ -499,7 +499,7 @@ const Shelf = () => {
                           cursor: 'pointer',
                           overflow: 'hidden'
                         }}
-                        bodyStyle={shelfLayout === 'grid' ? { padding: 0 } : { padding: 0 }}
+                        styles={{ body: shelfLayout === 'grid' ? { padding: 0 } : { padding: 0 } }}
                         onClick={() => navigateToReader(book.id)}
                       >
                         {shelfLayout === 'grid' ? (
@@ -788,7 +788,7 @@ const Shelf = () => {
                           cursor: 'pointer',
                           overflow: 'hidden'
                         }}
-                        bodyStyle={historyLayout === 'grid' ? { padding: 0 } : { padding: 0 }}
+                        styles={{ body: historyLayout === 'grid' ? { padding: 0 } : { padding: 0 } }}
                         onClick={() => navigateToReader(book.id)}
                       >
                         {historyLayout === 'grid' ? (

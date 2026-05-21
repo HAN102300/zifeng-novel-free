@@ -1,7 +1,7 @@
 import { testBookSourceAPI, importFromUrlAPI } from './apiClient.js';
-const MAOYAN_KEY = "f041c49714d39908";
-const MAOYAN_IV = "0123456789abcdef";
-const MAOYAN_AUTH_TOKEN = "bearereyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9hcGkuam1sbGRzYy5jb21cL2F1dGhcL3RoaXJkIiwiaWF0IjoxNzc3MjExMjc4LCJleHAiOjE4NzA1MjMyNzgsIm5iZiI6MTc3NzIxMTI3OCwianRpIjoiNGpsVEJuSmdKblpCYUFGMyIsInN1YiI6ODM2NjM5LCJwcnYiOiJhMWNiMDM3MTgwMjk2YzZhMTkzOGVmMzBiNDM3OTQ2NzJkZDAxNmM1In0.kEHikGkkh9Ho_afESS9yXERufvcQ8mXwcdQmOY6ex3I";
+const MAOYAN_KEY = import.meta.env.VITE_MAOYAN_KEY || "f041c49714d39908";
+const MAOYAN_IV = import.meta.env.VITE_MAOYAN_IV || "0123456789abcdef";
+const MAOYAN_AUTH_TOKEN = import.meta.env.VITE_MAOYAN_AUTH_TOKEN || "bearereyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9hcGkuam1sbGRzYy5jb21cL2F1dGhcL3RoaXJkIiwiaWF0IjoxNzc3MjExMjc4LCJleHAiOjE4NzA1MjMyNzgsIm5iZiI6MTc3NzIxMTI3OCwianRpIjoiNGpsVEJuSmdKblpCYUFGMyIsInN1YiI6ODM2NjM5LCJwcnYiOiJhMWNiMDM3MTgwMjk2YzZhMTkzOGVmMzBiNDM3OTQ2NzJkZDAxNmM1In0.kEHikGkkh9Ho_afESS9yXERufvcQ8mXwcdQmOY6ex3I";
 
 const STORAGE_KEY = 'zifeng_book_sources';
 const ACTIVE_SOURCE_KEY = 'zifeng_active_source';

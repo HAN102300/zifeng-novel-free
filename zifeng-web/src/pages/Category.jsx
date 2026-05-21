@@ -99,7 +99,7 @@ const Category = () => {
           boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
           overflow: 'hidden'
         }}
-        bodyStyle={{ padding: 0 }}
+        styles={{ body: { padding: 0 } }}
       >
         {/* 顶部区域：标题 + 频道切换 */}
         <div style={{
@@ -194,7 +194,7 @@ const Category = () => {
                           overflow: 'hidden',
                           position: 'relative'
                         }}
-                        bodyStyle={{ padding: '20px 12px' }}
+                        styles={{ body: { padding: '20px 12px' } }}
                       >
                         {/* 装饰圆 */}
                         <div style={{

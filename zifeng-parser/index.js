@@ -14,8 +14,8 @@ const {
   executeJsRule,
   resolveTemplate,
 } = require("./ruleEngine");
-const { resolveUrl, parseHeaders, sleep, isRetryableError, classifyError, createTTLMap, MAX_RETRIES, RETRY_DELAY_BASE } = require("./utils");
-const { checkLoginState, injectAuthIntoConfig, isAuthFailure, persistAuthState, restoreAuthState } = require("./javaShim");
+const { resolveUrl, parseHeaders, sleep, isRetryableError, classifyError, createTTLMap, validateSource, MAX_RETRIES, RETRY_DELAY_BASE } = require("./utils");
+const { checkLoginState, injectAuthIntoConfig, isAuthFailure, persistAuthState, restoreAuthState, cookieStore } = require("./javaShim");
 
 const app = express();
 
@@ -31,6 +31,25 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: "10mb" }));
+
+function checkSourceValid(req, res) {
+  const { source } = req.body;
+  if (!source) {
+    res.status(400).json({ error: "缺少source参数" });
+    return false;
+  }
+  const validation = validateSource(source);
+  if (!validation.valid) {
+    res.status(400).json({ error: "source验证失败", details: validation.errors });
+    return false;
+  }
+  return true;
+}
+
+const searchCache = createTTLMap(5 * 60 * 1000, 5 * 60 * 1000, 500);
+const bookInfoCache = createTTLMap(5 * 60 * 1000, 15 * 60 * 1000, 1000);
+const tocCache = createTTLMap(5 * 60 * 1000, 10 * 60 * 1000, 1000);
+const contentCache = createTTLMap(5 * 60 * 1000, 10 * 60 * 1000, 1000);
 
 const PROXY_BLOCKED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "::1", "10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.", "192.168."];
 
@@ -219,7 +238,7 @@ async function fetchWithConfig(config) {
   const axiosConfig = {
     url,
     method: method || "GET",
-    timeout: 20000,
+    timeout: 12000,
     maxRedirects: 10,
     headers: {
       "User-Agent":
@@ -450,19 +469,19 @@ app.post("/api/proxy", rateLimitMiddleware(30, 60000), async (req, res) => {
 });
 
 app.post("/api/test-source", async (req, res) => {
+  if (!checkSourceValid(req, res)) return;
   const { source, keyword = "人", page = 1, fullTest = false } = req.body;
 
-  if (!source || !source.bookSourceUrl) {
-    return res.status(400).json({ error: "Invalid source" });
-  }
-
   try {
+    const jsDiagnostics = analyzeJsRules(source);
+
     const config = await buildSearchConfig(source, keyword, page);
     if (!config) {
       return res.json({
         success: false,
         message: "无法构建搜索URL",
         errorType: "config",
+        jsDiagnostics,
       });
     }
 
@@ -493,6 +512,7 @@ app.post("/api/test-source", async (req, res) => {
         errorCode: e.code || '',
         requiresLogin: hasLoginUrl,
         hasLoginUrl,
+        jsDiagnostics,
       });
     }
 
@@ -505,6 +525,7 @@ app.post("/api/test-source", async (req, res) => {
         requestInfo,
         requiresLogin: hasLoginUrl,
         hasLoginUrl,
+        jsDiagnostics,
       });
     }
 
@@ -521,6 +542,7 @@ app.post("/api/test-source", async (req, res) => {
         message: `搜索解析失败: ${classified.message}`,
         errorType: classified.type,
         requestInfo,
+        jsDiagnostics,
       });
     }
 
@@ -554,6 +576,7 @@ app.post("/api/test-source", async (req, res) => {
         requestInfo,
         requiresLogin,
         hasLoginUrl,
+        jsDiagnostics,
       });
     }
 
@@ -585,6 +608,7 @@ app.post("/api/test-source", async (req, res) => {
         rawLength: typeof responseData === "string" ? responseData.length : 0,
         responseType: isHtml ? "html" : isJson ? "json" : "unknown",
         requestInfo,
+        jsDiagnostics,
       });
     }
 
@@ -613,7 +637,7 @@ app.post("/api/test-source", async (req, res) => {
       }
     } catch (e) {
       const classified = classifyError(e);
-      stages.bookInfo.error = `${classified.message}: ${e.message}`;
+      stages.bookInfo.error = `${classified.type}: ${e.message}`;
     }
 
     if (!stages.bookInfo.success) {
@@ -629,6 +653,7 @@ app.post("/api/test-source", async (req, res) => {
         rawLength: typeof responseData === "string" ? responseData.length : 0,
         responseType: isHtml ? "html" : isJson ? "json" : "unknown",
         requestInfo,
+        jsDiagnostics,
       });
     }
 
@@ -656,7 +681,7 @@ app.post("/api/test-source", async (req, res) => {
       }
     } catch (e) {
       const classified = classifyError(e);
-      stages.toc.error = `${classified.message}: ${e.message}`;
+      stages.toc.error = `${classified.type}: ${e.message}`;
     }
 
     if (!stages.toc.success) {
@@ -672,6 +697,7 @@ app.post("/api/test-source", async (req, res) => {
         rawLength: typeof responseData === "string" ? responseData.length : 0,
         responseType: isHtml ? "html" : isJson ? "json" : "unknown",
         requestInfo,
+        jsDiagnostics,
       });
     }
 
@@ -706,7 +732,7 @@ app.post("/api/test-source", async (req, res) => {
       }
     } catch (e) {
       const classified = classifyError(e);
-      stages.content.error = `${classified.message}: ${e.message}`;
+      stages.content.error = `${classified.type}: ${e.message}`;
     }
 
     const allPass = stages.search.success && stages.bookInfo.success && stages.toc.success && stages.content.success;
@@ -727,6 +753,7 @@ app.post("/api/test-source", async (req, res) => {
       rawLength: typeof responseData === "string" ? responseData.length : 0,
       responseType: isHtml ? "html" : isJson ? "json" : "unknown",
       requestInfo,
+      jsDiagnostics,
     });
   } catch (e) {
     console.error("[TEST ERROR]", e.message);
@@ -734,12 +761,104 @@ app.post("/api/test-source", async (req, res) => {
   }
 });
 
-app.post("/api/login", async (req, res) => {
-  const { source, mode = "login" } = req.body;
+function analyzeJsRules(source) {
+  const jsFields = [
+    { field: "ruleSearch.bookList", rule: source.ruleSearch?.bookList },
+    { field: "ruleSearch.name", rule: source.ruleSearch?.name },
+    { field: "ruleSearch.author", rule: source.ruleSearch?.author },
+    { field: "ruleSearch.bookUrl", rule: source.ruleSearch?.bookUrl },
+    { field: "ruleSearch.coverUrl", rule: source.ruleSearch?.coverUrl },
+    { field: "ruleSearch.kind", rule: source.ruleSearch?.kind },
+    { field: "ruleBookInfo.name", rule: source.ruleBookInfo?.name },
+    { field: "ruleBookInfo.author", rule: source.ruleBookInfo?.author },
+    { field: "ruleBookInfo.coverUrl", rule: source.ruleBookInfo?.coverUrl },
+    { field: "ruleBookInfo.intro", rule: source.ruleBookInfo?.intro },
+    { field: "ruleBookInfo.tocUrl", rule: source.ruleBookInfo?.tocUrl },
+    { field: "ruleToc.chapterList", rule: source.ruleToc?.chapterList },
+    { field: "ruleToc.chapterName", rule: source.ruleToc?.chapterName },
+    { field: "ruleToc.chapterUrl", rule: source.ruleToc?.chapterUrl },
+    { field: "ruleContent.content", rule: source.ruleContent?.content },
+  ];
 
-  if (!source || !source.bookSourceUrl) {
-    return res.status(400).json({ error: "Invalid source" });
+  const diagnostics = [];
+  let hasJsRule = false;
+  let hasAjaxInJs = false;
+
+  for (const { field, rule } of jsFields) {
+    if (!rule || typeof rule !== "string") continue;
+
+    const jsBlockMatches = [...rule.matchAll(/<(js|script)>([\s\S]*?)<\/\1>/gi)];
+    const jsSuffixMatch = rule.match(/@(js|JS):([\s\S]*)$/i);
+
+    if (jsBlockMatches.length > 0 || jsSuffixMatch) {
+      hasJsRule = true;
+      const jsCode = jsBlockMatches.length > 0
+        ? jsBlockMatches.map(m => m[2]).join("; ")
+        : jsSuffixMatch[2];
+
+      const syntaxIssue = checkJsSyntax(jsCode);
+      if (syntaxIssue) {
+        diagnostics.push({
+          severity: "error",
+          field,
+          message: `JS语法错误: ${syntaxIssue}`,
+        });
+      }
+
+      if (/java\.ajax\s*\(/i.test(jsCode) || /java\.connect\s*\(/i.test(jsCode)) {
+        hasAjaxInJs = true;
+        diagnostics.push({
+          severity: "warning",
+          field,
+          message: "JS规则中检测到java.ajax/java.connect调用，需确保异步处理正确",
+        });
+      }
+
+      if (/(?<!\w)await\s+java[.](ajax|connect)\s*\(/i.test(jsCode)) {
+        diagnostics.push({
+          severity: "info",
+          field,
+          message: "JS规则中使用await调用java.ajax，将尝试异步执行",
+        });
+      }
+    }
   }
+
+  if (source.jsLib && typeof source.jsLib === "string" && source.jsLib.trim()) {
+    const jsLibIssue = checkJsSyntax(source.jsLib);
+    if (jsLibIssue) {
+      diagnostics.push({
+        severity: "error",
+        field: "jsLib",
+        message: `JS库语法错误: ${jsLibIssue}`,
+      });
+    }
+  }
+
+  return {
+    hasJsRule,
+    hasAjaxInJs,
+    issuesCount: diagnostics.filter(d => d.severity === "error").length,
+    warningsCount: diagnostics.filter(d => d.severity === "warning").length,
+    diagnostics,
+    summary: diagnostics.length > 0
+      ? `${diagnostics.length} 个问题 (${diagnostics.filter(d => d.severity === "error").length} 个错误)`
+      : "JS规则语法检查通过",
+  };
+}
+
+function checkJsSyntax(code) {
+  try {
+    new Function(`"use strict"; (function() { ${code} });`);
+    return null;
+  } catch (e) {
+    return e.message;
+  }
+}
+
+app.post("/api/login", async (req, res) => {
+  if (!checkSourceValid(req, res)) return;
+  const { source, mode = "login" } = req.body;
 
   try {
     if (mode === "check") {
@@ -822,10 +941,8 @@ app.post("/api/login", async (req, res) => {
 });
 
 app.post("/api/browser-login", async (req, res) => {
+  if (!checkSourceValid(req, res)) return;
   const { source } = req.body;
-  if (!source || !source.bookSourceUrl) {
-    return res.status(400).json({ error: "Invalid source" });
-  }
 
   const loginUrl = (source.loginUrl || '').trim();
   if (!loginUrl) {
@@ -838,7 +955,12 @@ app.post("/api/browser-login", async (req, res) => {
   }
 
   try {
-    const puppeteer = require("puppeteer");
+    let puppeteer;
+    try {
+      puppeteer = require("puppeteer");
+    } catch {
+      return res.json({ success: false, message: "Puppeteer未安装（可选依赖）。请运行: npm install puppeteer" });
+    }
     const chromePaths = [
       process.env.CHROME_PATH,
       "C:/Program Files/Google/Chrome/Application/chrome.exe",
@@ -936,11 +1058,18 @@ app.post("/api/browser-login", async (req, res) => {
 app.post("/api/search", async (req, res) => {
   const { source, keyword, page = 1 } = req.body;
 
-  if (!source || !keyword) {
-    return res.status(400).json({ error: "Missing source or keyword" });
+  if (!keyword) {
+    return res.status(400).json({ error: "Missing keyword" });
   }
+  if (!checkSourceValid(req, res)) return;
 
   try {
+    const cacheKey = `search:${source.bookSourceUrl}:${keyword}:${page}`;
+    const cached = searchCache.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     const config = await buildSearchConfig(source, keyword, page);
     if (!config) {
       return res.json({
@@ -960,12 +1089,15 @@ app.post("/api/search", async (req, res) => {
       page,
     });
 
-    res.json({
+    const result = {
       success: true,
       results,
       total: results.length,
       page,
-    });
+    };
+    searchCache.set(cacheKey, result, 5 * 60 * 1000);
+
+    res.json(result);
   } catch (e) {
     console.error("[SEARCH ERROR]", e.message);
     const classified = classifyError(e);
@@ -976,9 +1108,10 @@ app.post("/api/search", async (req, res) => {
 app.post("/api/explore", async (req, res) => {
   const { source, exploreUrl } = req.body;
 
-  if (!source || !exploreUrl) {
-    return res.status(400).json({ error: "Missing source or exploreUrl" });
+  if (!exploreUrl) {
+    return res.status(400).json({ error: "Missing exploreUrl" });
   }
+  if (!checkSourceValid(req, res)) return;
 
   try {
     let url = exploreUrl;
@@ -1002,17 +1135,22 @@ app.post("/api/explore", async (req, res) => {
 app.post("/api/book-info", async (req, res) => {
   const { source, bookUrl, bookData } = req.body;
 
-  if (!source) {
-    return res.status(400).json({ error: "Missing source" });
-  }
+  if (!checkSourceValid(req, res)) return;
 
   try {
     let responseData;
+    let bookInfoCacheKey = null;
 
     if (bookUrl && bookUrl.startsWith('data:')) {
       console.log(`[BOOK-INFO] ${source.bookSourceName} -> data: URL detected`);
       responseData = bookUrl;
     } else if (bookUrl) {
+      bookInfoCacheKey = `bookinfo:${source.bookSourceUrl}:${bookUrl}`;
+      const cached = bookInfoCache.get(bookInfoCacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
+
       const headers = parseHeaders(source.header);
       let requestUrl = bookUrl;
       if (source.ruleBookInfo && source.ruleBookInfo.bookInfoUrl) {
@@ -1042,7 +1180,11 @@ app.post("/api/book-info", async (req, res) => {
       book: bookData,
     });
 
-    res.json({ success: true, bookInfo });
+    const result = { success: true, bookInfo };
+    if (bookInfoCacheKey) {
+      bookInfoCache.set(bookInfoCacheKey, result, 15 * 60 * 1000);
+    }
+    res.json(result);
   } catch (e) {
     console.error("[BOOK-INFO ERROR]", e.message);
     const classified = classifyError(e);
@@ -1053,11 +1195,18 @@ app.post("/api/book-info", async (req, res) => {
 app.post("/api/toc", async (req, res) => {
   const { source, tocUrl, book } = req.body;
 
-  if (!source || !tocUrl) {
-    return res.status(400).json({ error: "Missing source or tocUrl" });
+  if (!tocUrl) {
+    return res.status(400).json({ error: "Missing tocUrl" });
   }
+  if (!checkSourceValid(req, res)) return;
 
   try {
+    const tocCacheKey = `toc:${source.bookSourceUrl}:${tocUrl}`;
+    const cached = tocCache.get(tocCacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     let responseData;
 
     if (tocUrl.startsWith('data:')) {
@@ -1100,9 +1249,9 @@ app.post("/api/toc", async (req, res) => {
       if (!requestUrl.startsWith('http')) {
         requestUrl = resolveUrl(source.bookSourceUrl, requestUrl);
       }
-      requestUrl = requestUrl.replace(/\/{2,}/g, (match, offset) => {
-        if (offset > 6) return '/';
-        return match;
+      requestUrl = requestUrl.replace(/\/{2,}/g, (match, offset, fullStr) => {
+        if (fullStr[offset - 1] === ':') return match;
+        return '/';
       });
       console.log(`[TOC] ${source.bookSourceName} -> ${requestUrl}`);
       console.log(`[TOC] Request to: ${requestUrl}`);
@@ -1116,7 +1265,9 @@ app.post("/api/toc", async (req, res) => {
 
     const chapters = await parseToc(source, responseData, { book });
 
-    res.json({ success: true, chapters });
+    const tocResult = { success: true, chapters };
+    tocCache.set(tocCacheKey, tocResult, 10 * 60 * 1000);
+    res.json(tocResult);
   } catch (e) {
     console.error("[TOC ERROR]", e.message);
     const classified = classifyError(e);
@@ -1127,11 +1278,18 @@ app.post("/api/toc", async (req, res) => {
 app.post("/api/content", async (req, res) => {
   const { source, chapterUrl, book, chapter } = req.body;
 
-  if (!source || !chapterUrl) {
-    return res.status(400).json({ error: "Missing source or chapterUrl" });
+  if (!chapterUrl) {
+    return res.status(400).json({ error: "Missing chapterUrl" });
   }
+  if (!checkSourceValid(req, res)) return;
 
   try {
+    const contentCacheKey = `content:${source.bookSourceUrl}:${chapterUrl}`;
+    const cached = contentCache.get(contentCacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     let responseData;
 
     if (chapterUrl.startsWith('data:')) {
@@ -1150,12 +1308,14 @@ app.post("/api/content", async (req, res) => {
 
     const content = await parseContent(source, responseData, { book, chapter }, fetchWithConfig);
 
-    res.json({
+    const contentResult = {
       success: true,
       content: typeof content === "object"
         ? content.content || content
         : String(content || ""),
-    });
+    };
+    contentCache.set(contentCacheKey, contentResult, 10 * 60 * 1000);
+    res.json(contentResult);
   } catch (e) {
     console.error("[CONTENT ERROR]", e.message);
     const classified = classifyError(e);

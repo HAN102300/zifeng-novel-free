@@ -152,7 +152,7 @@ const RankDetail = () => {
               </div>
             </div>
           }
-          bodyStyle={{ padding: 12 }}
+          styles={{ body: { padding: 12 } }}
           onClick={() => {
             const ds = getDefaultSource();
             const novelId = String(novel.id || novel.novelId || '');

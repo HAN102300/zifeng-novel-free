@@ -87,3 +87,6 @@ cache:
     book-info: 3600
     toc: 1800
     content: 600
+
+invite-code:
+  required: false

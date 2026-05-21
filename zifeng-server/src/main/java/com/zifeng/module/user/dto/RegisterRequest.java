@@ -15,4 +15,5 @@ public class RegisterRequest {
     private String password;
 
     private String email;
+    private String inviteCode;
 }

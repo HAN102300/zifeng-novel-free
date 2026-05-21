@@ -1,0 +1,177 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 850" width="1100" height="850">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#059669"/>
+    </marker>
+    <marker id="arrow-orange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#ea580c"/>
+    </marker>
+    <filter id="shadow" x="-5%" y="-5%" width="115%" height="115%">
+      <feDropShadow dx="1" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  <rect width="1100" height="850" fill="#f8fafc" rx="12"/>
+  <text x="550" y="36" font-family="sans-serif" font-size="20" font-weight="bold" fill="#0f172a" text-anchor="middle">紫枫免费小说 — 系统架构图</text>
+  <text x="550" y="54" font-family="sans-serif" font-size="12" fill="#64748b" text-anchor="middle">zifeng-novel-free | 全栈小说阅读平台</text>
+  <rect x="40" y="72" width="1020" height="115" rx="8" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="55" y="92" font-family="sans-serif" font-size="12" font-weight="bold" fill="#1d4ed8">用户层</text>
+  <rect x="80" y="100" width="140" height="48" rx="6" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="150" y="120" font-family="sans-serif" font-size="12" font-weight="600" fill="#1e3a5f" text-anchor="middle">🌐 桌面浏览器</text>
+  <text x="150" y="136" font-family="sans-serif" font-size="10" fill="#64748b" text-anchor="middle">Chrome / Edge / Firefox</text>
+  <rect x="260" y="100" width="140" height="48" rx="6" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="330" y="120" font-family="sans-serif" font-size="12" font-weight="600" fill="#1e3a5f" text-anchor="middle">📱 移动端</text>
+  <text x="330" y="136" font-family="sans-serif" font-size="10" fill="#64748b" text-anchor="middle">手机 / 平板浏览器</text>
+  <rect x="440" y="100" width="140" height="48" rx="6" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="510" y="120" font-family="sans-serif" font-size="12" font-weight="600" fill="#1e3a5f" text-anchor="middle">🤖 API 客户端</text>
+  <text x="510" y="136" font-family="sans-serif" font-size="10" fill="#64748b" text-anchor="middle">第三方 / 爬虫</text>
+  <path d="M 150 148 L 150 176" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <path d="M 330 148 L 330 176" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <path d="M 510 148 L 510 176" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <rect x="830" y="82" width="215" height="92" rx="6" fill="#ffffff" stroke="#e2e8f0" stroke-width="1" filter="url(#shadow)"/>
+  <text x="937" y="100" font-family="sans-serif" font-size="10" font-weight="bold" fill="#334155" text-anchor="middle">图例</text>
+  <line x1="845" y1="114" x2="880" y2="114" stroke="#3b82f6" stroke-width="2"/>
+  <text x="888" y="118" font-family="sans-serif" font-size="9" fill="#64748b">用户请求</text>
+  <line x1="845" y1="128" x2="880" y2="128" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="888" y="132" font-family="sans-serif" font-size="9" fill="#64748b">网关路由</text>
+  <line x1="845" y1="142" x2="880" y2="142" stroke="#059669" stroke-width="2"/>
+  <text x="888" y="146" font-family="sans-serif" font-size="9" fill="#64748b">API 调用</text>
+  <line x1="845" y1="156" x2="880" y2="156" stroke="#64748b" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="888" y="160" font-family="sans-serif" font-size="9" fill="#64748b">数据/缓存访问</text>
+  <rect x="220" y="192" width="240" height="56" rx="8" fill="#fef3c7" stroke="#fbbf24" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="340" y="216" font-family="sans-serif" font-size="14" font-weight="bold" fill="#92400e" text-anchor="middle">Nginx 网关</text>
+  <text x="340" y="234" font-family="sans-serif" font-size="10" fill="#92400e" text-anchor="middle">SSL 终止 / 路由 / 负载均衡</text>
+  <path d="M 280 248 L 280 264" stroke="#ea580c" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+  <path d="M 400 248 L 400 264" stroke="#ea580c" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+  <rect x="40" y="264" width="1020" height="156" rx="8" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="55" y="284" font-family="sans-serif" font-size="12" font-weight="bold" fill="#15803d">前端层 (React 19 + Vite 8)</text>
+  <rect x="70" y="296" width="450" height="108" rx="6" fill="#ffffff" stroke="#86efac" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="295" y="315" font-family="sans-serif" font-size="13" font-weight="bold" fill="#065f46" text-anchor="middle">🎨 zifeng-web &#8212; 用户前端</text>
+  <text x="295" y="332" font-family="sans-serif" font-size="10" fill="#64748b" text-anchor="middle">React 19 + Ant Design 6 + Framer Motion + Anime.js</text>
+  <rect x="90" y="350" width="80" height="20" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="130" y="364" font-family="sans-serif" font-size="9" fill="#166534" text-anchor="middle">首页</text>
+  <rect x="178" y="350" width="80" height="20" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="218" y="364" font-family="sans-serif" font-size="9" fill="#166534" text-anchor="middle">搜索</text>
+  <rect x="266" y="350" width="80" height="20" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="306" y="364" font-family="sans-serif" font-size="9" fill="#166534" text-anchor="middle">详情</text>
+  <rect x="354" y="350" width="80" height="20" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="394" y="364" font-family="sans-serif" font-size="9" fill="#166534" text-anchor="middle">阅读器</text>
+  <rect x="442" y="350" width="80" height="20" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="482" y="364" font-family="sans-serif" font-size="9" fill="#166534" text-anchor="middle">书架</text>
+  <rect x="90" y="376" width="80" height="20" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="130" y="390" font-family="sans-serif" font-size="9" fill="#166534" text-anchor="middle">分类</text>
+  <rect x="178" y="376" width="80" height="20" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="218" y="390" font-family="sans-serif" font-size="9" fill="#166534" text-anchor="middle">排行</text>
+  <rect x="266" y="376" width="80" height="20" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="306" y="390" font-family="sans-serif" font-size="9" fill="#166534" text-anchor="middle">设置</text>
+  <rect x="354" y="376" width="80" height="20" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="394" y="390" font-family="sans-serif" font-size="9" fill="#166534" text-anchor="middle">个人中心</text>
+  <rect x="550" y="296" width="480" height="108" rx="6" fill="#ffffff" stroke="#86efac" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="790" y="315" font-family="sans-serif" font-size="13" font-weight="bold" fill="#065f46" text-anchor="middle">🛠️ zifeng-admin &#8212; 管理后台</text>
+  <text x="790" y="332" font-family="sans-serif" font-size="10" fill="#64748b" text-anchor="middle">React 19 + Ant Design 6 + @ant-design/charts</text>
+  <rect x="570" y="350" width="100" height="20" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="620" y="364" font-family="sans-serif" font-size="9" fill="#166534" text-anchor="middle">数据概览</text>
+  <rect x="680" y="350" width="100" height="20" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="730" y="364" font-family="sans-serif" font-size="9" fill="#166534" text-anchor="middle">访问日志</text>
+  <rect x="790" y="350" width="100" height="20" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="840" y="364" font-family="sans-serif" font-size="9" fill="#166534" text-anchor="middle">书源管理</text>
+  <rect x="900" y="350" width="100" height="20" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="950" y="364" font-family="sans-serif" font-size="9" fill="#166534" text-anchor="middle">用户管理</text>
+  <rect x="570" y="376" width="100" height="20" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="620" y="390" font-family="sans-serif" font-size="9" fill="#166534" text-anchor="middle">管理员管理</text>
+  <rect x="680" y="376" width="100" height="20" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="730" y="390" font-family="sans-serif" font-size="9" fill="#166534" text-anchor="middle">书架管理</text>
+  <rect x="790" y="376" width="100" height="20" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+  <text x="840" y="390" font-family="sans-serif" font-size="9" fill="#166534" text-anchor="middle">阅读历史</text>
+  <path d="M 295 420 L 295 435" stroke="#059669" stroke-width="2" marker-end="url(#arrow-green)"/>
+  <path d="M 790 420 L 790 435" stroke="#059669" stroke-width="2" marker-end="url(#arrow-green)"/>
+  <rect x="40" y="435" width="640" height="140" rx="8" fill="#fef2f2" stroke="#fecaca" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="55" y="455" font-family="sans-serif" font-size="12" font-weight="bold" fill="#b91c1c">后端层 (Spring Boot 3.2)</text>
+  <rect x="65" y="465" width="136" height="54" rx="6" fill="#ffffff" stroke="#fca5a5" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="133" y="484" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1d4ed8" text-anchor="middle">module-user</text>
+  <text x="133" y="499" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">用户服务</text>
+  <text x="133" y="513" font-family="sans-serif" font-size="8" fill="#94a3b8" text-anchor="middle">注册登录 / 书架 / 进度 / 头像</text>
+  <rect x="213" y="465" width="136" height="54" rx="6" fill="#ffffff" stroke="#fca5a5" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="281" y="484" font-family="sans-serif" font-size="11" font-weight="bold" fill="#b91c1c" text-anchor="middle">module-source</text>
+  <text x="281" y="499" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">书源服务</text>
+  <text x="281" y="513" font-family="sans-serif" font-size="8" fill="#94a3b8" text-anchor="middle">书源 CRUD / 导入导出 / 启用禁用</text>
+  <rect x="361" y="465" width="136" height="54" rx="6" fill="#ffffff" stroke="#fca5a5" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="429" y="484" font-family="sans-serif" font-size="11" font-weight="bold" fill="#c2410c" text-anchor="middle">module-parse</text>
+  <text x="429" y="499" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">解析代理</text>
+  <text x="429" y="513" font-family="sans-serif" font-size="8" fill="#94a3b8" text-anchor="middle">搜索代理 / 缓存 / 转发</text>
+  <rect x="509" y="465" width="136" height="54" rx="6" fill="#ffffff" stroke="#fca5a5" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="577" y="484" font-family="sans-serif" font-size="11" font-weight="bold" fill="#5b21b6" text-anchor="middle">module-admin</text>
+  <text x="577" y="499" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">管理服务</text>
+  <text x="577" y="513" font-family="sans-serif" font-size="8" fill="#94a3b8" text-anchor="middle">统计 / 日志 / 管理员 CRUD</text>
+  <rect x="65" y="527" width="160" height="36" rx="5" fill="#ffe4e6" stroke="#fda4af" stroke-width="1"/>
+  <text x="145" y="543" font-family="sans-serif" font-size="10" font-weight="600" fill="#9d174d" text-anchor="middle">Sa-Token 双端认证</text>
+  <text x="145" y="556" font-family="sans-serif" font-size="8" fill="#64748b" text-anchor="middle">用户端 + 管理端</text>
+  <rect x="245" y="527" width="160" height="36" rx="5" fill="#ffe4e6" stroke="#fda4af" stroke-width="1"/>
+  <text x="325" y="543" font-family="sans-serif" font-size="10" font-weight="600" fill="#9d174d" text-anchor="middle">三级限流</text>
+  <text x="325" y="556" font-family="sans-serif" font-size="8" fill="#64748b" text-anchor="middle">认证/全局/单接口</text>
+  <rect x="425" y="527" width="160" height="36" rx="5" fill="#ffe4e6" stroke="#fda4af" stroke-width="1"/>
+  <text x="505" y="543" font-family="sans-serif" font-size="10" font-weight="600" fill="#9d174d" text-anchor="middle">缓存管理</text>
+  <text x="505" y="556" font-family="sans-serif" font-size="8" fill="#64748b" text-anchor="middle">ConcurrentMapCache</text>
+  <path d="M 180 575 L 180 595" stroke="#059669" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <rect x="40" y="595" width="640" height="90" rx="8" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="55" y="615" font-family="sans-serif" font-size="12" font-weight="bold" fill="#c2410c">解析引擎层 (Express + Cheerio + Puppeteer)</text>
+  <rect x="65" y="625" width="136" height="48" rx="6" fill="#ffffff" stroke="#fdba74" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="133" y="645" font-family="sans-serif" font-size="11" font-weight="600" fill="#9a3412" text-anchor="middle">规则引擎</text>
+  <text x="133" y="661" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">JSONPath/XPath/CSS</text>
+  <rect x="213" y="625" width="136" height="48" rx="6" fill="#ffffff" stroke="#fdba74" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="281" y="645" font-family="sans-serif" font-size="11" font-weight="600" fill="#9a3412" text-anchor="middle">Java Shim</text>
+  <text x="281" y="661" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">Legado 兼容层</text>
+  <rect x="361" y="625" width="136" height="48" rx="6" fill="#ffffff" stroke="#fdba74" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="429" y="645" font-family="sans-serif" font-size="11" font-weight="600" fill="#9a3412" text-anchor="middle">内容解密</text>
+  <text x="429" y="661" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">AES/MD5/Base64</text>
+  <rect x="509" y="625" width="136" height="48" rx="6" fill="#ffffff" stroke="#fdba74" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="577" y="645" font-family="sans-serif" font-size="11" font-weight="600" fill="#9a3412" text-anchor="middle">繁简转换</text>
+  <text x="577" y="661" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">opencc-js</text>
+  <rect x="710" y="435" width="350" height="250" rx="8" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="725" y="455" font-family="sans-serif" font-size="12" font-weight="bold" fill="#6d28d9">数据层</text>
+  <rect x="735" y="468" width="300" height="56" rx="6" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="885" y="490" font-family="sans-serif" font-size="13" font-weight="bold" fill="#4c1d95" text-anchor="middle">🐬 MySQL 8</text>
+  <text x="885" y="508" font-family="sans-serif" font-size="10" fill="#64748b" text-anchor="middle">JPA 自动建表 / utf8mb4 / 用户/书源/日志</text>
+  <rect x="735" y="538" width="300" height="56" rx="6" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="885" y="560" font-family="sans-serif" font-size="13" font-weight="bold" fill="#4c1d95" text-anchor="middle">🔥 Redis 7</text>
+  <text x="885" y="578" font-family="sans-serif" font-size="10" fill="#64748b" text-anchor="middle">Sa-Token 会话 / 限流计数器</text>
+  <text x="885" y="616" font-family="sans-serif" font-size="10" font-weight="600" fill="#6d28d9" text-anchor="middle">— 缓存策略 —</text>
+  <text x="750" y="632" font-family="sans-serif" font-size="9" font-weight="600" fill="#4c1d95" text-anchor="start">后端缓存</text>
+  <text x="830" y="632" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="start">ConcurrentMapCache</text>
+  <text x="990" y="632" font-family="sans-serif" font-size="9" fill="#94a3b8" text-anchor="start">2-10min TTL</text>
+  <text x="750" y="648" font-family="sans-serif" font-size="9" font-weight="600" fill="#4c1d95" text-anchor="start">Redis</text>
+  <text x="830" y="648" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="start">会话 + 限流</text>
+  <text x="990" y="648" font-family="sans-serif" font-size="9" fill="#94a3b8" text-anchor="start">会话级</text>
+  <text x="750" y="664" font-family="sans-serif" font-size="9" font-weight="600" fill="#4c1d95" text-anchor="start">前端缓存</text>
+  <text x="830" y="664" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="start">Memory Cache</text>
+  <text x="990" y="664" font-family="sans-serif" font-size="9" fill="#94a3b8" text-anchor="start">30s</text>
+  <text x="750" y="680" font-family="sans-serif" font-size="9" font-weight="600" fill="#4c1d95" text-anchor="start">本地存储</text>
+  <text x="830" y="680" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="start">localStorage</text>
+  <text x="990" y="680" font-family="sans-serif" font-size="9" fill="#94a3b8" text-anchor="start">持久化</text>
+  <path d="M 680 495 L 710 495" stroke="#64748b" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <path d="M 680 565 L 710 565" stroke="#64748b" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <path d="M 680 515 L 710 515" stroke="#64748b" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <rect x="40" y="705" width="1020" height="90" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="55" y="725" font-family="sans-serif" font-size="12" font-weight="bold" fill="#334155">部署运维层</text>
+  <rect x="65" y="735" width="180" height="48" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="155" y="755" font-family="sans-serif" font-size="11" font-weight="600" fill="#334155" text-anchor="middle">Docker Compose</text>
+  <text x="155" y="771" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">单机全容器化</text>
+  <rect x="260" y="735" width="180" height="48" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="350" y="755" font-family="sans-serif" font-size="11" font-weight="600" fill="#334155" text-anchor="middle">Docker Swarm</text>
+  <text x="350" y="771" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">集群 + Prometheus</text>
+  <rect x="455" y="735" width="180" height="48" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="545" y="755" font-family="sans-serif" font-size="11" font-weight="600" fill="#334155" text-anchor="middle">Kubernetes</text>
+  <text x="545" y="771" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">云原生 + ArgoCD</text>
+  <rect x="650" y="735" width="180" height="48" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="740" y="755" font-family="sans-serif" font-size="11" font-weight="600" fill="#334155" text-anchor="middle">Helm Charts</text>
+  <text x="740" y="771" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">统一编排</text>
+  <rect x="845" y="735" width="180" height="48" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="935" y="755" font-family="sans-serif" font-size="11" font-weight="600" fill="#334155" text-anchor="middle">Nginx</text>
+  <text x="935" y="771" font-family="sans-serif" font-size="9" fill="#64748b" text-anchor="middle">SSL + 路由</text>
+  <text x="550" y="830" font-family="sans-serif" font-size="9" fill="#94a3b8" text-anchor="middle">技术栈: React 19 + Spring Boot 3.2 + Express + MySQL 8 + Redis 7 + Docker + Kubernetes</text>
+</svg>

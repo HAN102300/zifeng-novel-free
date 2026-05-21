@@ -1,16 +1,19 @@
 const RETRYABLE_ERRORS = [
   "ECONNRESET",
   "ETIMEDOUT",
-  "ECONNREFUSED",
   "EPIPE",
   "EAI_AGAIN",
-  "ENOTFOUND",
   "EPROTO",
   "ERR_BAD_RESPONSE",
 ];
 
-const MAX_RETRIES = 3;
-const RETRY_DELAY_BASE = 1000;
+const NON_RETRYABLE_ERRORS = [
+  "ENOTFOUND",
+  "ECONNREFUSED",
+];
+
+const MAX_RETRIES = 2;
+const RETRY_DELAY_BASE = 800;
 
 function resolveUrl(baseUrl, relativePath) {
   if (!relativePath) return baseUrl;
@@ -77,6 +80,8 @@ function isRetryableError(error) {
   if (!error) return false;
   const code = error.code || "";
   const message = error.message || "";
+  if (NON_RETRYABLE_ERRORS.some((e) => code === e || message.includes(e)))
+    return false;
   if (RETRYABLE_ERRORS.some((e) => code === e || message.includes(e)))
     return true;
   if (error.response && error.response.status >= 500) return true;
@@ -164,6 +169,52 @@ function createTTLMap(cleanupInterval = 30 * 60 * 1000, maxAge = 2 * 60 * 60 * 1
   };
 }
 
+function validateSource(source) {
+  const errors = [];
+
+  if (!source || typeof source !== 'object') {
+    errors.push('source必须是对象');
+    return { valid: false, errors };
+  }
+
+  if (!source.bookSourceUrl || typeof source.bookSourceUrl !== 'string') {
+    errors.push('缺少bookSourceUrl');
+  } else if (source.bookSourceUrl.length > 2000) {
+    errors.push('bookSourceUrl超过最大长度');
+  }
+
+  if (!source.bookSourceName || typeof source.bookSourceName !== 'string') {
+    errors.push('缺少bookSourceName');
+  }
+
+  const ruleFields = ['ruleSearch', 'ruleBookInfo', 'ruleToc', 'ruleContent', 'ruleExplore'];
+  for (const field of ruleFields) {
+    if (source[field] && typeof source[field] !== 'object') {
+      errors.push(`${field}必须是对象`);
+    }
+  }
+
+  if (source.jsLib && typeof source.jsLib !== 'string') {
+    errors.push('jsLib必须是字符串');
+  } else if (source.jsLib && source.jsLib.length > 50000) {
+    errors.push('jsLib超过最大长度限制(50KB)');
+  }
+
+  if (source.header && typeof source.header === 'string' && source.header.length > 10000) {
+    errors.push('header超过最大长度限制(10KB)');
+  }
+
+  if (source.loginUrl && typeof source.loginUrl === 'string' && source.loginUrl.length > 5000) {
+    errors.push('loginUrl超过最大长度限制(5KB)');
+  }
+
+  if (source.searchUrl && typeof source.searchUrl === 'string' && source.searchUrl.length > 5000) {
+    errors.push('searchUrl超过最大长度限制(5KB)');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 module.exports = {
   resolveUrl,
   parseHeaders,
@@ -171,7 +222,9 @@ module.exports = {
   isRetryableError,
   classifyError,
   createTTLMap,
+  validateSource,
   RETRYABLE_ERRORS,
+  NON_RETRYABLE_ERRORS,
   MAX_RETRIES,
   RETRY_DELAY_BASE,
 };

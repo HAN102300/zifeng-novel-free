@@ -1,0 +1,11 @@
+- [x] `_accumulateResult` 使用 `result.success` 判断成功/失败，成功但无结果的书源计入 `succeededSources`
+- [x] `_accumulateResult` 中 sourceDetail 的 `success` 字段与 `result.success` 一致
+- [x] `searchSingleSource` 透传解析器的实际错误信息到 `error` 字段
+- [x] `searchSingleSource` 网络超时时 `error` 为 "timeout"，其他异常时为 `err.message`
+- [x] `execute` 方法中 `Promise.allSettled` 的 rejected 条目生成 sourceDetail 记录
+- [x] `allSourceDetails` 数组长度等于已处理的书源总数（含 rejected 条目）
+- [x] 聚合搜索进行中且暂无结果时，显示书源搜索进度详情（已搜索/成功/失败数）
+- [x] 进度文案使用"已搜索 X/Y 个书源"而非"第 X/Y 批"
+- [x] 加载状态下展示已搜索书源的状态标签（绿色=有结果、橙色=成功无结果、红色=失败）
+- [x] 聚合搜索完成但无结果时，空结果页面展示书源搜索状态摘要
+- [x] 聚合搜索进行中已有部分结果时，结果列表立即展示，底部显示继续搜索进度

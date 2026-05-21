@@ -196,7 +196,7 @@ const CategoryDetail = () => {
               )}
             </div>
           }
-          bodyStyle={{ padding: 12 }}
+          styles={{ body: { padding: 12 } }}
         >
           <div style={{ height: 80, display: 'flex', flexDirection: 'column' }}>
             <Text strong style={{
