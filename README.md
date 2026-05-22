@@ -267,18 +267,11 @@ zifeng-novel-free/
 │       └── module-admin/     管理模块（统计/日志/管理）
 │
 ├── zifeng-parser/       ⚡ 解析引擎       Express + Cheerio + Puppeteer
-│   ├── index.js              服务入口 + API 路由
-│   ├── ruleEngine.js         规则引擎（JSONPath/XPath/CSS/JS）
-│   ├── javaShim.js           Java 方法模拟层
-│   ├── selectors.js          CSS/XPath 选择器
-│   └── utils.js              工具函数
-│
-└── deploy/              🐳 部署配置       Docker + Nginx + K8s
-    ├── docker/               Dockerfile（4 个服务）
-    ├── nginx/                Nginx 网关配置
-    ├── k8s/                  Kubernetes + Helm + ArgoCD
-    ├── scripts/              部署脚本（备份/恢复/回滚/健康检查）
-    └── docker-compose.prod.yml  生产级编排
+    ├── index.js              服务入口 + API 路由
+    ├── ruleEngine.js         规则引擎（JSONPath/XPath/CSS/JS）
+    ├── javaShim.js           Java 方法模拟层
+    ├── selectors.js          CSS/XPath 选择器
+    └── utils.js              工具函数
 ```
 
 ### 服务端口
