@@ -214,6 +214,18 @@ public class BookSourceService {
         return bookSourceRepository.countByEnabledTrue();
     }
 
+    public long getHasLoginCount() {
+        return bookSourceRepository.countHasLogin();
+    }
+
+    public long getHasJsCount() {
+        return bookSourceRepository.countHasJs();
+    }
+
+    public long getHasExploreCount() {
+        return bookSourceRepository.countHasExplore();
+    }
+
     public List<BookSource> searchAllSources(String keyword) {
         return bookSourceRepository.findByBookSourceNameContainingOrBookSourceUrlContaining(keyword, keyword);
     }

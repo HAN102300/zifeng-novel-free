@@ -150,11 +150,14 @@ public class BookSourceController {
     }
 
     @GetMapping("/admin/count")
-    @Cacheable(value = "sourceStats", key = "'stats'")
+    @CacheEvict(value = "sourceStats", allEntries = true)
     public ApiResponse<Map<String, Object>> adminSourceStats() {
         long total = bookSourceService.getAllSourcesCount();
         long enabled = bookSourceService.getEnabledSourcesCount();
-        return ApiResponse.ok(Map.of("total", total, "enabled", enabled, "disabled", total - enabled));
+        long hasLogin = bookSourceService.getHasLoginCount();
+        long hasJs = bookSourceService.getHasJsCount();
+        long hasExplore = bookSourceService.getHasExploreCount();
+        return ApiResponse.ok(Map.of("total", total, "enabled", enabled, "disabled", total - enabled, "hasLogin", hasLogin, "hasJs", hasJs, "hasExplore", hasExplore));
     }
 
     @GetMapping("/admin/paged")

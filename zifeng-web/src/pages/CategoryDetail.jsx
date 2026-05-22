@@ -7,6 +7,8 @@ import BackButton from '../components/BackButton';
 import { ThemeContext } from '../App';
 import axios from 'axios';
 import { getDefaultSource, saveNovelCache } from '../utils/novelConfig';
+import { glassCardStyle, glassItemStyle } from '../utils/glassStyle';
+import { BlurText, ReactBitsErrorBoundary } from '../components/react-bits';
 
 const categoryCache = new Map();
 
@@ -25,7 +27,7 @@ function parseHeaders(headerStr) {
 const CategoryDetail = () => {
   const { channel, sort, categoryId, categoryName } = useParams();
   const navigate = useNavigate();
-  const { currentTheme, themeConfigs, isDarkMode } = useContext(ThemeContext);
+  const { currentTheme, themeConfigs, isDarkMode, glassMode } = useContext(ThemeContext);
   const color = themeConfigs[currentTheme].colors[0];
 
   const [novels, setNovels] = useState([]);
@@ -156,6 +158,7 @@ const CategoryDetail = () => {
       >
         <Card
           hoverable
+          style={{ ...glassItemStyle(glassMode, isDarkMode) }}
           cover={
             <div style={{ position: 'relative', height: 200, overflow: 'hidden' }}>
               <img
@@ -252,7 +255,8 @@ const CategoryDetail = () => {
           borderRadius: 16,
           boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
           overflow: 'hidden',
-          marginBottom: 20
+          marginBottom: 20,
+          ...glassCardStyle(glassMode, isDarkMode)
         }}
       >
         <div
@@ -280,7 +284,11 @@ const CategoryDetail = () => {
               <StarOutlined style={{ fontSize: 20, color: color }} />
             </div>
             <div>
-              <Title level={3} style={{ margin: 0, color: color }}>{decodeURIComponent(categoryName)}</Title>
+              <Title level={3} style={{ margin: 0, color: color }}>
+              <ReactBitsErrorBoundary fallback={decodeURIComponent(categoryName)}>
+                <BlurText text={decodeURIComponent(categoryName)} animateBy="words" delay={100} tag="span" style={{ display: 'inline-flex' }} />
+              </ReactBitsErrorBoundary>
+            </Title>
               <Text type="secondary" style={{ fontSize: 13 }}>
                 {Number(channel) === 1 ? '男生频道' : '女生频道'} · {getSortLabel()}
               </Text>
@@ -294,8 +302,15 @@ const CategoryDetail = () => {
           </div>
         ) : novels.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <Text type="secondary" style={{ fontSize: 16 }}>暂无小说数据</Text>
-          </div>
+              <motion.span
+                initial={{ opacity: 0, filter: 'blur(6px)' }}
+                animate={{ opacity: 1, filter: 'blur(0px)' }}
+                transition={{ duration: 0.5 }}
+                style={{ fontSize: 16, color: isDarkMode ? '#888' : '#999' }}
+              >
+                暂无小说数据
+              </motion.span>
+            </div>
         ) : (
           <Row gutter={[16, 16]}>
             {novels.map((novel, index) => (

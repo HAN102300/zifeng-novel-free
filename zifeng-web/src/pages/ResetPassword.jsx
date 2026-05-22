@@ -1,45 +1,42 @@
 import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Card, Form, Input, Button, Steps, Typography, Space, message } from 'antd';
-import { LockOutlined, MailOutlined, EyeInvisibleOutlined, EyeTwoTone } from '@ant-design/icons';
+import { Card, Form, Input, Button, Steps, Typography, Space, message, Alert } from 'antd';
+import { LockOutlined, MailOutlined, EyeInvisibleOutlined, EyeTwoTone, UserOutlined } from '@ant-design/icons';
 import BackButton from '../components/BackButton';
 import { ThemeContext } from '../App';
-import { sendResetCode, resetPassword } from '../utils/apiClient';
+import { verifyEmail, resetPasswordDev } from '../utils/apiClient';
+import { glassCardStyle } from '../utils/glassStyle';
 
 const { Title, Text } = Typography;
 
 const ResetPassword = () => {
   const navigate = useNavigate();
-  const { currentTheme, themeConfigs, isDarkMode } = useContext(ThemeContext);
+  const { currentTheme, themeConfigs, isDarkMode, glassMode } = useContext(ThemeContext);
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [emailValue, setEmailValue] = useState('');
+  const [maskedUsername, setMaskedUsername] = useState('');
   const [step1Form] = Form.useForm();
   const [step2Form] = Form.useForm();
 
   const color = themeConfigs[currentTheme].primaryColor;
 
-  // 步骤1：验证用户名和邮箱
-  const handleVerify = async (values) => {
+  const handleVerifyEmail = async (values) => {
     setLoading(true);
     try {
-      const result = await sendResetCode(values.email);
-      if (!result.success) {
-        message.error(result.message || '发送验证码失败');
-        return;
-      }
-      setEmailValue(values.email);
-      setCurrentStep(1);
-      message.success('验证码已发送到您的邮箱');
-    } catch (error) {
-      if (error.response?.data?.message) {
-        message.error(error.response.data.message);
-      } else if (!error.response) {
-        message.error('网络连接失败，请检查网络后重试');
+      const result = await verifyEmail(values.email);
+      if (result.success && result.data?.verified) {
+        setEmailValue(values.email);
+        setMaskedUsername(result.data.username || '');
+        setCurrentStep(1);
+        message.success('邮箱验证成功');
       } else {
-        message.error('发送验证码失败，请重试');
+        message.error(result.message || '邮箱验证失败');
       }
+    } catch (error) {
+      const msg = error.response?.data?.message || '邮箱验证失败';
+      message.error(msg);
     } finally {
       setLoading(false);
     }
@@ -48,25 +45,19 @@ const ResetPassword = () => {
   const handleResetPassword = async (values) => {
     setLoading(true);
     try {
-      const result = await resetPassword({
+      const result = await resetPasswordDev({
         email: emailValue,
-        code: values.code,
         newPassword: values.newPassword,
       });
-      if (!result.success) {
-        message.error(result.message || '密码重置失败');
-        return;
-      }
-      message.success('密码重置成功，请重新登录');
-      navigate('/login');
-    } catch (error) {
-      if (error.response?.data?.message) {
-        message.error(error.response.data.message);
-      } else if (!error.response) {
-        message.error('网络连接失败，请检查网络后重试');
+      if (result.success) {
+        message.success('密码重置成功，请重新登录');
+        navigate('/login');
       } else {
-        message.error('密码重置失败，请重试');
+        message.error(result.message || '密码重置失败');
       }
+    } catch (error) {
+      const msg = error.response?.data?.message || '密码重置失败';
+      message.error(msg);
     } finally {
       setLoading(false);
     }
@@ -83,26 +74,40 @@ const ResetPassword = () => {
         justifyContent: 'center',
         alignItems: 'center',
         minHeight: '80vh',
-        padding: '20px'
+        padding: '20px',
+        position: 'relative'
       }}
     >
+      {glassMode && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: '10%', right: '-5%', width: 400, height: 400, borderRadius: '50%', background: `radial-gradient(circle, ${color}20 0%, transparent 70%)`, filter: 'blur(80px)' }} />
+          <div style={{ position: 'absolute', bottom: '10%', left: '-5%', width: 350, height: 350, borderRadius: '50%', background: `radial-gradient(circle, ${color}15 0%, transparent 70%)`, filter: 'blur(60px)' }} />
+        </div>
+      )}
       <Card
         style={{
           width: '100%',
           maxWidth: 400,
           borderRadius: 16,
           boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          ...glassCardStyle(glassMode, isDarkMode)
         }}
       >
         <BackButton onClick={() => navigate('/login')} text="返回登录" style={{ marginBottom: 20 }} />
 
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <Title level={3} style={{ margin: 0, color: color }}>
-            重置密码
+            <motion.span
+              initial={{ opacity: 0, filter: 'blur(8px)' }}
+              animate={{ opacity: 1, filter: 'blur(0px)' }}
+              transition={{ duration: 0.6 }}
+            >
+              重置密码
+            </motion.span>
           </Title>
           <Text type="secondary">
-            {currentStep === 0 ? '请输入注册邮箱获取验证码' : '请输入验证码并设置新密码'}
+            {currentStep === 0 ? '请输入注册邮箱进行验证' : '请设置新密码'}
           </Text>
         </div>
 
@@ -111,8 +116,8 @@ const ResetPassword = () => {
           size="small"
           style={{ marginBottom: 24 }}
           items={[
-            { title: '发送验证码' },
-            { title: '重置密码' }
+            { title: '验证邮箱' },
+            { title: '设置新密码' }
           ]}
         />
 
@@ -125,7 +130,7 @@ const ResetPassword = () => {
           >
             <Form
               form={step1Form}
-              onFinish={handleVerify}
+              onFinish={handleVerifyEmail}
               layout="vertical"
             >
               <Form.Item
@@ -158,7 +163,7 @@ const ResetPassword = () => {
                     borderColor: color
                   }}
                 >
-                  发送验证码
+                  验证邮箱
                 </Button>
               </Form.Item>
             </Form>
@@ -172,25 +177,24 @@ const ResetPassword = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3 }}
           >
+            <Alert
+              type="success"
+              showIcon
+              icon={<UserOutlined />}
+              style={{ marginBottom: 16, borderRadius: 8 }}
+              message={
+                <Space direction="vertical" size={2}>
+                  <Text>验证邮箱: {emailValue}</Text>
+                  <Text>关联账号: {maskedUsername}</Text>
+                </Space>
+              }
+            />
+
             <Form
               form={step2Form}
               onFinish={handleResetPassword}
               layout="vertical"
             >
-              <Form.Item
-                name="code"
-                label="验证码"
-                rules={[
-                  { required: true, message: '请输入验证码' }
-                ]}
-              >
-                <Input
-                  placeholder="请输入邮箱收到的验证码"
-                  size="large"
-                  style={{ borderRadius: 8 }}
-                />
-              </Form.Item>
-
               <Form.Item
                 name="newPassword"
                 label="新密码"

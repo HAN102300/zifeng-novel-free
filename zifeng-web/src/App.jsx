@@ -83,6 +83,8 @@ function parseHeaders(headerStr) {
   }
 }
 
+import { glassNavbarStyle } from './utils/glassStyle';
+
 import './App.css';
 
 const { Header, Content } = Layout;
@@ -453,12 +455,16 @@ const AppLayout = ({ currentThemeConfig, isDarkMode, isLoggedIn, userInfo, setIs
           glassMode={glassMode}
         />
       )}
-      <Content style={{ padding: isReaderPage ? 0 : '24px 20px', background: isDarkMode ? '#000000' : '#f0f2f5', position: 'relative' }}>
+      <Content style={{ padding: isReaderPage ? 0 : '24px 20px', background: glassMode
+          ? (isDarkMode ? 'linear-gradient(135deg, #0a0a0a 0%, #0d0d1a 50%, #0a0a0a 100%)' : 'linear-gradient(135deg, #e8ecf1 0%, #f0f2f5 50%, #e8ecf1 100%)')
+          : (isDarkMode ? '#000000' : '#f0f2f5'), position: 'relative', transition: 'background 0.5s ease' }}>
         {glassMode && !isReaderPage && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
-            <div style={{ position: 'absolute', top: '5%', right: '-3%', width: 500, height: 500, borderRadius: '50%', background: `radial-gradient(circle, ${currentThemeConfig.primaryColor}10 0%, transparent 70%)`, filter: 'blur(80px)' }} />
-            <div style={{ position: 'absolute', bottom: '10%', left: '-3%', width: 400, height: 400, borderRadius: '50%', background: `radial-gradient(circle, ${currentThemeConfig.colors ? currentThemeConfig.colors[2] + '0c' : currentThemeConfig.primaryColor + '08'} 0%, transparent 70%)`, filter: 'blur(80px)' }} />
-            <div style={{ position: 'absolute', top: '50%', left: '40%', width: 300, height: 300, borderRadius: '50%', background: `radial-gradient(circle, ${currentThemeConfig.primaryColor}08 0%, transparent 70%)`, filter: 'blur(60px)' }} />
+            <div style={{ position: 'absolute', top: '5%', right: '-5%', width: 600, height: 600, borderRadius: '50%', background: `radial-gradient(circle, ${currentThemeConfig.primaryColor}25 0%, transparent 70%)`, filter: 'blur(100px)', animation: 'glassFloat1 20s ease-in-out infinite' }} />
+            <div style={{ position: 'absolute', bottom: '10%', left: '-5%', width: 500, height: 500, borderRadius: '50%', background: `radial-gradient(circle, ${currentThemeConfig.colors ? currentThemeConfig.colors[2] + '1a' : currentThemeConfig.primaryColor + '15'} 0%, transparent 70%)`, filter: 'blur(90px)', animation: 'glassFloat2 25s ease-in-out infinite' }} />
+            <div style={{ position: 'absolute', top: '50%', left: '35%', width: 400, height: 400, borderRadius: '50%', background: `radial-gradient(circle, ${currentThemeConfig.primaryColor}18 0%, transparent 70%)`, filter: 'blur(80px)', animation: 'glassFloat3 22s ease-in-out infinite' }} />
+            <div style={{ position: 'absolute', top: '20%', left: '10%', width: 350, height: 350, borderRadius: '50%', background: `radial-gradient(circle, ${currentThemeConfig.colors ? currentThemeConfig.colors[3] + '14' : currentThemeConfig.primaryColor + '10'} 0%, transparent 70%)`, filter: 'blur(70px)', animation: 'glassFloat4 28s ease-in-out infinite' }} />
+            <div style={{ position: 'absolute', bottom: '25%', right: '15%', width: 300, height: 300, borderRadius: '50%', background: `radial-gradient(circle, ${currentThemeConfig.colors ? currentThemeConfig.colors[1] + '12' : currentThemeConfig.primaryColor + '0c'} 0%, transparent 70%)`, filter: 'blur(65px)', animation: 'glassFloat5 24s ease-in-out infinite' }} />
           </div>
         )}
         <div style={{ position: 'relative', zIndex: 1 }}>
@@ -653,20 +659,9 @@ const Navbar = ({ currentThemeConfig, isDarkMode, isLoggedIn, userInfo, setIsDar
         top: 0, 
         zIndex: 1000, 
         width: '100%',
-        background: glassMode
-          ? (isDarkMode ? 'rgba(20,20,20,0.7)' : 'rgba(255,255,255,0.7)')
-          : (isDarkMode ? '#141414' : '#ffffff'),
-        backdropFilter: glassMode ? 'blur(20px) saturate(1.2)' : 'none',
-        WebkitBackdropFilter: glassMode ? 'blur(20px) saturate(1.2)' : 'none',
-        boxShadow: glassMode
-          ? `0 2px 16px ${isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.06)'}`
-          : '0 2px 8px rgba(0,0,0,0.1)',
-        borderBottom: glassMode
-          ? `1px solid ${isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}`
-          : 'none',
+        ...glassNavbarStyle(glassMode, isDarkMode),
         padding: isMobile ? '0 10px' : '0 20px',
         overflow: 'hidden',
-        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>

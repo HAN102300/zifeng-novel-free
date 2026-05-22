@@ -9,6 +9,8 @@ import { getTocAPI, getBookshelf, removeFromBookshelf, getReadingHistory, getRea
 import SummaryText from '../components/SummaryText';
 import { getDefaultSource, saveReaderCache, simpleHash } from '../utils/novelConfig';
 import { getBookSources } from '../utils/bookSourceManager';
+import { ShinyText, CountUp, ReactBitsErrorBoundary } from '../components/react-bits';
+import { glassCardStyle, glassItemStyle } from '../utils/glassStyle';
 
 const { Title, Text } = Typography;
 
@@ -81,7 +83,7 @@ const ProgressBar = ({ progress, primaryColor, isDarkMode, style }) => {
 
 const Shelf = () => {
   const navigate = useNavigate();
-  const { themeConfigs, currentTheme, isDarkMode } = useContext(ThemeContext);
+  const { themeConfigs, currentTheme, isDarkMode, glassMode } = useContext(ThemeContext);
   const { isLoggedIn, userInfo } = useContext(AuthContext);
   const colors = themeConfigs[currentTheme].colors;
   const [readingBooks, setReadingBooks] = useState([]);
@@ -345,9 +347,8 @@ const Shelf = () => {
               maxWidth: 400,
               borderRadius: 16,
               boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-              overflow: 'hidden',
-              textAlign: 'center',
-              background: isDarkMode ? '#141414' : '#ffffff'
+              background: isDarkMode ? '#141414' : '#ffffff',
+              ...glassCardStyle(glassMode, isDarkMode)
             }}
           >
           <div style={{ padding: '40px 20px' }}>
@@ -421,7 +422,7 @@ const Shelf = () => {
             margin: 0, 
             color: themeConfigs[currentTheme].primaryColor 
           }}>
-            欢迎回来，{userInfo.username}！
+            欢迎回来，<ReactBitsErrorBoundary fallback={userInfo.username}><ShinyText text={userInfo.username} speed={3} color={themeConfigs[currentTheme].primaryColor} shineColor={isDarkMode ? '#ffffff' : '#ffffff'} spread={120} /></ReactBitsErrorBoundary>！
           </Title>
           <Badge 
             count={favoriteBooks.length} 
@@ -434,7 +435,7 @@ const Shelf = () => {
           />
         </Space>
         <Text type="secondary" style={{ marginTop: 4, display: 'block' }}>
-          您的书架中有 {favoriteBooks.length} 本书籍，{readingBooks.length} 条阅读记录
+          您的书架中有 <ReactBitsErrorBoundary fallback={favoriteBooks.length}><CountUp to={favoriteBooks.length} from={0} duration={1} /></ReactBitsErrorBoundary> 本书籍，<ReactBitsErrorBoundary fallback={readingBooks.length}><CountUp to={readingBooks.length} from={0} duration={1} /></ReactBitsErrorBoundary> 条阅读记录
         </Text>
       </motion.div>
 
@@ -467,7 +468,8 @@ const Shelf = () => {
                 borderRadius: 16,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
                 background: isDarkMode ? '#141414' : '#ffffff',
-                border: `1px solid ${isDarkMode ? '#333' : '#f0f0f0'}`
+                border: `1px solid ${isDarkMode ? '#333' : '#f0f0f0'}`,
+                ...glassCardStyle(glassMode, isDarkMode)
               }}
             >
             {favoriteBooks.length > 0 ? (
@@ -497,7 +499,8 @@ const Shelf = () => {
                           border: `1px solid ${isDarkMode ? '#333' : '#f0f0f0'}`,
                           transition: 'all 0.3s ease',
                           cursor: 'pointer',
-                          overflow: 'hidden'
+                          overflow: 'hidden',
+                          ...glassItemStyle(glassMode, isDarkMode)
                         }}
                         styles={{ body: shelfLayout === 'grid' ? { padding: 0 } : { padding: 0 } }}
                         onClick={() => navigateToReader(book.id)}
@@ -691,16 +694,20 @@ const Shelf = () => {
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                   description={
-                    <Text style={{ fontSize: 16, color: isDarkMode ? '#ccc' : '#666' }}>
-                      暂无收藏书籍
-                    </Text>
+                    <motion.span
+                      initial={{ opacity: 0, filter: 'blur(6px)' }}
+                      animate={{ opacity: 1, filter: 'blur(0px)' }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      暂无收藏书籍，去书城添加吧~
+                    </motion.span>
                   }
                 >
-                  <Button 
-                    type="primary" 
-                    icon={<PlusOutlined />} 
-                    style={{ 
-                      backgroundColor: themeConfigs[currentTheme].primaryColor, 
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    style={{
+                      backgroundColor: themeConfigs[currentTheme].primaryColor,
                       borderColor: themeConfigs[currentTheme].primaryColor,
                       padding: '6px 24px',
                       borderRadius: 8
@@ -756,7 +763,8 @@ const Shelf = () => {
                 borderRadius: 16,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
                 background: isDarkMode ? '#141414' : '#ffffff',
-                border: `1px solid ${isDarkMode ? '#333' : '#f0f0f0'}`
+                border: `1px solid ${isDarkMode ? '#333' : '#f0f0f0'}`,
+                ...glassCardStyle(glassMode, isDarkMode)
               }}
             >
             {readingBooks.length > 0 ? (
@@ -786,7 +794,8 @@ const Shelf = () => {
                           border: `1px solid ${isDarkMode ? '#333' : '#f0f0f0'}`,
                           transition: 'all 0.3s ease',
                           cursor: 'pointer',
-                          overflow: 'hidden'
+                          overflow: 'hidden',
+                          ...glassItemStyle(glassMode, isDarkMode)
                         }}
                         styles={{ body: historyLayout === 'grid' ? { padding: 0 } : { padding: 0 } }}
                         onClick={() => navigateToReader(book.id)}
@@ -993,16 +1002,20 @@ const Shelf = () => {
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                   description={
-                    <Text style={{ fontSize: 16, color: isDarkMode ? '#ccc' : '#666' }}>
-                      暂无阅读记录
-                    </Text>
+                    <motion.span
+                      initial={{ opacity: 0, filter: 'blur(6px)' }}
+                      animate={{ opacity: 1, filter: 'blur(0px)' }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      暂无阅读记录，去书城发现好书吧~
+                    </motion.span>
                   }
                 >
-                  <Button 
-                    type="primary" 
-                    icon={<PlusOutlined />} 
-                    style={{ 
-                      backgroundColor: themeConfigs[currentTheme].primaryColor, 
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    style={{
+                      backgroundColor: themeConfigs[currentTheme].primaryColor,
                       borderColor: themeConfigs[currentTheme].primaryColor,
                       padding: '6px 24px',
                       borderRadius: 8

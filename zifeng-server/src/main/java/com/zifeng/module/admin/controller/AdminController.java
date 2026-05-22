@@ -3,6 +3,8 @@ package com.zifeng.module.admin.controller;
 import com.zifeng.common.dto.ApiResponse;
 import com.zifeng.config.StpAdminUtil;
 import com.zifeng.module.admin.dto.*;
+import com.zifeng.module.admin.entity.VisitLog;
+import com.zifeng.module.admin.repository.VisitLogRepository;
 import com.zifeng.module.admin.service.AdminAuthService;
 import com.zifeng.module.user.entity.BookshelfItem;
 import com.zifeng.module.user.entity.ReadingHistory;
@@ -14,8 +16,14 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -28,6 +36,7 @@ public class AdminController {
     private final BookshelfRepository bookshelfRepository;
     private final ReadingHistoryRepository readingHistoryRepository;
     private final UserRepository userRepository;
+    private final VisitLogRepository visitLogRepository;
 
     @GetMapping("/auth/captcha")
     public ApiResponse<Map<String, String>> getCaptcha() {
@@ -59,19 +68,57 @@ public class AdminController {
         return ApiResponse.ok(adminAuthService.getDashboardStats());
     }
 
+    @GetMapping("/logs")
+    public ApiResponse<Page<VisitLog>> getLogsPaged(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String userType,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime endDate) {
+        if (startDate == null) startDate = LocalDateTime.now().minusDays(7);
+        if (endDate == null) endDate = LocalDateTime.now();
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "visitDate"));
+        Page<VisitLog> result = visitLogRepository.searchLogs(
+                keyword != null ? keyword : "",
+                userType != null ? userType : "",
+                startDate, endDate, pageable);
+        return ApiResponse.ok(result);
+    }
+
+    @DeleteMapping("/logs/batch")
+    @CacheEvict(value = {"dashboard", "users"}, allEntries = true)
+    public ApiResponse<Map<String, Object>> batchDeleteLogs(@RequestBody Map<String, List<Long>> body) {
+        List<Long> ids = body.get("ids");
+        if (ids == null || ids.isEmpty()) {
+            return ApiResponse.fail("请选择要删除的日志");
+        }
+        visitLogRepository.deleteByIdIn(ids);
+        return ApiResponse.ok(Map.of("deleted", ids.size()));
+    }
+
     @GetMapping("/dashboard/online")
     public ApiResponse<Map<String, Object>> getOnlineUsers() {
-        long onlineUsers = adminAuthService.getOnlineUsersCount();
-        return ApiResponse.ok(Map.of("onlineUsers", onlineUsers));
+        Map<String, Long> counts = adminAuthService.getOnlineCounts();
+        return ApiResponse.ok(Map.of("onlineUsers", counts.get("onlineUsers"), "onlineVisitors", counts.get("onlineVisitors")));
     }
 
     @GetMapping("/users")
     @Cacheable(value = "users", key = "#keyword ?: 'all'")
     public ApiResponse<List<User>> listUsers(@RequestParam(required = false) String keyword) {
+        List<User> users;
         if (keyword != null && !keyword.isBlank()) {
-            return ApiResponse.ok(adminAuthService.searchUsers(keyword));
+            users = adminAuthService.searchUsers(keyword);
+        } else {
+            users = adminAuthService.listUsers();
         }
-        return ApiResponse.ok(adminAuthService.listUsers());
+        users.forEach(u -> {
+            u.setPassword(null);
+            if (u.getEmail() != null && (u.getEmail().contains("/api/user/avatars/") || u.getEmail().startsWith("/api/"))) {
+                u.setEmail(null);
+            }
+        });
+        return ApiResponse.ok(users);
     }
 
     @PutMapping("/users/{id}/ban")

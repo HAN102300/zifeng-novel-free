@@ -60,6 +60,29 @@ public class AuthController {
         }
     }
 
+    @PostMapping("/verify-email")
+    public ApiResponse<Map<String, Object>> verifyEmail(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        if (email == null || email.isBlank()) {
+            return ApiResponse.fail("邮箱不能为空");
+        }
+        return authService.verifyEmailForReset(email);
+    }
+
+    @PostMapping("/reset-password-dev")
+    public ApiResponse<Void> resetPasswordDev(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        String newPassword = body.get("newPassword");
+        if (email == null || email.isBlank() || newPassword == null || newPassword.isBlank()) {
+            return ApiResponse.fail("参数不完整");
+        }
+        if (newPassword.length() < 6) {
+            return ApiResponse.fail("密码长度至少6位");
+        }
+        authService.resetPasswordDev(email, newPassword);
+        return ApiResponse.ok(null);
+    }
+
     @GetMapping("/info")
     public ApiResponse<UserInfoResponse> getUserInfo() {
         try {
@@ -81,10 +104,11 @@ public class AuthController {
     }
 
     @PutMapping("/profile")
-    public ApiResponse<User> updateProfile(@Valid @RequestBody UpdateProfileRequest request) {
+    @org.springframework.cache.annotation.CacheEvict(value = "users", allEntries = true)
+    public ApiResponse<UserInfoResponse> updateProfile(@Valid @RequestBody UpdateProfileRequest request) {
         try {
             Long userId = getCurrentUserId();
-            User updated = authService.updateProfile(userId,
+            UserInfoResponse updated = authService.updateProfile(userId,
                     request.getAvatar(), request.getEmail());
             return ApiResponse.ok(updated);
         } catch (RuntimeException e) {

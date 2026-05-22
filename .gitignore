@@ -39,3 +39,15 @@ zifeng-server/target/
 
 # OS
 Thumbs.db
+
+# Trae IDE
+.trae/
+
+# Uploads (user data)
+zifeng-server/uploads/
+
+# Playwright CLI temp files
+.playwright-cli/
+
+# Parser runtime state
+zifeng-parser/auth_state.json

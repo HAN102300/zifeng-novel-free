@@ -13,6 +13,7 @@ import { ThemeContext, AuthContext } from '../App';
 import { getTocAPI, getContentAPI, saveReadingProgress as apiSaveReadingProgress, getReadingProgress as apiGetReadingProgress } from '../utils/apiClient';
 import { getBookSources, getDefaultSource as getDefaultSourceFromManager } from '../utils/bookSourceManager';
 import { loadReaderCache, simpleHash, isDefaultSource } from '../utils/novelConfig';
+import { CountUp, ReactBitsErrorBoundary } from '../components/react-bits';
 
 const cache = {
   chapters: new Map(),
@@ -71,6 +72,7 @@ const Reader = () => {
   const [showToc, setShowToc] = useState(false);
   const [tocScrollTop, setTocScrollTop] = useState(0);
   const tocContainerRef = useRef(null);
+  const prevProgressRef = useRef(0);
   const ITEM_HEIGHT = 40;
   const BUFFER = 5;
 
@@ -506,17 +508,38 @@ const Reader = () => {
           text="返回"
           style={{ color: 'var(--reader-text-color)', backgroundColor: 'transparent', border: '1px solid rgba(128,128,128,0.2)', boxShadow: 'none', backdropFilter: 'none' }}
         />
-        <span style={{ 
-          fontWeight: 500, 
-          fontSize: 15, 
-          color: 'var(--reader-text-color)',
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
           maxWidth: '50%',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
+          overflow: 'hidden'
         }}>
-          {currentChapter?.chapterName}
-        </span>
+          <span style={{
+            fontWeight: 500,
+            fontSize: 15,
+            color: 'var(--reader-text-color)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            width: '100%',
+            textAlign: 'center'
+          }}>
+            {currentChapter?.chapterName}
+          </span>
+          {chapters.length > 0 && (() => {
+            const progressVal = Math.round((currentChapterIndex + 1) / chapters.length * 1000) / 10;
+            const prevVal = prevProgressRef.current;
+            prevProgressRef.current = progressVal;
+            return (
+              <span style={{ fontSize: 11, color: 'var(--reader-text-color)', opacity: 0.6, lineHeight: 1.4 }}>
+                <ReactBitsErrorBoundary fallback={`${progressVal}%`}>
+                  <CountUp to={progressVal} from={prevVal} duration={0.8} />%
+                </ReactBitsErrorBoundary>
+              </span>
+            );
+          })()}
+        </div>
         <Tooltip title="阅读设置">
           <Button
             icon={<SettingOutlined />}

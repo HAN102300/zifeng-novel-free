@@ -172,12 +172,14 @@ def generate_nginx_conf(nginx_dir):
         conf_content = f.read()
 
     project_root_posix = PROJECT_ROOT.replace("\\", "/")
-    old_prefixes = [
-        "D:/FrontEnd_Project/Repo/zifeng-novel-free",
+    conf_content = conf_content.replace(
         "D:/FrontEnd_Project/Repo/zifeng-novel-free2",
-    ]
-    for prefix in old_prefixes:
-        conf_content = conf_content.replace(prefix, project_root_posix)
+        project_root_posix,
+    )
+    conf_content = conf_content.replace(
+        "D:/FrontEnd_Project/Repo/zifeng-novel-free/",
+        project_root_posix[:project_root_posix.rfind("/") + 1],
+    )
 
     dst_conf = os.path.join(nginx_dir, "conf", "zifeng-local.conf")
     with open(dst_conf, "w", encoding="utf-8") as f:

@@ -1,9 +1,40 @@
 import { searchBooksAPI } from './apiClient';
 import { adaptSearchResult, computeCompleteness } from './bookAdapter';
 
-const BATCH_SIZE = 5;
-const BATCH_DELAY_MS = 200;
-const SOURCE_TIMEOUT_MS = 10000;
+const DEFAULT_SOURCE_TIMEOUT_MS = 8000;
+const BATCH_DELAY_MS = 100;
+
+const searchCache = new Map();
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+function getCacheKey(source, keyword) {
+  return `${source.bookSourceUrl}::${keyword}`;
+}
+
+function getCachedResult(source, keyword) {
+  const key = getCacheKey(source, keyword);
+  const entry = searchCache.get(key);
+  if (entry && Date.now() - entry.timestamp < CACHE_TTL_MS) {
+    return entry.result;
+  }
+  if (entry) {
+    searchCache.delete(key);
+  }
+  return null;
+}
+
+function setCachedResult(source, keyword, result) {
+  const key = getCacheKey(source, keyword);
+  searchCache.set(key, { result, timestamp: Date.now() });
+  if (searchCache.size > 500) {
+    const oldestKey = searchCache.keys().next().value;
+    searchCache.delete(oldestKey);
+  }
+}
+
+function computeBatchSize(sourceCount) {
+  return Math.min(Math.max(Math.ceil(sourceCount / 3), 5), 10);
+}
 
 function isValidSourceUrl(url) {
   if (!url || typeof url !== 'string') return false;
@@ -15,12 +46,17 @@ function normalizeForDedup(name, author) {
     + '_' + (author || '').replace(/[\s\-_.,·]/g, '').toLowerCase();
 }
 
-function searchSingleSource(source, keyword, signal) {
+function searchSingleSource(source, keyword, signal, timeoutMs = DEFAULT_SOURCE_TIMEOUT_MS) {
+  const cached = getCachedResult(source, keyword);
+  if (cached) {
+    return Promise.resolve({ ...cached, fromCache: true });
+  }
+
   const controller = new AbortController();
   if (signal) {
     signal.addEventListener('abort', () => controller.abort());
   }
-  const timeoutId = setTimeout(() => controller.abort(), SOURCE_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   return searchBooksAPI(source, keyword, 1)
     .then(result => {
@@ -38,20 +74,22 @@ function searchSingleSource(source, keyword, signal) {
           return r;
         }).filter(Boolean);
 
-        return {
+        const searchResult = {
           source,
           success: true,
           books: adapted,
           latencyMs: result.latencyMs || 0,
           error: null,
         };
+        setCachedResult(source, keyword, searchResult);
+        return searchResult;
       }
       return { source, success: false, books: [], latencyMs: 0, error: result.message || result.errorType || 'parse failed' };
     })
     .catch(err => {
       clearTimeout(timeoutId);
       if (err.name === 'AbortError') {
-        return { source, success: false, books: [], latencyMs: SOURCE_TIMEOUT_MS, error: 'timeout' };
+        return { source, success: false, books: [], latencyMs: timeoutMs, error: 'timeout' };
       }
       return { source, success: false, books: [], latencyMs: 0, error: err.message };
     });
@@ -95,10 +133,11 @@ function mergeBooks(allBooks) {
 }
 
 class BatchSearchController {
-  constructor(sources, keyword) {
+  constructor(sources, keyword, options = {}) {
     this.keyword = keyword;
     this.aborted = false;
     this.abortController = new AbortController();
+    this.timeoutMs = options.timeoutMs || DEFAULT_SOURCE_TIMEOUT_MS;
 
     const validSources = sources.filter(s => isValidSourceUrl(s.bookSourceUrl));
     const invalidSources = sources.filter(s => !isValidSourceUrl(s.bookSourceUrl));
@@ -112,9 +151,10 @@ class BatchSearchController {
       error: 'invalid_url',
     }));
 
-    const batchCount = Math.ceil(validSources.length / BATCH_SIZE);
+    const batchSize = computeBatchSize(validSources.length);
+    const batchCount = Math.ceil(validSources.length / batchSize);
     this.batches = Array.from({ length: batchCount }, (_, i) =>
-      validSources.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE)
+      validSources.slice(i * batchSize, (i + 1) * batchSize)
     );
     this.totalBatches = this.batches.length;
     this.totalSources = sources.length;
@@ -127,8 +167,6 @@ class BatchSearchController {
     this.succeededSources = 0;
     this.failedSources = invalidSources.length;
     this.startTime = Date.now();
-    this._lastYieldTime = 0;
-    this._pendingYield = false;
   }
 
   abort() {
@@ -147,7 +185,7 @@ class BatchSearchController {
       failedSources: this.failedSources,
       books: [...this.allBooks],
       sourceDetails: [...this.allSourceDetails],
-      finished: this.completedBatches >= this.totalBatches,
+      finished: this.completedSources >= this.totalSources,
       elapsedMs: Date.now() - this.startTime,
       aborted: this.aborted,
     };
@@ -171,6 +209,7 @@ class BatchSearchController {
       resultCount: result.books.length,
       latencyMs: result.latencyMs,
       error: result.error,
+      fromCache: result.fromCache || false,
     });
   }
 
@@ -179,41 +218,59 @@ class BatchSearchController {
       if (this.aborted) break;
 
       const batch = this.batches[i];
-      const promises = batch.map(source => searchSingleSource(source, this.keyword, this.abortController.signal));
-
-      const settled = await Promise.allSettled(promises);
-      let booksChanged = false;
-
-      for (let j = 0; j < settled.length; j++) {
-        if (this.aborted) break;
-        const entry = settled[j];
+      const pending = new Map();
+      for (let j = 0; j < batch.length; j++) {
         const source = batch[j];
-        if (entry.status === 'fulfilled' && entry.value) {
-          this._accumulateResult(entry.value);
-          if (entry.value.books.length > 0) booksChanged = true;
+        const promise = searchSingleSource(source, this.keyword, this.abortController.signal, this.timeoutMs);
+        pending.set(j, { source, promise });
+      }
+
+      while (pending.size > 0) {
+        if (this.aborted) break;
+
+        const entries = Array.from(pending.entries());
+        const indexedPromises = entries.map(([origIndex, v]) =>
+          v.promise.then(
+            val => ({ origIndex, status: 'fulfilled', value: val, source: v.source }),
+            err => ({ origIndex, status: 'rejected', reason: err, source: v.source })
+          )
+        );
+
+        const firstSettled = await Promise.race(indexedPromises);
+
+        if (this.aborted) break;
+
+        const { origIndex } = firstSettled;
+        pending.delete(origIndex);
+
+        if (firstSettled.status === 'fulfilled' && firstSettled.value) {
+          this._accumulateResult(firstSettled.value);
+          if (firstSettled.value.books.length > 0) {
+            const deduplicated = mergeBooks([...this.allBooks]);
+            this.allBooks = deduplicated;
+          }
         } else {
           this.failedSources++;
           this.completedSources++;
-          const reason = entry.reason ? (entry.reason.message || String(entry.reason)) : 'unknown error';
+          const reason = firstSettled.reason
+            ? (firstSettled.reason.message || String(firstSettled.reason))
+            : 'unknown error';
           this.allSourceDetails.push({
-            sourceUrl: source.bookSourceUrl,
-            sourceName: source.bookSourceName,
+            sourceUrl: firstSettled.source.bookSourceUrl,
+            sourceName: firstSettled.source.bookSourceName,
             success: false,
             resultCount: 0,
             latencyMs: 0,
             error: reason,
           });
         }
+
+        if (pending.size === 0) {
+          this.completedBatches++;
+        }
+
+        yield this.buildProgress();
       }
-
-      this.completedBatches++;
-
-      if (booksChanged) {
-        const deduplicated = mergeBooks([...this.allBooks]);
-        this.allBooks = deduplicated;
-      }
-
-      yield this.buildProgress();
 
       if (i < this.batches.length - 1 && !this.aborted) {
         await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
@@ -222,4 +279,4 @@ class BatchSearchController {
   }
 }
 
-export { BatchSearchController, BATCH_SIZE };
+export { BatchSearchController, computeBatchSize, DEFAULT_SOURCE_TIMEOUT_MS };

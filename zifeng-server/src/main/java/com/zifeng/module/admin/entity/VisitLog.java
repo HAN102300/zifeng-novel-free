@@ -27,6 +27,9 @@ public class VisitLog {
     @Column(name = "ip", length = 50)
     private String ip;
 
+    @Column(name = "ip_location", length = 100)
+    private String ipLocation;
+
     @Column(name = "user_agent", length = 500)
     private String userAgent;
 

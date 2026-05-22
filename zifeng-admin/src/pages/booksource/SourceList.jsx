@@ -419,7 +419,7 @@ const SourceList = () => {
 
   const columns = [
     { title: '名称', dataIndex: 'bookSourceName', key: 'bookSourceName', width: 160, ellipsis: true, render: (text) => <span style={{ fontWeight: 500 }}>{text}</span> },
-    { title: 'URL', dataIndex: 'bookSourceUrl', key: 'bookSourceUrl', width: 200, ellipsis: true, render: (text) => <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{text}</span> },
+    { title: 'URL', dataIndex: 'bookSourceUrl', key: 'bookSourceUrl', width: 200, ellipsis: true, render: (text) => <Tooltip placement="topLeft" title={text}><span style={{ fontFamily: "'SF Mono', 'Cascadia Code', Consolas, monospace", fontSize: 13, fontWeight: 400, color: isDarkMode ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)' }}>{text}</span></Tooltip> },
     { title: '分组', dataIndex: 'bookSourceGroup', key: 'bookSourceGroup', width: 100, ellipsis: true, render: (text) => text ? <Tag>{text}</Tag> : '-' },
     { title: '类型', dataIndex: 'bookSourceType', key: 'bookSourceType', width: 80, render: (val, record) => { const detectedType = detectSourceType(record); const info = SOURCE_TYPE_MAP[detectedType] || { color: 'default', label: '未知' }; return <Tag color={info.color}>{info.label}</Tag>; } },
     { title: '启用', dataIndex: 'enabled', key: 'enabled', width: 70, render: (val, record) => <Switch size="small" checked={val} onChange={() => handleToggleEnabled(record)} /> },

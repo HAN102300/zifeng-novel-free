@@ -82,6 +82,8 @@ export const getCaptcha = () => adminApi.get('/auth/captcha');
 export const adminLogin = (data) => adminApi.post('/auth/login', data);
 export const getAdminInfo = () => cachedGet(() => adminApi.get('/auth/info'), 'adminInfo');
 export const getDashboard = () => cachedGet(() => adminApi.get('/dashboard'), 'dashboard');
+export const getLogsPaged = (params) => adminApi.get('/logs', { params });
+export const batchDeleteLogs = (ids) => adminApi.delete('/logs/batch', { data: { ids } });
 export const getOnlineUsers = () => adminApi.get('/dashboard/online');
 export const getUsers = (keyword) => cachedGet(() => adminApi.get('/users', { params: { keyword } }), `users:${keyword || 'all'}`);
 export const banUser = (id) => adminApi.put(`/users/${id}/ban`).then(r => { clearCache('users:'); return r; });
@@ -188,5 +190,10 @@ export const browserLogin = (source) => parserApi.post('/browser-login', {
 });
 
 export const importFromUrl = (url) => parserApi.get('/import-from-url', { params: { url } });
+
+export const getFeedbacks = (params) => adminApi.get('/feedbacks', { params });
+export const getFeedbackStats = () => adminApi.get('/feedbacks/stats');
+export const replyFeedback = (id, data) => adminApi.put(`/feedbacks/${id}/reply`, data);
+export const updateFeedbackStatus = (id, params) => adminApi.put(`/feedbacks/${id}/status`, null, { params });
 
 export default adminApi;

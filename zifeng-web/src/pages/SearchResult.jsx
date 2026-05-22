@@ -13,6 +13,8 @@ import { searchBooksAPI, getAllEnabledSources } from '../utils/apiClient';
 import { saveNovelCache, simpleHash } from '../utils/novelConfig';
 import { adaptSearchResult, computeCompleteness } from '../utils/bookAdapter';
 import { BatchSearchController } from '../utils/batchSearch';
+import { CountUp, ShinyText, ReactBitsErrorBoundary } from '../components/react-bits';
+import { glassCardStyle, glassItemStyle } from '../utils/glassStyle';
 
 const { Text } = Typography;
 
@@ -55,6 +57,7 @@ const SearchResult = () => {
   const hasMoreRef = useRef(true);
   const pageRef = useRef(1);
   const searchTimerRef = useRef(null);
+  const prevResultCountRef = useRef(0);
 
   useEffect(() => {
     const loadSources = async () => {
@@ -280,7 +283,23 @@ const SearchResult = () => {
       for await (const progress of controller.execute()) {
         if (searchCancelled || controller.aborted) break;
 
-        setResults(progress.books);
+        setResults(prev => {
+          const existingKeys = new Set(prev.map(b => `${b.name}__${b.author}`));
+          const newBooks = progress.books.filter(b => !existingKeys.has(`${b.name}__${b.author}`));
+          if (newBooks.length > 0) {
+            return [...prev, ...newBooks];
+          }
+          const merged = prev.map(existing => {
+            const match = progress.books.find(b => b.name === existing.name && b.author === existing.author);
+            if (match && match.availableSourceNames?.length > existing.availableSourceNames?.length) {
+              return { ...existing, ...match, sourceTag: match.sourceTag || existing.sourceTag };
+            }
+            return existing;
+          });
+          const hasChanges = merged.some((m, i) => m !== prev[i]);
+          return hasChanges ? merged : prev;
+        });
+        prevResultCountRef.current = progress.books.length;
         setSourceDetails(progress.sourceDetails);
         setBatchProgress(progress);
 
@@ -313,6 +332,7 @@ const SearchResult = () => {
         const final = controller.buildProgress();
         setBatchProgress(final);
         setResults(final.books);
+        prevResultCountRef.current = final.books.length;
         setSourceDetails(final.sourceDetails);
         setAggregatedMeta({
           totalSources,
@@ -425,41 +445,6 @@ const SearchResult = () => {
     navigate(-1);
   };
 
-  const glassCardStyle = (extra = {}) => ({
-    borderRadius: 16,
-    background: glassMode
-      ? (isDarkMode ? 'rgba(20,20,20,0.65)' : 'rgba(255,255,255,0.6)')
-      : (isDarkMode ? '#141414' : '#ffffff'),
-    backdropFilter: glassMode ? 'blur(20px) saturate(1.2)' : 'none',
-    WebkitBackdropFilter: glassMode ? 'blur(20px) saturate(1.2)' : 'none',
-    border: glassMode
-      ? `1px solid ${isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`
-      : `1px solid ${isDarkMode ? '#333' : '#f0f0f0'}`,
-    boxShadow: glassMode
-      ? `0 8px 32px ${isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.08)'}`
-      : '0 8px 32px rgba(0,0,0,0.1)',
-    ...extra
-  });
-
-  const itemCardStyle = (extra = {}) => ({
-    borderRadius: 12,
-    background: glassMode
-      ? (isDarkMode ? 'rgba(25,25,25,0.55)' : 'rgba(255,255,255,0.5)')
-      : (isDarkMode ? '#141414' : '#ffffff'),
-    backdropFilter: glassMode ? 'blur(16px) saturate(1.1)' : 'none',
-    WebkitBackdropFilter: glassMode ? 'blur(16px) saturate(1.1)' : 'none',
-    border: glassMode
-      ? `1px solid ${isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}`
-      : `1px solid ${isDarkMode ? '#333' : '#f0f0f0'}`,
-    boxShadow: glassMode
-      ? `0 4px 16px ${isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.05)'}`
-      : '0 4px 16px rgba(0,0,0,0.08)',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    cursor: 'pointer',
-    overflow: 'hidden',
-    ...extra
-  });
-
   return (
     <div style={{ position: 'relative', padding: '0', maxWidth: 1400, margin: '0 auto', minHeight: '100vh' }}>
       {glassMode && (
@@ -510,7 +495,7 @@ const SearchResult = () => {
             WebkitBackdropFilter: glassMode ? 'blur(20px)' : 'none'
           }}
         >
-          <Card style={glassCardStyle()}>
+          <Card style={{ borderRadius: 16, ...glassCardStyle(glassMode, isDarkMode) }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, padding: '12px 0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: '1 1 auto', minWidth: 0 }}>
                 <BackButton onClick={handleBack} />
@@ -520,6 +505,13 @@ const SearchResult = () => {
                     <Text strong style={{ fontSize: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       搜索：{keyword}
                     </Text>
+                    {searchMode === 'aggregated' && (
+                      <Tag color="processing" style={{ marginLeft: 8, fontSize: 12, padding: '0 8px', borderRadius: 4 }}>
+                        <ReactBitsErrorBoundary fallback="聚合搜索">
+                          <ShinyText text="聚合搜索" speed={3} color="#ffffff" shineColor="#ffffffcc" />
+                        </ReactBitsErrorBoundary>
+                      </Tag>
+                    )}
                   </div>
                 </div>
               </div>
@@ -636,13 +628,13 @@ const SearchResult = () => {
 
               {searchMode === 'aggregated' && aggregatedMeta && (
                 <div style={{ marginBottom: 16 }}>
-                  <Card size="small" style={itemCardStyle({ marginBottom: 12 })}>
+                  <Card size="small" style={{ borderRadius: 12, ...glassItemStyle(glassMode, isDarkMode), marginBottom: 12 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <Text strong>
                           {batchRunning
-                            ? `正在搜索 ${aggregatedMeta.deduplicatedResults} 条结果（已去重）`
-                            : `搜索完成，共 ${aggregatedMeta.deduplicatedResults} 条结果（去重前 ${aggregatedMeta.totalResults} 条）`}
+                            ? <>正在搜索 <ReactBitsErrorBoundary fallback={aggregatedMeta.deduplicatedResults}><CountUp to={aggregatedMeta.deduplicatedResults} from={prevResultCountRef.current} duration={0.6} /></ReactBitsErrorBoundary> 条结果（已去重）</>
+                            : <>搜索完成，共 <ReactBitsErrorBoundary fallback={aggregatedMeta.deduplicatedResults}><CountUp to={aggregatedMeta.deduplicatedResults} from={0} duration={1.2} /></ReactBitsErrorBoundary> 条结果（去重前 <ReactBitsErrorBoundary fallback={aggregatedMeta.totalResults}><CountUp to={aggregatedMeta.totalResults} from={0} duration={1.2} /></ReactBitsErrorBoundary> 条）</>}
                         </Text>
                         {batchRunning && (
                           <Tag color="processing" style={{ fontSize: 11 }}>
@@ -680,14 +672,14 @@ const SearchResult = () => {
                   {results.map((book, index) => (
                     <motion.div
                       key={`${book.id}-${index}`}
-                      initial={{ opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.35, delay: Math.min((index % 15) * 0.04, 0.6), ease: [0.22, 1, 0.36, 1] }}
+                      initial={{ opacity: 0, y: 16, filter: 'blur(8px)' }}
+                      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                      transition={{ duration: 0.4, delay: Math.min((index % 15) * 0.04, 0.6), ease: [0.22, 1, 0.36, 1] }}
                       whileHover={{ scale: 1.005, transition: { duration: 0.2 } }}
                     >
                       <Card
                         hoverable
-                        style={itemCardStyle()}
+                        style={{ borderRadius: 12, ...glassItemStyle(glassMode, isDarkMode), transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', cursor: 'pointer', overflow: 'hidden' }}
                         styles={{ body: { padding: 0 } }}
                         onClick={() => navigateToDetail(book)}
                       >
@@ -790,8 +782,8 @@ const SearchResult = () => {
                   {results.map((book, index) => (
                     <motion.div
                       key={`${book.id}-${index}`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
+                      initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
+                      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                       transition={{ duration: 0.35, delay: Math.min((index % 15) * 0.04, 0.6), ease: [0.22, 1, 0.36, 1] }}
                       whileHover={{
                         y: -6,
@@ -800,7 +792,7 @@ const SearchResult = () => {
                     >
                       <Card
                         hoverable
-                        style={itemCardStyle()}
+                        style={{ borderRadius: 12, ...glassItemStyle(glassMode, isDarkMode), transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', cursor: 'pointer', overflow: 'hidden' }}
                         styles={{ body: { padding: 0 } }}
                         onClick={() => navigateToDetail(book)}
                       >
@@ -954,14 +946,18 @@ const SearchResult = () => {
               transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
               style={{ padding: '0 20px' }}
             >
-              <Card style={glassCardStyle()}>
+              <Card style={{ borderRadius: 16, ...glassCardStyle(glassMode, isDarkMode) }}>
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                   description={
                     <Space direction="vertical" size={4}>
-                      <Text style={{ fontSize: 16, color: isDarkMode ? '#ccc' : '#666' }}>
-                        未找到与「{keyword}」相关的小说
-                      </Text>
+                      <motion.span
+                          initial={{ opacity: 0, filter: 'blur(6px)' }}
+                          animate={{ opacity: 1, filter: 'blur(0px)' }}
+                          transition={{ duration: 0.5 }}
+                        >
+                          {`未找到与「${keyword}」相关的小说`}
+                        </motion.span>
                       <Text style={{ fontSize: 13, color: isDarkMode ? '#888' : '#999' }}>
                         试试换个关键词或切换书源搜索
                       </Text>
@@ -979,7 +975,7 @@ const SearchResult = () => {
                 </Empty>
               </Card>
               {searchMode === 'aggregated' && sourceDetails.length > 0 && (
-                <Card size="small" style={{ ...glassCardStyle(), marginTop: 12 }}>
+                <Card size="small" style={{ borderRadius: 16, ...glassCardStyle(glassMode, isDarkMode), marginTop: 12 }}>
                   <div style={{ marginBottom: 8 }}>
                     <Text strong style={{ fontSize: 13 }}>
                       书源搜索状态
@@ -1013,7 +1009,7 @@ const SearchResult = () => {
               transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
               style={{ padding: '0 20px' }}
             >
-              <Card style={glassCardStyle()}>
+              <Card style={{ borderRadius: 16, ...glassCardStyle(glassMode, isDarkMode) }}>
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                   description={<Text style={{ fontSize: 16, color: isDarkMode ? '#ccc' : '#666' }}>请输入搜索关键词</Text>}

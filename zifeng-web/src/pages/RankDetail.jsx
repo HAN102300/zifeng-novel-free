@@ -5,6 +5,8 @@ import { Card, Row, Col, Typography, Tag, Space, Divider, Spin, Button, Paginati
 import { FireOutlined, TrophyOutlined, RiseOutlined, CheckCircleOutlined, ClockCircleOutlined, EyeOutlined, CommentOutlined } from '@ant-design/icons';
 import BackButton from '../components/BackButton';
 import { ThemeContext } from '../App';
+import { glassCardStyle, glassItemStyle } from '../utils/glassStyle';
+import { CountUp, BlurText, ReactBitsErrorBoundary } from '../components/react-bits';
 import axios from 'axios';
 import { getDefaultSource, saveNovelCache } from '../utils/novelConfig';
 
@@ -25,7 +27,7 @@ const rankConfig = {
 const RankDetail = () => {
   const { rankType } = useParams();
   const navigate = useNavigate();
-  const { currentTheme, themeConfigs, isDarkMode } = useContext(ThemeContext);
+  const { currentTheme, themeConfigs, isDarkMode, glassMode } = useContext(ThemeContext);
   const [novels, setNovels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -115,6 +117,7 @@ const RankDetail = () => {
       >
         <Card
           hoverable
+          style={{ ...glassItemStyle(glassMode, isDarkMode) }}
           cover={
             <div style={{ position: 'relative', height: 200, overflow: 'hidden' }}>
               <img
@@ -239,7 +242,8 @@ const RankDetail = () => {
           borderRadius: 16,
           boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
           overflow: 'hidden',
-          marginBottom: 20
+          marginBottom: 20,
+          ...glassCardStyle(glassMode, isDarkMode)
         }}
       >
         <div 
@@ -266,10 +270,29 @@ const RankDetail = () => {
             }}>
               <Icon style={{ fontSize: 20, color: color }} />
             </div>
-            <Title level={3} style={{ margin: 0, color: color }}>{config.title}</Title>
+            <Title level={3} style={{ margin: 0, color: color }}>
+              <ReactBitsErrorBoundary fallback={config.title}>
+                <BlurText text={config.title} animateBy="words" delay={100} tag="span" style={{ display: 'inline-flex' }} />
+              </ReactBitsErrorBoundary>
+            </Title>
           </Space>
+          <Text type="secondary" style={{ fontSize: 14 }}>
+            共 <ReactBitsErrorBoundary fallback={total}><CountUp to={total} from={0} duration={1.5} separator="," /></ReactBitsErrorBoundary> 本
+          </Text>
         </div>
         
+        {novels.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+              <motion.span
+                initial={{ opacity: 0, filter: 'blur(6px)' }}
+                animate={{ opacity: 1, filter: 'blur(0px)' }}
+                transition={{ duration: 0.5 }}
+                style={{ fontSize: 16, color: isDarkMode ? '#888' : '#999' }}
+              >
+                暂无榜单数据
+              </motion.span>
+            </div>
+        ) : (
         <Row gutter={[16, 16]}>
           {novels.map((novel, index) => (
             <Col key={novel.id} xs={12} sm={8} md={6} lg={4} xl={4}>
@@ -277,6 +300,7 @@ const RankDetail = () => {
             </Col>
           ))}
         </Row>
+        )}
         
         <div style={{ marginTop: 30, display: 'flex', justifyContent: 'center' }}>
           <Pagination

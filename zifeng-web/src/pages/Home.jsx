@@ -24,11 +24,13 @@ import {
   StarOutlined
 } from '@ant-design/icons';
 import { NovelContext, ThemeContext } from '../App';
+import { BlurText, ShinyText, ReactBitsErrorBoundary } from '../components/react-bits';
 import { getDefaultSource, saveNovelCache, simpleHash } from '../utils/novelConfig';
+import { glassCardStyle, glassItemStyle, glassHeroStyle } from '../utils/glassStyle';
 
 const { Title, Text } = Typography;
 
-const NovelCard = ({ novel, index, color }) => {
+const NovelCard = ({ novel, index, color, glassMode, isDarkMode }) => {
   const [isHovered, setIsHovered] = useState(false);
   const navigate = useNavigate();
   
@@ -62,6 +64,7 @@ const NovelCard = ({ novel, index, color }) => {
     >
       <Card
         hoverAble
+        style={{ ...glassItemStyle(glassMode, isDarkMode) }}
         cover={
           <div style={{ position: 'relative', height: 200, overflow: 'hidden' }}>
             <img
@@ -170,7 +173,11 @@ const SectionHeader = ({ title, icon: Icon, color, onClick, rankType, navigate }
         }}>
           <Icon style={{ fontSize: 20, color: color }} />
         </div>
-        <Title level={4} style={{ margin: 0, color: color }}>{title}</Title>
+        <Title level={4} style={{ margin: 0, color: color }}>
+          <ReactBitsErrorBoundary fallback={title}>
+            <BlurText text={title} animateBy="words" delay={100} stepDuration={0.3} tag="span" style={{ display: 'inline-flex' }} />
+          </ReactBitsErrorBoundary>
+        </Title>
       </Space>
       <motion.div
         onHoverStart={() => setIsHovered(true)}
@@ -197,14 +204,15 @@ const SectionHeader = ({ title, icon: Icon, color, onClick, rankType, navigate }
   );
 };
 
-const NovelSection = ({ title, icon, novels, color, span = 24, rankType, navigate, gridClass = 'novel-grid-main' }) => {
+const NovelSection = ({ title, icon, novels, color, span = 24, rankType, navigate, gridClass = 'novel-grid-main', glassMode, isDarkMode }) => {
   return (
     <Col span={span} style={{ marginBottom: 24 }}>
       <Card
         style={{ 
           borderRadius: 16,
           boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          ...glassCardStyle(glassMode, isDarkMode)
         }}
         styles={{ body: { padding: 0 } }}
       >
@@ -220,7 +228,7 @@ const NovelSection = ({ title, icon, novels, color, span = 24, rankType, navigat
             <div className={`novel-grid ${gridClass}`}>
               {novels.map((novel, index) => (
                 <div className="novel-item" key={novel.id}>
-                  <NovelCard novel={novel} index={index} color={color} />
+                  <NovelCard novel={novel} index={index} color={color} glassMode={glassMode} isDarkMode={isDarkMode} />
                 </div>
               ))}
             </div>
@@ -233,7 +241,7 @@ const NovelSection = ({ title, icon, novels, color, span = 24, rankType, navigat
 
 const Home = () => {
   const { novels, loading } = useContext(NovelContext);
-  const { currentTheme, themeConfigs, isDarkMode } = useContext(ThemeContext);
+  const { currentTheme, themeConfigs, isDarkMode, glassMode } = useContext(ThemeContext);
   const navigate = useNavigate();
   
   const colors = themeConfigs[currentTheme].colors;
@@ -248,6 +256,71 @@ const Home = () => {
 
   return (
     <div style={{ padding: '0 0 40px 0' }}>
+      {/* Hero Brand Section */}
+      <ReactBitsErrorBoundary fallback={
+        <div style={{ textAlign: 'center', padding: '40px 20px 20px' }}>
+          <div style={{ fontSize: 30, fontWeight: 'bold', color: colors[0] }}>紫枫免费小说</div>
+          <div style={{ fontSize: 15, color: isDarkMode ? '#aaa' : '#666', marginTop: 8 }}>海量书源 · 免费阅读 · 极致体验</div>
+        </div>
+      }>
+        <div style={{
+          textAlign: 'center',
+          padding: '48px 20px 32px',
+          position: 'relative',
+          overflow: 'hidden',
+          background: isDarkMode
+            ? `linear-gradient(180deg, ${colors[0]}15 0%, transparent 100%)`
+            : `linear-gradient(180deg, ${colors[0]}10 0%, transparent 100%)`,
+          ...glassHeroStyle(glassMode, isDarkMode)
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 300,
+            height: 300,
+            background: `radial-gradient(circle, ${colors[0]}20 0%, transparent 70%)`,
+            pointerEvents: 'none'
+          }} />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <BlurText
+              text="紫枫免费小说"
+              animateBy="words"
+              delay={150}
+              tag="span"
+              style={{
+                fontSize: 32,
+                fontWeight: 800,
+                color: colors[0],
+                justifyContent: 'center',
+                letterSpacing: 2,
+                display: 'inline-flex'
+              }}
+            />
+            <div style={{ marginTop: 12 }}>
+              <ReactBitsErrorBoundary fallback="海量书源 · 免费阅读 · 极致体验">
+                <ShinyText
+                  text="海量书源 · 免费阅读 · 极致体验"
+                  speed={3}
+                  color={isDarkMode ? '#888' : '#666'}
+                  shineColor={isDarkMode ? '#ffffffcc' : '#ffffff'}
+                  spread={120}
+                />
+              </ReactBitsErrorBoundary>
+            </div>
+          </div>
+          <div style={{
+            marginTop: 20,
+            height: 2,
+            width: 60,
+            margin: '20px auto 0',
+            background: `linear-gradient(90deg, transparent, ${colors[0]}60, transparent)`,
+            borderRadius: 1
+          }} />
+        </div>
+      </ReactBitsErrorBoundary>
+
       <Row gutter={[24, 24]}>
         {/* 必读热门推荐 - 全宽 */}
         <NovelSection
@@ -259,6 +332,8 @@ const Home = () => {
           rankType="mustRead"
           navigate={navigate}
           gridClass="novel-grid-main"
+          glassMode={glassMode}
+          isDarkMode={isDarkMode}
         />
 
         {/* 潜力榜 - 半宽 */}
@@ -267,7 +342,8 @@ const Home = () => {
             style={{ 
               borderRadius: 16,
               boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-              height: '100%'
+              height: '100%',
+              ...glassCardStyle(glassMode, isDarkMode)
             }}
             styles={{ body: { padding: 0 } }}
           >
@@ -283,7 +359,7 @@ const Home = () => {
                 <div className="novel-grid novel-grid-half">
                   {novels.potential.map((novel, index) => (
                     <div className="novel-item" key={novel.id}>
-                      <NovelCard novel={novel} index={index} color={colors[1]} />
+                      <NovelCard novel={novel} index={index} color={colors[1]} glassMode={glassMode} isDarkMode={isDarkMode} />
                     </div>
                   ))}
                 </div>
@@ -298,7 +374,8 @@ const Home = () => {
             style={{ 
               borderRadius: 16,
               boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-              height: '100%'
+              height: '100%',
+              ...glassCardStyle(glassMode, isDarkMode)
             }}
             styles={{ body: { padding: 0 } }}
           >
@@ -314,7 +391,7 @@ const Home = () => {
                 <div className="novel-grid novel-grid-half">
                   {novels.completed.map((novel, index) => (
                     <div className="novel-item" key={novel.id}>
-                      <NovelCard novel={novel} index={index} color={colors[2]} />
+                      <NovelCard novel={novel} index={index} color={colors[2]} glassMode={glassMode} isDarkMode={isDarkMode} />
                     </div>
                   ))}
                 </div>
@@ -329,7 +406,8 @@ const Home = () => {
             style={{ 
               borderRadius: 16,
               boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-              height: '100%'
+              height: '100%',
+              ...glassCardStyle(glassMode, isDarkMode)
             }}
             styles={{ body: { padding: 0 } }}
           >
@@ -345,7 +423,7 @@ const Home = () => {
                 <div className="novel-grid novel-grid-third">
                   {novels.updated.map((novel, index) => (
                     <div className="novel-item" key={novel.id}>
-                      <NovelCard novel={novel} index={index} color={colors[3]} />
+                      <NovelCard novel={novel} index={index} color={colors[3]} glassMode={glassMode} isDarkMode={isDarkMode} />
                     </div>
                   ))}
                 </div>
@@ -360,7 +438,8 @@ const Home = () => {
             style={{ 
               borderRadius: 16,
               boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-              height: '100%'
+              height: '100%',
+              ...glassCardStyle(glassMode, isDarkMode)
             }}
             styles={{ body: { padding: 0 } }}
           >
@@ -376,7 +455,7 @@ const Home = () => {
                 <div className="novel-grid novel-grid-third">
                   {novels.search.map((novel, index) => (
                     <div className="novel-item" key={novel.id}>
-                      <NovelCard novel={novel} index={index} color={colors[4]} />
+                      <NovelCard novel={novel} index={index} color={colors[4]} glassMode={glassMode} isDarkMode={isDarkMode} />
                     </div>
                   ))}
                 </div>
@@ -391,7 +470,8 @@ const Home = () => {
             style={{ 
               borderRadius: 16,
               boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-              height: '100%'
+              height: '100%',
+              ...glassCardStyle(glassMode, isDarkMode)
             }}
             styles={{ body: { padding: 0 } }}
           >
@@ -407,7 +487,7 @@ const Home = () => {
                 <div className="novel-grid novel-grid-third">
                   {novels.comment.map((novel, index) => (
                     <div className="novel-item" key={novel.id}>
-                      <NovelCard novel={novel} index={index} color={colors[0]} />
+                      <NovelCard novel={novel} index={index} color={colors[0]} glassMode={glassMode} isDarkMode={isDarkMode} />
                     </div>
                   ))}
                 </div>

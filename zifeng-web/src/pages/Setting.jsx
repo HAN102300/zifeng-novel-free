@@ -14,6 +14,7 @@ import {
 import { ThemeContext } from '../App';
 import { useNavigate } from 'react-router-dom';
 import { getBookSources } from '../utils/bookSourceManager';
+import { glassCardStyle } from '../utils/glassStyle';
 
 const { Title, Text } = Typography;
 
@@ -230,7 +231,8 @@ const Setting = () => {
             }
             style={{
               borderRadius: 16,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
+              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+              ...glassCardStyle(glassMode, isDarkMode)
             }}
           >
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
@@ -290,7 +292,8 @@ const Setting = () => {
             }
             style={{
               borderRadius: 16,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
+              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+              ...glassCardStyle(glassMode, isDarkMode)
             }}
           >
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
@@ -355,7 +358,7 @@ const Setting = () => {
                         毛玻璃风格
                       </Text>
                       <Text style={{ color: isDarkMode ? '#999' : '#666' }}>
-                        开启后组件呈现透明磨砂质感
+                        开启后全站呈现毛玻璃半透明质感，界面更具层次感
                       </Text>
                     </Space>
                   </Col>
@@ -385,7 +388,8 @@ const Setting = () => {
             }
             style={{
               borderRadius: 16,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
+              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+              ...glassCardStyle(glassMode, isDarkMode)
             }}
           >
             <List
@@ -426,7 +430,8 @@ const Setting = () => {
             style={{
               borderRadius: 16,
               boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-              textAlign: 'center'
+              textAlign: 'center',
+              ...glassCardStyle(glassMode, isDarkMode)
             }}
           >
             <Space direction="vertical" size="small">

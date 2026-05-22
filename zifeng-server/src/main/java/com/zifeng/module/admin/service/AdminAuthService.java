@@ -12,6 +12,7 @@ import com.zifeng.module.user.repository.BookshelfRepository;
 import com.zifeng.module.user.repository.ReadingHistoryRepository;
 import com.zifeng.module.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AdminAuthService {
@@ -310,12 +312,15 @@ public class AdminAuthService {
                 })
                 .collect(Collectors.toList());
 
+        Map<String, Long> onlineCounts = getOnlineCounts();
+
         return DashboardStats.builder()
                 .totalVisits(totalVisits)
                 .todayVisits(todayVisits)
                 .totalIps(totalIps)
                 .todayIps(todayIps)
-                .onlineUsers(0)
+                .onlineUsers(onlineCounts.get("onlineUsers"))
+                .onlineVisitors(onlineCounts.get("onlineVisitors"))
                 .totalUsers(totalUsers)
                 .totalBookshelfItems(totalBookshelfItems)
                 .totalReadingHistory(totalReadingHistory)
@@ -324,21 +329,33 @@ public class AdminAuthService {
                 .build();
     }
 
-    public long getOnlineUsersCount() {
+    public Map<String, Long> getOnlineCounts() {
+        long userCount = 0;
+        long visitorCount = 0;
+        try {
+            userCount = countKeysByPattern("online:user:*");
+            visitorCount = countKeysByPattern("online:visitor:*");
+        } catch (Exception e) {
+            log.warn("Failed to get online counts from Redis", e);
+        }
+        return Map.of("onlineUsers", userCount, "onlineVisitors", visitorCount);
+    }
+
+    private long countKeysByPattern(String pattern) {
         long count = 0;
         try {
-            Set<String> userKeys = redisTemplate.keys("online:user:*");
-            if (userKeys != null) {
-                count += userKeys.size();
-            }
-            Set<String> visitorKeys = redisTemplate.keys("online:visitor:*");
-            if (visitorKeys != null) {
-                count += visitorKeys.size();
+            var connection = redisTemplate.getConnectionFactory().getConnection();
+            var scanOptions = org.springframework.data.redis.core.ScanOptions.scanOptions().match(pattern).count(100).build();
+            try (var cursor = connection.scan(scanOptions)) {
+                while (cursor.hasNext()) {
+                    cursor.next();
+                    count++;
+                }
+            } finally {
+                connection.close();
             }
         } catch (Exception e) {
-            try {
-                count = redisTemplate.getConnectionFactory().getConnection().dbSize();
-            } catch (Exception ignored) {}
+            log.warn("Redis SCAN failed for pattern: {}", pattern, e);
         }
         return count;
     }

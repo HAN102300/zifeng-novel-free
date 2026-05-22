@@ -6,13 +6,15 @@ import { UserOutlined, LockOutlined, MailOutlined, EyeInvisibleOutlined, EyeTwoT
 import BackButton from '../components/BackButton';
 import { ThemeContext } from '../App';
 import { authLogin, authRegister } from '../utils/apiClient';
+import { glassCardStyle } from '../utils/glassStyle';
+import { ReactBitsErrorBoundary } from '../components/react-bits';
 
 const { Title, Text } = Typography;
 
 const Login = ({ setIsLoggedIn, setUserInfo }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentTheme, themeConfigs, isDarkMode } = useContext(ThemeContext);
+  const { currentTheme, themeConfigs, isDarkMode, glassMode } = useContext(ThemeContext);
   const [isLogin, setIsLogin] = useState(true);
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -93,23 +95,37 @@ const Login = ({ setIsLoggedIn, setUserInfo }) => {
         justifyContent: 'center', 
         alignItems: 'center', 
         minHeight: '80vh',
-        padding: '20px'
+        padding: '20px',
+        position: 'relative'
       }}
     >
+      {glassMode && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: '10%', right: '-5%', width: 400, height: 400, borderRadius: '50%', background: `radial-gradient(circle, ${color}20 0%, transparent 70%)`, filter: 'blur(80px)' }} />
+          <div style={{ position: 'absolute', bottom: '10%', left: '-5%', width: 350, height: 350, borderRadius: '50%', background: `radial-gradient(circle, ${color}15 0%, transparent 70%)`, filter: 'blur(60px)' }} />
+        </div>
+      )}
       <Card
         style={{
           width: '100%',
           maxWidth: 400,
           borderRadius: 16,
           boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          ...glassCardStyle(glassMode, isDarkMode)
         }}
       >
         <BackButton onClick={() => navigate(-1)} text="返回" style={{ marginBottom: 20 }} />
         
         <div style={{ textAlign: 'center', marginBottom: 30 }}>
           <Title level={3} style={{ margin: 0, color: color }}>
-            {isLogin ? '用户登录' : '用户注册'}
+            <motion.span
+              initial={{ opacity: 0, filter: 'blur(8px)' }}
+              animate={{ opacity: 1, filter: 'blur(0px)' }}
+              transition={{ duration: 0.6 }}
+            >
+              {isLogin ? '用户登录' : '用户注册'}
+            </motion.span>
           </Title>
           <Text type="secondary">
             {isLogin ? '请输入账号密码登录' : '请填写信息注册账号'}

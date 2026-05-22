@@ -1,6 +1,7 @@
 package com.zifeng.module.user.service;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.zifeng.common.dto.ApiResponse;
 import com.zifeng.module.invite.entity.InviteCode;
 import com.zifeng.module.invite.service.InviteCodeService;
 import com.zifeng.module.user.dto.*;
@@ -14,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -113,11 +115,28 @@ public class AuthService {
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
     }
 
-    public User updateProfile(Long userId, String avatar, String email) {
+    private String sanitizeEmail(String email) {
+        if (email != null && (email.contains("/api/user/avatars/") || email.startsWith("/api/"))) {
+            return null;
+        }
+        return email;
+    }
+
+    public UserInfoResponse updateProfile(Long userId, String avatar, String email) {
         User user = getUserById(userId);
         if (avatar != null) user.setAvatar(avatar);
-        if (email != null) user.setEmail(email);
-        return userRepository.save(user);
+        if (email != null) user.setEmail(sanitizeEmail(email));
+        if (sanitizeEmail(user.getEmail()) == null) user.setEmail(null);
+        user = userRepository.save(user);
+        return UserInfoResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .avatar(user.getAvatar())
+                .status(user.getStatus())
+                .createdAt(user.getCreatedAt())
+                .lastLoginAt(user.getLastLoginAt())
+                .build();
     }
 
     public boolean changePassword(Long userId, String oldPassword, String newPassword) {
@@ -128,6 +147,22 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
         return true;
+    }
+
+    public ApiResponse<Map<String, Object>> verifyEmailForReset(String email) {
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            return ApiResponse.fail("该邮箱未注册");
+        }
+        String maskedUsername = user.getUsername().substring(0, 1) + "***" + user.getUsername().substring(Math.max(1, user.getUsername().length() - 1));
+        return ApiResponse.ok(Map.of("verified", true, "username", maskedUsername));
+    }
+
+    public void resetPasswordDev(String email, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("该邮箱未注册"));
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 
     public void sendResetCode(String email) {
@@ -159,7 +194,7 @@ public class AuthService {
         return UserInfoResponse.builder()
                 .id(user.getId())
                 .username(user.getUsername())
-                .email(user.getEmail())
+                .email(sanitizeEmail(user.getEmail()))
                 .avatar(user.getAvatar())
                 .status(user.getStatus())
                 .createdAt(user.getCreatedAt())

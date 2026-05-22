@@ -19,6 +19,7 @@ import {
   ImportOutlined,
   BarChartOutlined,
   UnorderedListOutlined,
+  CommentOutlined,
 } from '@ant-design/icons';
 import { motion } from 'framer-motion';
 import anime from 'animejs/lib/anime.es.js';
@@ -32,6 +33,7 @@ import ReadingHistory from './pages/reading/History';
 import BookSourceList from './pages/booksource/SourceList';
 import BookSourceImport from './pages/booksource/SourceImport';
 import BookSourceStats from './pages/booksource/SourceStats';
+import FeedbackList from './pages/feedback/FeedbackList';
 
 const { Header, Sider, Content } = Layout;
 
@@ -73,6 +75,7 @@ const menuItems = [
       { key: '/booksource/import', icon: <ImportOutlined />, label: '书源导入' },
     ],
   },
+  { key: '/feedback', icon: <CommentOutlined />, label: '用户反馈' },
   { key: '/admins', icon: <TeamOutlined />, label: '管理员管理' },
 ];
 
@@ -336,6 +339,7 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
               <Route path="/booksource/list" element={<BookSourceList />} />
               <Route path="/booksource/import" element={<BookSourceImport />} />
               <Route path="/booksource/stats" element={<BookSourceStats />} />
+              <Route path="/feedback" element={<FeedbackList />} />
               <Route path="/admins" element={<AdminManagement />} />
               <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />
             </Routes>

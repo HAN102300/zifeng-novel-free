@@ -252,6 +252,16 @@ export const resetPassword = async (data) => {
   return res.data;
 };
 
+export const verifyEmail = async (email) => {
+  const res = await backendAxios.post("/auth/verify-email", { email });
+  return res.data;
+};
+
+export const resetPasswordDev = async (data) => {
+  const res = await backendAxios.post("/auth/reset-password-dev", data);
+  return res.data;
+};
+
 export const updateProfile = async (avatar, email) => {
   const res = await backendAxios.put("/auth/profile", { avatar, email });
   return res.data;

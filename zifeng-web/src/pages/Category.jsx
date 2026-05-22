@@ -22,6 +22,8 @@ import {
   ExperimentOutlined
 } from '@ant-design/icons';
 import { ThemeContext } from '../App';
+import { glassCardStyle, glassItemStyle } from '../utils/glassStyle';
+import { BlurText, ReactBitsErrorBoundary } from '../components/react-bits';
 
 const { Title, Text } = Typography;
 
@@ -56,7 +58,7 @@ const sortOptions = [
 ];
 
 const Category = () => {
-  const { themeConfigs, currentTheme, isDarkMode } = useContext(ThemeContext);
+  const { themeConfigs, currentTheme, isDarkMode, glassMode } = useContext(ThemeContext);
   const colors = themeConfigs[currentTheme].colors;
   const primaryColor = themeConfigs[currentTheme].primaryColor;
   const navigate = useNavigate();
@@ -97,7 +99,8 @@ const Category = () => {
         style={{
           borderRadius: 16,
           boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          ...glassCardStyle(glassMode, isDarkMode)
         }}
         styles={{ body: { padding: 0 } }}
       >
@@ -192,7 +195,8 @@ const Category = () => {
                             ? `linear-gradient(135deg, ${category.color}10 0%, transparent 60%)`
                             : `linear-gradient(135deg, ${category.color}08 0%, #ffffff 60%)`,
                           overflow: 'hidden',
-                          position: 'relative'
+                          position: 'relative',
+                          ...glassItemStyle(glassMode, isDarkMode)
                         }}
                         styles={{ body: { padding: '20px 12px' } }}
                       >
@@ -225,7 +229,9 @@ const Category = () => {
                             <Icon />
                           </div>
                           <Text strong style={{ fontSize: 15, color: isDarkMode ? '#e0e0e0' : '#333' }}>
-                            {category.name}
+                            <ReactBitsErrorBoundary fallback={category.name}>
+                              <BlurText text={category.name} animateBy="words" delay={80} tag="span" style={{ display: 'inline-flex' }} />
+                            </ReactBitsErrorBoundary>
                           </Text>
                           <Text
                             type="secondary"

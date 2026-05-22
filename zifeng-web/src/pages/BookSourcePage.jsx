@@ -26,6 +26,8 @@ import {
   importBookSources
 } from '../utils/apiClient';
 import { staggerFadeIn, fadeInUp } from '../utils/animations';
+import { glassCardStyle, glassItemStyle } from '../utils/glassStyle';
+import { CountUp, ShinyText, ReactBitsErrorBoundary } from '../components/react-bits';
 
 const { Title, Text } = Typography;
 
@@ -203,21 +205,6 @@ const BookSourcePage = () => {
 
   const enabledCount = useMemo(() => sources.filter(s => s.enabled).length, [sources]);
 
-  const glassStyle = (extra = {}) => ({
-    background: glassMode
-      ? (isDarkMode ? 'rgba(20,20,20,0.65)' : 'rgba(255,255,255,0.6)')
-      : (isDarkMode ? '#141414' : '#ffffff'),
-    backdropFilter: glassMode ? 'blur(20px) saturate(1.2)' : 'none',
-    WebkitBackdropFilter: glassMode ? 'blur(20px) saturate(1.2)' : 'none',
-    border: glassMode
-      ? `1px solid ${isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`
-      : `1px solid ${isDarkMode ? '#333' : '#f0f0f0'}`,
-    boxShadow: glassMode
-      ? `0 8px 32px ${isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.08)'}`
-      : '0 4px 20px rgba(0,0,0,0.08)',
-    ...extra
-  });
-
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
@@ -261,7 +248,7 @@ const BookSourcePage = () => {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <Title level={5} style={{ color: '#fff', margin: 0 }}>云端书源同步</Title>
+                <Title level={5} style={{ color: '#fff', margin: 0 }}><ReactBitsErrorBoundary fallback="云端书源同步"><ShinyText text="云端书源同步" speed={3} color="#ffffff" shineColor="#ffffffcc" /></ReactBitsErrorBoundary></Title>
                 <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>从服务器同步最新书源数据</Text>
               </div>
               <Button
@@ -288,21 +275,21 @@ const BookSourcePage = () => {
       <div ref={statsRef} style={{
         display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap'
       }}>
-        <Card size="small" style={{ borderRadius: 12, flex: 1, minWidth: 100, ...glassStyle() }} styles={{ body: { padding: '12px 16px', textAlign: 'center' } }}>
+        <Card size="small" style={{ borderRadius: 12, flex: 1, minWidth: 100, ...glassCardStyle(glassMode, isDarkMode) }} styles={{ body: { padding: '12px 16px', textAlign: 'center' } }}>
           <Text type="secondary" style={{ fontSize: 12 }}>总书源</Text>
-          <div style={{ fontSize: 24, fontWeight: 'bold', color }}>{sources.length}</div>
+          <div style={{ fontSize: 24, fontWeight: 'bold', color }}><ReactBitsErrorBoundary fallback={sources.length}><CountUp to={sources.length} from={0} duration={1} /></ReactBitsErrorBoundary></div>
         </Card>
-        <Card size="small" style={{ borderRadius: 12, flex: 1, minWidth: 100, ...glassStyle() }} styles={{ body: { padding: '12px 16px', textAlign: 'center' } }}>
+        <Card size="small" style={{ borderRadius: 12, flex: 1, minWidth: 100, ...glassCardStyle(glassMode, isDarkMode) }} styles={{ body: { padding: '12px 16px', textAlign: 'center' } }}>
           <Text type="secondary" style={{ fontSize: 12 }}>已启用</Text>
-          <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>{enabledCount}</div>
+          <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}><ReactBitsErrorBoundary fallback={enabledCount}><CountUp to={enabledCount} from={0} duration={1} /></ReactBitsErrorBoundary></div>
         </Card>
-        <Card size="small" style={{ borderRadius: 12, flex: 1, minWidth: 100, ...glassStyle() }} styles={{ body: { padding: '12px 16px', textAlign: 'center' } }}>
+        <Card size="small" style={{ borderRadius: 12, flex: 1, minWidth: 100, ...glassCardStyle(glassMode, isDarkMode) }} styles={{ body: { padding: '12px 16px', textAlign: 'center' } }}>
           <Text type="secondary" style={{ fontSize: 12 }}>已禁用</Text>
-          <div style={{ fontSize: 24, fontWeight: 'bold', color: isDarkMode ? '#666' : '#bbb' }}>{sources.length - enabledCount}</div>
+          <div style={{ fontSize: 24, fontWeight: 'bold', color: isDarkMode ? '#666' : '#bbb' }}><ReactBitsErrorBoundary fallback={sources.length - enabledCount}><CountUp to={sources.length - enabledCount} from={0} duration={1} /></ReactBitsErrorBoundary></div>
         </Card>
       </div>
 
-      <Card ref={listRef} style={{ borderRadius: 16, ...glassStyle() }} styles={{ body: { padding: 0 } }}>
+      <Card ref={listRef} style={{ borderRadius: 16, ...glassCardStyle(glassMode, isDarkMode) }} styles={{ body: { padding: 0 } }}>
         {filteredSources.length > 0 ? (
           <div style={{ maxHeight: '60vh', overflowY: 'auto', overflowX: 'hidden' }}>
             <List
@@ -383,7 +370,7 @@ const BookSourcePage = () => {
         ) : (
           <Empty
             style={{ padding: 40 }}
-            description={<Text type="secondary">暂无书源</Text>}
+            description={<motion.span initial={{ opacity: 0, filter: 'blur(6px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 0.5 }}>暂无书源</motion.span>}
           >
             <Text type="secondary">请在管理后台导入书源</Text>
           </Empty>

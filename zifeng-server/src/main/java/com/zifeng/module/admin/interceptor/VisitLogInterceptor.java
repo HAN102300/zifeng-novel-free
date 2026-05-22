@@ -56,7 +56,13 @@ public class VisitLogInterceptor implements HandlerInterceptor {
             "/api/parse/book-info",
             "/api/parse/toc",
             "/api/parse/content",
-            "/api/parse/explore"
+            "/api/parse/explore",
+            "/api/novels/detail",
+            "/api/categories",
+            "/api/categories/detail",
+            "/api/rank",
+            "/api/rank/detail",
+            "/api/sources/list"
     );
 
     private static final Set<String> TRACKED_PREFIXES = Set.of(
@@ -124,6 +130,7 @@ public class VisitLogInterceptor implements HandlerInterceptor {
 
             VisitLog visitLog = VisitLog.builder()
                     .ip(ip)
+                    .ipLocation(resolveIpLocation(ip))
                     .userAgent(userAgent)
                     .visitUrl(uri)
                     .visitDate(LocalDateTime.now())
@@ -185,5 +192,13 @@ public class VisitLogInterceptor implements HandlerInterceptor {
             ip = ip.split(",")[0].trim();
         }
         return ip;
+    }
+
+    private String resolveIpLocation(String ip) {
+        if (ip == null || ip.isBlank()) return null;
+        if (ip.equals("127.0.0.1") || ip.equals("0:0:0:0:0:0:0:1") || ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("172.")) {
+            return "本地网络";
+        }
+        return null;
     }
 }

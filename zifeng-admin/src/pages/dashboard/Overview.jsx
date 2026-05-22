@@ -12,6 +12,7 @@ const Overview = () => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState(0);
+  const [onlineVisitors, setOnlineVisitors] = useState(0);
   const statsRef = useRef(null);
 
   useEffect(() => {
@@ -25,6 +26,7 @@ const Overview = () => {
       try {
         const res = await getOnlineUsers();
         setOnlineUsers(res.data?.data?.onlineUsers || 0);
+        setOnlineVisitors(res.data?.data?.onlineVisitors || 0);
       } catch {}
     };
     fetchOnline();
@@ -51,6 +53,7 @@ const Overview = () => {
     { title: '总访问量', value: data?.totalVisits || 0, color: '#1890ff', gradient: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)' },
     { title: '今日访问', value: data?.todayVisits || 0, color: '#52c41a', gradient: 'linear-gradient(135deg, #52c41a 0%, #389e0d 100%)' },
     { title: '在线用户', value: onlineUsers, color: '#722ed1', gradient: 'linear-gradient(135deg, #722ed1 0%, #531dab 100%)' },
+    { title: '在线访客', value: onlineVisitors, color: '#2f54eb', gradient: 'linear-gradient(135deg, #2f54eb 0%, #1d39c4 100%)' },
     { title: '总用户数', value: data?.totalUsers || 0, color: '#fa8c16', gradient: 'linear-gradient(135deg, #fa8c16 0%, #d46b08 100%)' },
     { title: '书架收藏', value: data?.totalBookshelfItems || 0, color: '#eb2f96', gradient: 'linear-gradient(135deg, #eb2f96 0%, #c41d7f 100%)' },
     { title: '阅读记录', value: data?.totalReadingHistory || 0, color: '#13c2c2', gradient: 'linear-gradient(135deg, #13c2c2 0%, #08979c 100%)' },

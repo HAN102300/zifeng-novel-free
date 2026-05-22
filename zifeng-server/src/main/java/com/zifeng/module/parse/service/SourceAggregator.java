@@ -1,5 +1,7 @@
 package com.zifeng.module.parse.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zifeng.module.parse.dto.AggregatedSearchResult;
 import com.zifeng.module.parse.dto.UnifiedSearchResult;
 import com.zifeng.module.source.entity.BookSource;
@@ -20,6 +22,7 @@ public class SourceAggregator {
     private final ParsingProxyService parsingProxyService;
     private final UnifiedAdapter unifiedAdapter;
     private final BookSourceService bookSourceService;
+    private final ObjectMapper objectMapper;
 
     private final ExecutorService executor = Executors.newFixedThreadPool(
         Math.min(50, Runtime.getRuntime().availableProcessors() * 4));
@@ -191,14 +194,23 @@ public class SourceAggregator {
         map.put("loginUrl", source.getLoginUrl());
         map.put("loginUi", source.getLoginUi());
         map.put("jsLib", source.getJsLib());
-        map.put("ruleSearch", source.getRuleSearch());
-        map.put("ruleBookInfo", source.getRuleBookInfo());
-        map.put("ruleToc", source.getRuleToc());
-        map.put("ruleContent", source.getRuleContent());
-        map.put("ruleExplore", source.getRuleExplore());
+        map.put("ruleSearch", deserializeRule(source.getRuleSearch()));
+        map.put("ruleBookInfo", deserializeRule(source.getRuleBookInfo()));
+        map.put("ruleToc", deserializeRule(source.getRuleToc()));
+        map.put("ruleContent", deserializeRule(source.getRuleContent()));
+        map.put("ruleExplore", deserializeRule(source.getRuleExplore()));
         map.put("weight", source.getWeight());
         map.put("enabledCookieJar", source.getEnabledCookieJar());
         return map;
+    }
+
+    private Object deserializeRule(String ruleJson) {
+        if (ruleJson == null || ruleJson.isBlank()) return null;
+        try {
+            return objectMapper.readValue(ruleJson, Map.class);
+        } catch (JsonProcessingException e) {
+            return ruleJson;
+        }
     }
 
     private static class SourceResult {

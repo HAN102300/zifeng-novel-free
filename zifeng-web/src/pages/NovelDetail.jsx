@@ -10,6 +10,8 @@ import { getBookInfoAPI, getTocAPI, addToBookshelf as apiAddToBookshelf, checkBo
 import { getBookSources, getDefaultSource as getDefaultSourceFromManager } from '../utils/bookSourceManager';
 import { loadNovelCache, saveReaderCache, simpleHash, getDefaultSource, isDefaultSource } from '../utils/novelConfig';
 import { adaptBookInfo, computeCompleteness } from '../utils/bookAdapter';
+import { glassCardStyle, glassItemStyle } from '../utils/glassStyle';
+import { ShinyText, CountUp, ReactBitsErrorBoundary } from '../components/react-bits';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -18,12 +20,26 @@ function cleanUrl(url) {
   return url.replace(/[`\s]/g, '').trim();
 }
 
+function parseNumericValue(value) {
+  if (value === null || value === undefined || value === '未知') return null;
+  if (typeof value === 'number') return { number: value, suffix: '' };
+  const str = String(value).trim();
+  const match = str.match(/^([\d.]+)(.*)$/);
+  if (match) {
+    const num = parseFloat(match[1]);
+    if (!isNaN(num)) {
+      return { number: num, suffix: match[2].trim() };
+    }
+  }
+  return null;
+}
+
 const NovelDetail = () => {
   const { novelId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { currentTheme, themeConfigs, isDarkMode } = useContext(ThemeContext);
+  const { currentTheme, themeConfigs, isDarkMode, glassMode } = useContext(ThemeContext);
   const [novel, setNovel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -392,6 +408,7 @@ const NovelDetail = () => {
             boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
             overflow: 'hidden',
             background: isDarkMode ? '#141414' : '#ffffff',
+            ...glassCardStyle(glassMode, isDarkMode)
           }}
           styles={{ body: { padding: 0 } }}
         >
@@ -425,7 +442,17 @@ const NovelDetail = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.4 }}
               >
-                <Title level={3} style={{ margin: 0, color, marginBottom: 12 }}>{novel.novelName}</Title>
+                <div style={{ margin: 0, marginBottom: 12, fontSize: 24, fontWeight: 600, lineHeight: 1.35 }}>
+                  <ReactBitsErrorBoundary fallback={novel.novelName}>
+                    <ShinyText
+                      text={novel.novelName}
+                      speed={3}
+                      color={color}
+                      shineColor={isDarkMode ? '#ffffff' : '#ffffff'}
+                      spread={120}
+                    />
+                  </ReactBitsErrorBoundary>
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                   <Text type="secondary" style={{ fontSize: 16 }}>作者：{novel.authorName}</Text>
                   {fieldSources.sourceName && (
@@ -434,7 +461,7 @@ const NovelDetail = () => {
                     </Tag>
                   )}
                   <Tag color={completeness >= 70 ? 'green' : completeness >= 40 ? 'orange' : 'red'} style={{ fontSize: 11, padding: '0 6px' }}>
-                    完整性 {completeness}%
+                    完整性 <ReactBitsErrorBoundary fallback={`${completeness}%`}><CountUp to={completeness} from={0} duration={1.5} /></ReactBitsErrorBoundary>%
                   </Tag>
                 </div>
 
@@ -443,20 +470,51 @@ const NovelDetail = () => {
                     <Tag key={index} color={color} style={{ fontSize: 12, padding: '4px 12px' }}>{category.className}</Tag>
                   ))}
                   {novel.averageScore > 0 && (
-                    <Tag color="orange" style={{ fontSize: 12, padding: '4px 12px' }}>{novel.averageScore}分</Tag>
+                    <Tag color="orange" style={{ fontSize: 12, padding: '4px 12px' }}>
+                      <ReactBitsErrorBoundary fallback={`${novel.averageScore}分`}>
+                        <CountUp to={novel.averageScore} from={0} duration={1.5} />
+                      </ReactBitsErrorBoundary>分
+                    </Tag>
                   )}
                 </Space>
 
                 <Descriptions column={2} bordered style={{ borderRadius: 8, overflow: 'hidden', marginBottom: 24 }} size="small">
-                  <Descriptions.Item label="字数">{novel.wordNum || '未知'} {novel.wordNum !== '未知' && fieldSources.coverUrl && <Tag color={color} style={{fontSize:10,marginLeft:4}}>{fieldSources.coverUrl}</Tag>}</Descriptions.Item>
-                  <Descriptions.Item label="章节数">{novel.chapterNum || '未知'}</Descriptions.Item>
+                  <Descriptions.Item label="字数">
+                    {(() => {
+                      const parsed = parseNumericValue(novel.wordNum);
+                      if (parsed) {
+                        return (
+                          <ReactBitsErrorBoundary fallback={novel.wordNum}>
+                            <CountUp to={parsed.number} from={0} duration={1.5} separator="," />
+                            {parsed.suffix}
+                          </ReactBitsErrorBoundary>
+                        );
+                      }
+                      return novel.wordNum || '未知';
+                    })()}
+                    {novel.wordNum !== '未知' && fieldSources.coverUrl && <Tag color={color} style={{fontSize:10,marginLeft:4}}>{fieldSources.coverUrl}</Tag>}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="章节数">
+                    {(() => {
+                      const parsed = parseNumericValue(novel.chapterNum);
+                      if (parsed) {
+                        return (
+                          <ReactBitsErrorBoundary fallback={novel.chapterNum}>
+                            <CountUp to={parsed.number} from={0} duration={1.5} separator="," />
+                            {parsed.suffix}
+                          </ReactBitsErrorBoundary>
+                        );
+                      }
+                      return novel.chapterNum || '未知';
+                    })()}
+                  </Descriptions.Item>
                   <Descriptions.Item label="最后更新">{novel.lastUpdatedAt || '未知'}</Descriptions.Item>
                   <Descriptions.Item label="最后章节">{novel.lastChapter?.chapterName || '未知'}</Descriptions.Item>
                 </Descriptions>
 
                 <Divider orientation="left" style={{ fontWeight: 'bold', color }}>简介</Divider>
                 <Card
-                  style={{ borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', background: isDarkMode ? '#1e1e1e' : '#f9f9f9' }}
+                  style={{ borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', background: isDarkMode ? '#1e1e1e' : '#f9f9f9', ...glassItemStyle(glassMode, isDarkMode) }}
                   styles={{ body: { padding: 20 } }}
                 >
                   <Paragraph style={{ lineHeight: 1.8, margin: 0 }}>
@@ -468,7 +526,8 @@ const NovelDetail = () => {
                   <Button
                     type="primary"
                     size="large"
-                    style={{ backgroundColor: color, borderColor: color, padding: '0 32px', fontSize: 16, height: 48 }}
+                    className="btn-shimmer"
+                    style={{ backgroundColor: color, borderColor: color, padding: '0 32px', fontSize: 16, height: 48, backgroundImage: `linear-gradient(110deg, ${color} 0%, ${color}dd 40%, ${color}99 50%, ${color}dd 60%, ${color} 100%)`, backgroundSize: '200% auto' }}
                     onClick={handleStartReading}
                   >
                     开始阅读

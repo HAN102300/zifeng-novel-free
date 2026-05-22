@@ -1,4 +1,4 @@
-﻿/* Ant Design 鏍峰紡瑕嗙洊鍜岃嚜瀹氫箟 */
+/* Ant Design 鏍峰紡瑕嗙洊鍜岃嚜瀹氫箟 */
 
 /* 鍏ㄥ眬鏍峰紡 */
 * {
@@ -243,4 +243,39 @@ body {
 
 .dark-mode ::-webkit-scrollbar-thumb:hover {
   background: #666;
+}
+
+@keyframes glassFloat1 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-30px, 20px); }
+}
+
+@keyframes glassFloat2 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(25px, -30px); }
+}
+
+@keyframes glassFloat3 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-20px, -25px); }
+}
+
+@keyframes glassFloat4 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(15px, 25px); }
+}
+
+@keyframes glassFloat5 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-25px, 15px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.btn-shimmer {
+  background-size: 200% auto;
+  animation: shimmer 3s linear infinite;
 }

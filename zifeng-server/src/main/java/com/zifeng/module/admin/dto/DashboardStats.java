@@ -19,6 +19,7 @@ public class DashboardStats {
     private long totalIps;
     private long todayIps;
     private long onlineUsers;
+    private long onlineVisitors;
     private long totalUsers;
     private long totalBookshelfItems;
     private long totalReadingHistory;
