@@ -19,10 +19,10 @@ PARSER_PORT = "3001"
 BACKEND_PORT = "8080"
 SERVICE_PORTS = [NGINX_PORT, PARSER_PORT, BACKEND_PORT]
 
-# 需要清理的进程关键词
+# 需要清理的进程关键词（更精确匹配，避免误杀无关进程）
 PROCESS_KILL_PATTERNS = {
-    "node": ["node"],
-    "java": ["java", "spring-boot", "zifeng-server"],
+    "node": ["zifeng-parser"],       # 匹配 parser 工作目录而非所有 node 进程
+    "java": ["zifeng-server"],       # 匹配 server 工作目录而非所有 java 进程
     "nginx": ["nginx"],
 }
 
@@ -39,13 +39,16 @@ def find_nginx_dir():
     candidates = []
     if SYSTEM == "Windows":
         program_files = os.environ.get("ProgramFiles", "C:\\Program Files")
-        candidates = [
+        # 优先从环境变量 NGINX_HOME 获取
+        nginx_home = os.environ.get("NGINX_HOME", "")
+        if nginx_home:
+            candidates.append(nginx_home)
+        candidates.extend([
             os.path.join(program_files, "nginx"),
             os.path.join(program_files.replace(" (x86)", ""), "nginx"),
             "C:\\nginx",
             "C:\\tools\\nginx",
-            "D:\\Java_software\\nginx-1.30.0",
-        ]
+        ])
     elif SYSTEM == "Linux":
         candidates = [
             "/usr/sbin",
@@ -108,11 +111,13 @@ def stop_nginx():
 
 
 def kill_processes_by_name(names, label):
+    """通过进程名关键词终止进程（使用 -f 参数匹配命令行，更精确）"""
     killed = False
     if SYSTEM == "Windows":
         for name in names:
+            # 使用 /fi "WINDOWTITLE eq" 或 WMIC 按命令行匹配，更精确
             result = subprocess.run(
-                f'taskkill /f /fi "IMAGENAME eq {name}*" 2>nul',
+                f'wmic process where "CommandLine like \'%{name}%\'" call terminate 2>nul',
                 shell=True,
                 capture_output=True,
             )

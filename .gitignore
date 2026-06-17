@@ -34,8 +34,18 @@ zifeng-server/target/
 *.sw?
 
 # Environment
+*.env
+!.env.example
 .env.local
 .env.*.local
+
+# Secrets / Certificates
+*.pem
+*.key
+*.crt
+
+# Docker overrides (may contain local secrets)
+docker-compose.override.yml
 
 # OS
 Thumbs.db
