@@ -34,8 +34,8 @@ public class BookSourceController {
 
     @PostMapping
     @CacheEvict(value = "publicSources", allEntries = true)
-    public ApiResponse<BookSource> addSource(@RequestBody Map<String, Object> sourceData) {
-        return ApiResponse.ok(bookSourceService.addSource(getCurrentUserId(), sourceData));
+    public ApiResponse<BookSource> addSource(@Valid @RequestBody AddSourceRequest request) {
+        return ApiResponse.ok(bookSourceService.addSource(getCurrentUserId(), request));
     }
 
     @DeleteMapping
@@ -65,10 +65,10 @@ public class BookSourceController {
 
     @PutMapping
     @CacheEvict(value = "publicSources", allEntries = true)
-    public ApiResponse<BookSource> updateSource(@RequestBody Map<String, Object> sourceData) {
+    public ApiResponse<BookSource> updateSource(@Valid @RequestBody UpdateSourceRequest request) {
         try {
             Long userId = getCurrentUserId();
-            BookSource updated = bookSourceService.updateSource(userId, sourceData);
+            BookSource updated = bookSourceService.updateSource(userId, request);
             return ApiResponse.ok(updated);
         } catch (RuntimeException e) {
             return ApiResponse.fail(e.getMessage());

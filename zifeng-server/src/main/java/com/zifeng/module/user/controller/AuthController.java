@@ -94,10 +94,11 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ApiResponse<User> getCurrentUser() {
+    public ApiResponse<UserInfoDTO> getCurrentUser() {
         try {
             Long userId = getCurrentUserId();
-            return ApiResponse.ok(authService.getUserById(userId));
+            User user = authService.getUserById(userId);
+            return ApiResponse.ok(new UserInfoDTO(user));
         } catch (RuntimeException e) {
             return ApiResponse.fail(e.getMessage());
         }

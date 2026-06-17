@@ -1,10 +1,13 @@
 package com.zifeng.module.user.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
 public class ReadingProgressRequest {
+    @NotBlank(message = "书籍URL不能为空")
     private String bookUrl;
+
     private String bookName;
     private String author;
     private String coverUrl;

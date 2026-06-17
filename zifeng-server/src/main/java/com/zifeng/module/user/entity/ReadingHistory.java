@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -15,7 +14,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "reading_history", indexes = {
-    @Index(name = "idx_user_book", columnList = "user_id, book_url")
+        @Index(name = "idx_user_book", columnList = "user_id, book_url")
 })
 public class ReadingHistory {
 
@@ -63,7 +62,6 @@ public class ReadingHistory {
     @Builder.Default
     private Double progress = 0.0;
 
-    @CreationTimestamp
-    @Column(name = "last_read", updatable = false)
+    @Column(name = "last_read")
     private LocalDateTime lastRead;
 }

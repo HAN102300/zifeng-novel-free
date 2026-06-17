@@ -8,6 +8,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -70,6 +71,9 @@ public class ReadingProgressService {
         double progress = request.getProgress() != null ? request.getProgress() : 0.0;
         progress = Math.round(progress * 100000.0) / 100000.0;
         history.setProgress(progress);
+
+        // 更新最后阅读时间
+        history.setLastRead(LocalDateTime.now());
 
         historyRepository.save(history);
     }

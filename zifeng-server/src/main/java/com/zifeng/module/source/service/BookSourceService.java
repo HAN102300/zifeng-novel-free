@@ -2,6 +2,8 @@ package com.zifeng.module.source.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zifeng.module.source.dto.AddSourceRequest;
+import com.zifeng.module.source.dto.UpdateSourceRequest;
 import com.zifeng.module.source.entity.BookSource;
 import com.zifeng.module.source.repository.BookSourceRepository;
 import lombok.RequiredArgsConstructor;
@@ -70,6 +72,13 @@ public class BookSourceService {
         return bookSourceRepository.save(source);
     }
 
+    /**
+     * 使用 AddSourceRequest DTO 添加书源
+     */
+    public BookSource addSource(Long userId, AddSourceRequest request) {
+        return addSource(userId, convertAddSourceRequestToMap(request));
+    }
+
     @Transactional
     public void deleteSource(Long userId, String bookSourceUrl) {
         bookSourceRepository.deleteByUserIdAndBookSourceUrl(userId, bookSourceUrl);
@@ -106,41 +115,65 @@ public class BookSourceService {
     }
 
     private void updateSourceFromMap(BookSource source, Map<String, Object> data) {
-        if (data.get("bookSourceName") != null) source.setBookSourceName(toStringSafe(data.get("bookSourceName")));
+        if (data.get("bookSourceName") != null)
+            source.setBookSourceName(toStringSafe(data.get("bookSourceName")));
         if (data.get("bookSourceUrl") != null) {
             String url = toStringSafe(data.get("bookSourceUrl")).trim();
             source.setBookSourceUrl(url);
         }
-        if (data.get("bookSourceGroup") != null) source.setBookSourceGroup(toStringSafe(data.get("bookSourceGroup")));
-        if (data.get("bookSourceType") != null) source.setBookSourceType(toIntSafe(data.get("bookSourceType")));
-        if (data.get("enabled") != null) source.setEnabled(toBooleanSafe(data.get("enabled")));
-        if (data.get("header") != null) source.setHeader(serializeRule(data.get("header")));
-        if (data.get("searchUrl") != null) source.setSearchUrl(toStringSafe(data.get("searchUrl")));
-        if (data.get("exploreUrl") != null) source.setExploreUrl(toStringSafe(data.get("exploreUrl")));
-        if (data.get("loginUrl") != null) source.setLoginUrl(toStringSafe(data.get("loginUrl")));
-        if (data.get("loginUi") != null) source.setLoginUi(serializeRule(data.get("loginUi")));
-        if (data.get("jsLib") != null) source.setJsLib(toStringSafe(data.get("jsLib")));
-        if (data.get("customOrder") != null) source.setCustomOrder(toIntSafe(data.get("customOrder")));
-        if (data.get("weight") != null) source.setWeight(toIntSafe(data.get("weight")));
-        if (data.get("enabledCookieJar") != null) source.setEnabledCookieJar(toBooleanSafe(data.get("enabledCookieJar")));
-        if (data.get("concurrentRate") != null) source.setConcurrentRate(toStringSafe(data.get("concurrentRate")));
-        if (data.get("respondTime") != null) source.setRespondTime(toIntSafe(data.get("respondTime")));
+        if (data.get("bookSourceGroup") != null)
+            source.setBookSourceGroup(toStringSafe(data.get("bookSourceGroup")));
+        if (data.get("bookSourceType") != null)
+            source.setBookSourceType(toIntSafe(data.get("bookSourceType")));
+        if (data.get("enabled") != null)
+            source.setEnabled(toBooleanSafe(data.get("enabled")));
+        if (data.get("header") != null)
+            source.setHeader(serializeRule(data.get("header")));
+        if (data.get("searchUrl") != null)
+            source.setSearchUrl(toStringSafe(data.get("searchUrl")));
+        if (data.get("exploreUrl") != null)
+            source.setExploreUrl(toStringSafe(data.get("exploreUrl")));
+        if (data.get("loginUrl") != null)
+            source.setLoginUrl(toStringSafe(data.get("loginUrl")));
+        if (data.get("loginUi") != null)
+            source.setLoginUi(serializeRule(data.get("loginUi")));
+        if (data.get("jsLib") != null)
+            source.setJsLib(toStringSafe(data.get("jsLib")));
+        if (data.get("customOrder") != null)
+            source.setCustomOrder(toIntSafe(data.get("customOrder")));
+        if (data.get("weight") != null)
+            source.setWeight(toIntSafe(data.get("weight")));
+        if (data.get("enabledCookieJar") != null)
+            source.setEnabledCookieJar(toBooleanSafe(data.get("enabledCookieJar")));
+        if (data.get("concurrentRate") != null)
+            source.setConcurrentRate(toStringSafe(data.get("concurrentRate")));
+        if (data.get("respondTime") != null)
+            source.setRespondTime(toIntSafe(data.get("respondTime")));
 
-        if (data.get("ruleSearch") != null) source.setRuleSearch(serializeRule(data.get("ruleSearch")));
-        if (data.get("ruleBookInfo") != null) source.setRuleBookInfo(serializeRule(data.get("ruleBookInfo")));
-        if (data.get("ruleToc") != null) source.setRuleToc(serializeRule(data.get("ruleToc")));
-        if (data.get("ruleContent") != null) source.setRuleContent(serializeRule(data.get("ruleContent")));
-        if (data.get("ruleExplore") != null) source.setRuleExplore(serializeRule(data.get("ruleExplore")));
+        if (data.get("ruleSearch") != null)
+            source.setRuleSearch(serializeRule(data.get("ruleSearch")));
+        if (data.get("ruleBookInfo") != null)
+            source.setRuleBookInfo(serializeRule(data.get("ruleBookInfo")));
+        if (data.get("ruleToc") != null)
+            source.setRuleToc(serializeRule(data.get("ruleToc")));
+        if (data.get("ruleContent") != null)
+            source.setRuleContent(serializeRule(data.get("ruleContent")));
+        if (data.get("ruleExplore") != null)
+            source.setRuleExplore(serializeRule(data.get("ruleExplore")));
     }
 
     private String toStringSafe(Object value) {
-        if (value == null) return null;
-        if (value instanceof String) return (String) value;
+        if (value == null)
+            return null;
+        if (value instanceof String)
+            return (String) value;
         if (value instanceof List) {
             StringBuilder sb = new StringBuilder();
             for (Object item : (List<?>) value) {
-                if (sb.length() > 0) sb.append(",");
-                if (item != null) sb.append(item.toString());
+                if (sb.length() > 0)
+                    sb.append(",");
+                if (item != null)
+                    sb.append(item.toString());
             }
             return sb.toString();
         }
@@ -148,20 +181,30 @@ public class BookSourceService {
     }
 
     private int toIntSafe(Object value) {
-        if (value == null) return 0;
-        if (value instanceof Number) return ((Number) value).intValue();
-        try { return Integer.parseInt(value.toString()); } catch (NumberFormatException e) { return 0; }
+        if (value == null)
+            return 0;
+        if (value instanceof Number)
+            return ((Number) value).intValue();
+        try {
+            return Integer.parseInt(value.toString());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     private boolean toBooleanSafe(Object value) {
-        if (value == null) return false;
-        if (value instanceof Boolean) return (Boolean) value;
+        if (value == null)
+            return false;
+        if (value instanceof Boolean)
+            return (Boolean) value;
         return "true".equalsIgnoreCase(value.toString());
     }
 
     private String serializeRule(Object rule) {
-        if (rule == null) return null;
-        if (rule instanceof String) return (String) rule;
+        if (rule == null)
+            return null;
+        if (rule instanceof String)
+            return (String) rule;
         try {
             return objectMapper.writeValueAsString(rule);
         } catch (JsonProcessingException e) {
@@ -188,7 +231,8 @@ public class BookSourceService {
                     .orElseThrow(() -> new RuntimeException("书源不存在"));
         }
 
-        String newUrl = sourceData.get("bookSourceUrl") != null ? toStringSafe(sourceData.get("bookSourceUrl")).trim() : null;
+        String newUrl = sourceData.get("bookSourceUrl") != null ? toStringSafe(sourceData.get("bookSourceUrl")).trim()
+                : null;
         if (newUrl != null && !newUrl.equals(existing.getBookSourceUrl())) {
             bookSourceRepository.findByUserIdAndBookSourceUrl(userId, newUrl)
                     .ifPresent(dup -> {
@@ -200,6 +244,13 @@ public class BookSourceService {
 
         updateSourceFromMap(existing, sourceData);
         return bookSourceRepository.save(existing);
+    }
+
+    /**
+     * 使用 UpdateSourceRequest DTO 更新书源
+     */
+    public BookSource updateSource(Long userId, UpdateSourceRequest request) {
+        return updateSource(userId, convertUpdateSourceRequestToMap(request));
     }
 
     public List<BookSource> getAllSources() {
@@ -238,7 +289,8 @@ public class BookSourceService {
         BookSource source = bookSourceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("书源不存在"));
 
-        String newUrl = sourceData.get("bookSourceUrl") != null ? toStringSafe(sourceData.get("bookSourceUrl")).trim() : null;
+        String newUrl = sourceData.get("bookSourceUrl") != null ? toStringSafe(sourceData.get("bookSourceUrl")).trim()
+                : null;
         if (newUrl != null && !newUrl.equals(source.getBookSourceUrl())) {
             bookSourceRepository.findByUserIdAndBookSourceUrl(source.getUserId(), newUrl)
                     .ifPresent(existing -> {
@@ -282,7 +334,8 @@ public class BookSourceService {
     public Page<BookSource> adminListSourcesPaged(String keyword, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
         if (keyword != null && !keyword.isBlank()) {
-            return bookSourceRepository.findByBookSourceNameContainingOrBookSourceUrlContaining(keyword, keyword, pageable);
+            return bookSourceRepository.findByBookSourceNameContainingOrBookSourceUrlContaining(keyword, keyword,
+                    pageable);
         }
         return bookSourceRepository.findAll(pageable);
     }
@@ -292,5 +345,105 @@ public class BookSourceService {
         long count = ids.size();
         bookSourceRepository.deleteAllByIdIn(ids);
         return count;
+    }
+
+    /**
+     * 将 AddSourceRequest 转换为 Map
+     */
+    private Map<String, Object> convertAddSourceRequestToMap(AddSourceRequest request) {
+        Map<String, Object> map = new java.util.HashMap<>();
+        map.put("bookSourceUrl", request.getBookSourceUrl());
+        if (request.getBookSourceName() != null)
+            map.put("bookSourceName", request.getBookSourceName());
+        if (request.getBookSourceGroup() != null)
+            map.put("bookSourceGroup", request.getBookSourceGroup());
+        if (request.getBookSourceType() != null)
+            map.put("bookSourceType", request.getBookSourceType());
+        if (request.getEnabled() != null)
+            map.put("enabled", request.getEnabled());
+        if (request.getHeader() != null)
+            map.put("header", request.getHeader());
+        if (request.getSearchUrl() != null)
+            map.put("searchUrl", request.getSearchUrl());
+        if (request.getExploreUrl() != null)
+            map.put("exploreUrl", request.getExploreUrl());
+        if (request.getLoginUrl() != null)
+            map.put("loginUrl", request.getLoginUrl());
+        if (request.getLoginUi() != null)
+            map.put("loginUi", request.getLoginUi());
+        if (request.getJsLib() != null)
+            map.put("jsLib", request.getJsLib());
+        if (request.getCustomOrder() != null)
+            map.put("customOrder", request.getCustomOrder());
+        if (request.getWeight() != null)
+            map.put("weight", request.getWeight());
+        if (request.getEnabledCookieJar() != null)
+            map.put("enabledCookieJar", request.getEnabledCookieJar());
+        if (request.getConcurrentRate() != null)
+            map.put("concurrentRate", request.getConcurrentRate());
+        if (request.getRespondTime() != null)
+            map.put("respondTime", request.getRespondTime());
+        if (request.getRuleSearch() != null)
+            map.put("ruleSearch", request.getRuleSearch());
+        if (request.getRuleBookInfo() != null)
+            map.put("ruleBookInfo", request.getRuleBookInfo());
+        if (request.getRuleToc() != null)
+            map.put("ruleToc", request.getRuleToc());
+        if (request.getRuleContent() != null)
+            map.put("ruleContent", request.getRuleContent());
+        if (request.getRuleExplore() != null)
+            map.put("ruleExplore", request.getRuleExplore());
+        return map;
+    }
+
+    /**
+     * 将 UpdateSourceRequest 转换为 Map
+     */
+    private Map<String, Object> convertUpdateSourceRequestToMap(UpdateSourceRequest request) {
+        Map<String, Object> map = new java.util.HashMap<>();
+        if (request.getId() != null)
+            map.put("id", request.getId());
+        map.put("bookSourceUrl", request.getBookSourceUrl());
+        if (request.getBookSourceName() != null)
+            map.put("bookSourceName", request.getBookSourceName());
+        if (request.getBookSourceGroup() != null)
+            map.put("bookSourceGroup", request.getBookSourceGroup());
+        if (request.getBookSourceType() != null)
+            map.put("bookSourceType", request.getBookSourceType());
+        if (request.getEnabled() != null)
+            map.put("enabled", request.getEnabled());
+        if (request.getHeader() != null)
+            map.put("header", request.getHeader());
+        if (request.getSearchUrl() != null)
+            map.put("searchUrl", request.getSearchUrl());
+        if (request.getExploreUrl() != null)
+            map.put("exploreUrl", request.getExploreUrl());
+        if (request.getLoginUrl() != null)
+            map.put("loginUrl", request.getLoginUrl());
+        if (request.getLoginUi() != null)
+            map.put("loginUi", request.getLoginUi());
+        if (request.getJsLib() != null)
+            map.put("jsLib", request.getJsLib());
+        if (request.getCustomOrder() != null)
+            map.put("customOrder", request.getCustomOrder());
+        if (request.getWeight() != null)
+            map.put("weight", request.getWeight());
+        if (request.getEnabledCookieJar() != null)
+            map.put("enabledCookieJar", request.getEnabledCookieJar());
+        if (request.getConcurrentRate() != null)
+            map.put("concurrentRate", request.getConcurrentRate());
+        if (request.getRespondTime() != null)
+            map.put("respondTime", request.getRespondTime());
+        if (request.getRuleSearch() != null)
+            map.put("ruleSearch", request.getRuleSearch());
+        if (request.getRuleBookInfo() != null)
+            map.put("ruleBookInfo", request.getRuleBookInfo());
+        if (request.getRuleToc() != null)
+            map.put("ruleToc", request.getRuleToc());
+        if (request.getRuleContent() != null)
+            map.put("ruleContent", request.getRuleContent());
+        if (request.getRuleExplore() != null)
+            map.put("ruleExplore", request.getRuleExplore());
+        return map;
     }
 }
