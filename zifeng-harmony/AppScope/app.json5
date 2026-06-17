@@ -1,0 +1,10 @@
+{
+  app: {
+    bundleName: "com.zifeng.novelfree",
+    vendor: "zifeng",
+    versionCode: 1000000,
+    versionName: "1.0.0",
+    icon: "$media:yan",
+    label: "$string:app_name",
+  },
+}

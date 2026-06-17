@@ -1,0 +1,19 @@
+{
+  "src": [
+    "pages/Index",
+    "pages/StartPage",
+    "pages/DetailPage",
+    "pages/DirectoryPage",
+    "pages/ContentPage",
+    "pages/LoginPage",
+    "pages/RegisterPage",
+    "pages/ResetPasswordPage",
+    "pages/UserInfoPage",
+    "pages/SearchResultPage",
+    "pages/RankPage",
+    "pages/CategoryDetailPage",
+    "pages/ReadingHistoryPage",
+    "pages/FeedbackPage",
+    "pages/SettingsPage"
+  ]
+}
