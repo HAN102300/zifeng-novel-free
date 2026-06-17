@@ -6,9 +6,11 @@ import { StarOutlined } from '@ant-design/icons';
 import BackButton from '../components/BackButton';
 import { ThemeContext } from '../App';
 import axios from 'axios';
-import { getDefaultSource, saveNovelCache } from '../utils/novelConfig';
-import { glassCardStyle, glassItemStyle } from '../utils/glassStyle';
+import { getDefaultSource } from '../utils/novelConfig';
+import { glassCardStyle } from '../utils/glassStyle';
 import { BlurText, ReactBitsErrorBoundary } from '../components/react-bits';
+import NovelCard from '../components/NovelCard';
+import { parseHeaders } from '../utils/headers';
 
 const categoryCache = new Map();
 
@@ -19,10 +21,6 @@ const { Title, Text } = Typography;
 
 const MAX_PAGES = 10;
 const PAGE_SIZE = 15;
-
-function parseHeaders(headerStr) {
-  try { return headerStr ? JSON.parse(headerStr.replace(/'/g, '"')) : {}; } catch { return {}; }
-}
 
 const CategoryDetail = () => {
   const { channel, sort, categoryId, categoryName } = useParams();
@@ -130,109 +128,6 @@ const CategoryDetail = () => {
     return '全部';
   };
 
-  const NovelCard = ({ novel, index }) => {
-    const [isHovered, setIsHovered] = useState(false);
-
-    return (
-      <motion.div
-        whileHover={{ scale: 1.03, y: -5 }}
-        transition={{ duration: 0.2 }}
-        onHoverStart={() => setIsHovered(true)}
-        onHoverEnd={() => setIsHovered(false)}
-        onClick={() => {
-            const ds = getDefaultSource();
-            const novelId = String(novel.id || novel.novelId || '');
-            const bookUrlTemplate = ds.ruleSearch?.bookUrl || '';
-            let bookUrl = novelId;
-            if (bookUrlTemplate && bookUrlTemplate.includes('{{')) {
-              bookUrl = bookUrlTemplate.replace(/\{\{\$?\.?novelId\}\}/g, novelId);
-            }
-            saveNovelCache(novel, ds.bookSourceUrl, bookUrl);
-            const p = new URLSearchParams();
-            p.set('sourceUrl', ds.bookSourceUrl);
-            p.set('bookUrl', bookUrl);
-            p.set('from', 'category');
-            navigate(`/novel/${novel.id}?${p.toString()}`);
-          }}
-        style={{ cursor: 'pointer' }}
-      >
-        <Card
-          hoverable
-          style={{ ...glassItemStyle(glassMode, isDarkMode) }}
-          cover={
-            <div style={{ position: 'relative', height: 200, overflow: 'hidden' }}>
-              <img
-                alt={novel.name}
-                src={novel.cover || `https://placehold.co/200x300/${color.replace('#', '')}/white?text=${encodeURIComponent(novel.name.slice(0, 2))}`}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  transform: isHovered ? 'scale(1.1)' : 'scale(1)',
-                  transition: 'transform 0.3s ease'
-                }}
-              />
-              <Badge
-                count={(currentPage - 1) * PAGE_SIZE + index + 1}
-                style={{
-                  position: 'absolute',
-                  top: 8,
-                  left: 8,
-                  backgroundColor: color,
-                  border: 'none'
-                }}
-              />
-              {novel.rankInfo && (
-                <div style={{
-                  position: 'absolute',
-                  top: 8,
-                  right: 8,
-                  backgroundColor: 'rgba(0,0,0,0.7)',
-                  color: '#fff',
-                  padding: '2px 8px',
-                  borderRadius: 12,
-                  fontSize: 12,
-                  fontWeight: 'bold'
-                }}>
-                  {novel.rankInfo}
-                </div>
-              )}
-            </div>
-          }
-          styles={{ body: { padding: 12 } }}
-        >
-          <div style={{ height: 80, display: 'flex', flexDirection: 'column' }}>
-            <Text strong style={{
-              fontSize: 14,
-              marginBottom: 4,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}>
-              {novel.name}
-            </Text>
-            <Text type="secondary" style={{
-              fontSize: 12,
-              marginBottom: 8,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}>
-              {novel.author}
-            </Text>
-            <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Tag color={color} style={{ fontSize: 11 }}>{novel.category}</Tag>
-              <Space size={4}>
-                <StarOutlined style={{ color: '#faad14', fontSize: 12 }} />
-                <Text style={{ fontSize: 12, color: '#faad14' }}>{novel.score}</Text>
-              </Space>
-            </div>
-          </div>
-        </Card>
-      </motion.div>
-    );
-  };
-
   if (loading && novels.length === 0) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
@@ -315,7 +210,7 @@ const CategoryDetail = () => {
           <Row gutter={[16, 16]}>
             {novels.map((novel, index) => (
               <Col key={novel.id} xs={12} sm={8} md={6} lg={4} xl={4}>
-                <NovelCard novel={novel} index={index} />
+                <NovelCard novel={novel} index={index} color={color} glassMode={glassMode} isDarkMode={isDarkMode} rankBadge={(currentPage - 1) * PAGE_SIZE + index + 1} />
               </Col>
             ))}
           </Row>

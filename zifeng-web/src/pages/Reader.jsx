@@ -15,19 +15,33 @@ import { getBookSources, getDefaultSource as getDefaultSourceFromManager } from 
 import { loadReaderCache, simpleHash, isDefaultSource } from '../utils/novelConfig';
 import { CountUp, ReactBitsErrorBoundary } from '../components/react-bits';
 
+const MAX_CACHE_SIZE = 100;
+
+const evictOldest = (map) => {
+  if (map.size <= MAX_CACHE_SIZE) return;
+  const oldestKey = map.keys().next().value;
+  map.delete(oldestKey);
+};
+
 const cache = {
   chapters: new Map(),
   content: new Map(),
   expireTime: 24 * 60 * 60 * 1000,
   isExpired: (timestamp) => Date.now() - timestamp > cache.expireTime,
-  setChapters: (key, chapters) => { cache.chapters.set(key, { data: chapters, timestamp: Date.now() }); },
+  setChapters: (key, chapters) => {
+    evictOldest(cache.chapters);
+    cache.chapters.set(key, { data: chapters, timestamp: Date.now() });
+  },
   getChapters: (key) => {
     const cached = cache.chapters.get(key);
     if (cached && !cache.isExpired(cached.timestamp)) return cached.data;
     cache.chapters.delete(key);
     return null;
   },
-  setContent: (chapterUrl, content) => { cache.content.set(chapterUrl, { data: content, timestamp: Date.now() }); },
+  setContent: (chapterUrl, content) => {
+    evictOldest(cache.content);
+    cache.content.set(chapterUrl, { data: content, timestamp: Date.now() });
+  },
   getContent: (chapterUrl) => {
     const cached = cache.content.get(chapterUrl);
     if (cached && !cache.isExpired(cached.timestamp)) return cached.data;

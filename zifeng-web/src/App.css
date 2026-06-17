@@ -1,6 +1,6 @@
-/* Ant Design 鏍峰紡瑕嗙洊鍜岃嚜瀹氫箟 */
+/* Ant Design 样式覆盖和自定义 */
 
-/* 鍏ㄥ眬鏍峰紡 */
+/* 全局样式 */
 * {
   margin: 0;
   padding: 0;
@@ -12,13 +12,13 @@ body {
   line-height: 1.6;
 }
 
-/* 瀵艰埅鏍忔牱寮?*/
+/* 导航栏样式 */
 .app-layout .ant-layout-header {
   background: #fff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* 鑿滃崟鏍峰紡 */
+/* 菜单样式 */
 .app-layout .ant-menu-horizontal {
   border-bottom: none;
   background: transparent;
@@ -28,12 +28,12 @@ body {
   font-size: 16px;
 }
 
-/* 鎼滅储妗嗘牱寮?*/
+/* 搜索框样式 */
 .app-layout .ant-input-search {
   border-radius: 20px;
 }
 
-/* 鍗＄墖鏍峰紡浼樺寲 */
+/* 卡片样式优化 */
 .ant-card {
   transition: all 0.3s ease;
 }
@@ -43,7 +43,7 @@ body {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
-/* 鍖哄煙鏍囬鏍峰紡 */
+/* 区域标题样式 */
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -53,7 +53,7 @@ body {
   margin-bottom: 20px;
 }
 
-/* 闃呰鏇村閾炬帴鏍峰紡 */
+/* 阅读更多链接样式 */
 .read-more-link {
   display: flex;
   align-items: center;
@@ -66,7 +66,7 @@ body {
   opacity: 0.8;
 }
 
-/* 娣辫壊妯″紡鏍峰紡 */
+/* 深色模式样式 */
 .dark-mode .app-layout {
   background: #000;
 }
@@ -93,7 +93,7 @@ body {
   color: #aaa;
 }
 
-/* 鍝嶅簲寮忓竷灞€ */
+/* 响应式布局 */
 @media (max-width: 767px) {
   .app-layout .ant-layout-header {
     padding: 0 20px;
@@ -104,7 +104,7 @@ body {
   }
 }
 
-/* 鍔ㄧ敾鏁堟灉 */
+/* 动画效果 */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -120,8 +120,8 @@ body {
   animation: fadeIn 0.5s ease;
 }
 
-/* ===== 棣栭〉灏忚鍖哄煙鍝嶅簲寮忓竷灞€ ===== */
-/* 鏂偣涓嶢nt Design瀵归綈: sm=576, md=768, lg=992, xl=1200, xxl=1600 */
+/* ===== 首页小说区域响应式布局 ===== */
+/* 断点与Ant Design对齐: sm=576, md=768, lg=992, xl=1200, xxl=1600 */
 
 .novel-section-content {
   position: relative;
@@ -146,8 +146,10 @@ body {
 }
 
 /* 
- * 澶у睆骞?(鈮?92px) - 涓嶢nt Design lg鏂偣瀵归綈
- * 蹇呰鐑棬鎺ㄨ崘: 鍏ㄥ瀹瑰櫒 鈫?6鍒? * 娼滃姏姒?瀹屾湰姒? 鍗婂瀹瑰櫒(lg=12) 鈫?3鍒? * 鏇存柊姒?鎼滅储姒?璇勮姒? 1/3瀹藉鍣?lg=8) 鈫?2鍒? */
+ * 大屏幕 (≥992px) - 与Ant Design lg断点对齐
+ * 必读热门推荐: 全宽容器 → 6列
+ * 潜力榜/完本榜: 半宽容器(lg=12) → 3列
+ * 更新榜/搜索榜/评论榜: 1/3宽容器(lg=8) → 2列 */
 .novel-grid-main {
   grid-template-columns: repeat(6, 1fr);
 }
@@ -161,8 +163,10 @@ body {
 }
 
 /* 
- * 涓瓑灞忓箷 (768px - 991px) - 涓嶢nt Design md鏂偣瀵归綈
- * 蹇呰鐑棬鎺ㄨ崘: 鍏ㄥ瀹瑰櫒 鈫?5鍒? * 娼滃姏姒?瀹屾湰姒? 鍏ㄥ瀹瑰櫒(xs=24) 鈫?4鍒? * 鏇存柊姒?鎼滅储姒?璇勮姒? 鍗婂瀹瑰櫒(md=12) 鈫?2鍒? */
+ * 中等屏幕 (768px - 991px) - 与Ant Design md断点对齐
+ * 必读热门推荐: 全宽容器 → 5列
+ * 潜力榜/完本榜: 全宽容器(xs=24) → 4列
+ * 更新榜/搜索榜/评论榜: 半宽容器(md=12) → 2列 */
 @media (min-width: 768px) and (max-width: 991px) {
   .novel-grid-main {
     grid-template-columns: repeat(5, 1fr);
@@ -178,7 +182,7 @@ body {
 }
 
 /* 
- * 灏忓睆骞?(鈮?67px) - 妯悜婊氬姩
+ * 小屏幕 (≤767px) - 横向滚动
  */
 @media (max-width: 767px) {
   .novel-section-content {
@@ -212,7 +216,7 @@ body {
   }
 }
 
-/* 婊氬姩鏉℃牱寮?*/
+/* 滚动条样式 */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -232,7 +236,7 @@ body {
   background: #a8a8a8;
 }
 
-/* 娣辫壊妯″紡婊氬姩鏉?*/
+/* 深色模式滚动条 */
 .dark-mode ::-webkit-scrollbar-track {
   background: #2c2c2c;
 }

@@ -15,6 +15,7 @@ import { ThemeContext } from '../App';
 import { useNavigate } from 'react-router-dom';
 import { getBookSources } from '../utils/bookSourceManager';
 import { glassCardStyle } from '../utils/glassStyle';
+import { version } from '../../package.json';
 
 const { Title, Text } = Typography;
 
@@ -435,7 +436,7 @@ const Setting = () => {
             }}
           >
             <Space direction="vertical" size="small">
-              <Text type="secondary">紫枫免费小说 v1.0.0</Text>
+              <Text type="secondary">紫枫免费小说 v{version}</Text>
               <Text type="secondary">为您提供优质的小说阅读体验</Text>
             </Space>
           </Card>

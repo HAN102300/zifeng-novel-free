@@ -41,6 +41,7 @@ const BookSourcePage = lazy(() => import('./pages/BookSourcePage'));
 
 import { getCurrentUser } from './utils/apiClient';
 import { getDefaultSource } from './utils/novelConfig';
+import { parseHeaders } from './utils/headers';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -74,14 +75,6 @@ const LazyLoad = ({ children }) => (
     </Suspense>
   </ErrorBoundary>
 );
-
-function parseHeaders(headerStr) {
-  try {
-    return headerStr ? JSON.parse(headerStr) : {};
-  } catch {
-    return {};
-  }
-}
 
 import { glassNavbarStyle } from './utils/glassStyle';
 
@@ -333,7 +326,7 @@ function App() {
         } catch (e) {
           if (e.response?.status === 401) {
             const msg = e.response?.data?.message || "";
-            if (msg.includes("过期") || msg.includes("无效") || msg.includes("其他设备") || msg.includes("踢下线") || msg.includes("未提供登录凭证")) {
+            if (msg.includes("过期") || msg.includes("无效") || msg.includes("其他设备") || msg.includes("踢下线")) {
               localStorage.removeItem('zifeng_token');
               localStorage.removeItem('zifeng_user');
               localStorage.removeItem('zifeng_token_expires');
