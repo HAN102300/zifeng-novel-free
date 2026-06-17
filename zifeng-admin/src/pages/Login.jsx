@@ -49,7 +49,7 @@ const Login = () => {
         localStorage.setItem('zifeng_admin_info', JSON.stringify(admin));
         window.dispatchEvent(new Event('auth-change'));
         message.success('登录成功');
-        navigate('/dashboard');
+        navigate('/dashboard/overview');
       } else {
         message.error(res.data?.message || '登录失败');
         fetchCaptcha();

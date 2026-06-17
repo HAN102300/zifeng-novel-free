@@ -125,7 +125,7 @@ sourceApi.interceptors.response.use(
         localStorage.removeItem('zifeng_admin_token');
         localStorage.removeItem('zifeng_admin_info');
         window.dispatchEvent(new Event('auth-change'));
-        window.location.href = '/login';
+        window.location.href = '/admin/login';
         setTimeout(() => {
           isAdminLoggingOut = false;
         }, 3000);
