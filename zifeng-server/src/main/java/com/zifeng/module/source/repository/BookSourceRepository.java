@@ -30,4 +30,28 @@ public interface BookSourceRepository extends JpaRepository<BookSource, Long> {
 
     @Query("SELECT COUNT(s) FROM BookSource s WHERE s.ruleExplore IS NOT NULL AND TRIM(s.ruleExplore) <> ''")
     long countHasExplore();
+
+    @Query("SELECT COUNT(s) FROM BookSource s WHERE s.ruleSearch IS NOT NULL AND TRIM(s.ruleSearch) <> ''")
+    long countHasSearch();
+
+    @Query("SELECT COUNT(s) FROM BookSource s WHERE s.ruleContent IS NOT NULL AND TRIM(s.ruleContent) <> ''")
+    long countHasContent();
+
+    @Query("SELECT COUNT(s) FROM BookSource s WHERE s.exploreUrl IS NOT NULL AND TRIM(s.exploreUrl) <> ''")
+    long countHasExploreUrl();
+
+    @Query("SELECT COUNT(s) FROM BookSource s WHERE s.bookSourceType = 0")
+    long countTypeText();
+
+    @Query("SELECT COUNT(s) FROM BookSource s WHERE s.bookSourceType = 1")
+    long countTypeWeb();
+
+    @Query("SELECT COUNT(s) FROM BookSource s WHERE s.bookSourceType = 2")
+    long countTypeComic();
+
+    @Query("SELECT COUNT(s) FROM BookSource s WHERE s.bookSourceType = 3")
+    long countTypeAudio();
+
+    @Query("SELECT COUNT(s) FROM BookSource s WHERE s.enabledCookieJar = true")
+    long countHasCookie();
 }

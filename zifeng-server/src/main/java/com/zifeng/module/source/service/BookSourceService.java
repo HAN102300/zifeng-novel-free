@@ -277,6 +277,38 @@ public class BookSourceService {
         return bookSourceRepository.countHasExplore();
     }
 
+    public long getHasSearchCount() {
+        return bookSourceRepository.countHasSearch();
+    }
+
+    public long getHasContentCount() {
+        return bookSourceRepository.countHasContent();
+    }
+
+    public long getHasExploreUrlCount() {
+        return bookSourceRepository.countHasExploreUrl();
+    }
+
+    public long getTypeTextCount() {
+        return bookSourceRepository.countTypeText();
+    }
+
+    public long getTypeWebCount() {
+        return bookSourceRepository.countTypeWeb();
+    }
+
+    public long getTypeComicCount() {
+        return bookSourceRepository.countTypeComic();
+    }
+
+    public long getTypeAudioCount() {
+        return bookSourceRepository.countTypeAudio();
+    }
+
+    public long getHasCookieCount() {
+        return bookSourceRepository.countHasCookie();
+    }
+
     public List<BookSource> searchAllSources(String keyword) {
         return bookSourceRepository.findByBookSourceNameContainingOrBookSourceUrlContaining(keyword, keyword);
     }
