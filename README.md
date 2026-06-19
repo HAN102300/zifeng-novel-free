@@ -12,15 +12,15 @@
 <br/>
 
 <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white" />
-<img src="https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white" />
-<img src="https://img.shields.io/badge/Ant_Design-5-0170FE?style=flat-square&logo=antdesign&logoColor=white" />
+<img src="https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white" />
+<img src="https://img.shields.io/badge/Ant_Design-6-0170FE?style=flat-square&logo=antdesign&logoColor=white" />
 <img src="https://img.shields.io/badge/Spring_Boot-3.2-6DB33F?style=flat-square&logo=springboot&logoColor=white" />
 <img src="https://img.shields.io/badge/Express-4-000000?style=flat-square&logo=express&logoColor=white" />
 <img src="https://img.shields.io/badge/MySQL-8-4479A1?style=flat-square&logo=mysql&logoColor=white" />
 <img src="https://img.shields.io/badge/Redis-7-DC382D?style=flat-square&logo=redis&logoColor=white" />
 <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white" />
 <img src="https://img.shields.io/badge/HarmonyOS-Next-000000?style=flat-square&logo=harmonyos&logoColor=white" />
-<img src="https://img.shields.io/badge/ArkTS-API_12+-3178C6?style=flat-square&logo=typescript&logoColor=white" />
+<img src="https://img.shields.io/badge/ArkTS-API_26-3178C6?style=flat-square&logo=typescript&logoColor=white" />
 
 </div>
 
@@ -529,7 +529,10 @@ python stop-dev.py
 4. 启动解析引擎 `zifeng-parser`（端口 3001）
 5. 启动 Spring Boot 后端 `zifeng-server`（端口 8080）
 
-启动后访问 **http://localhost:8088** 即可使用。
+启动后访问：
+
+- **用户端**：http://localhost:8088
+- **管理后台**：http://localhost:8088/admin
 
 ### 方式二：手动启动
 
@@ -558,7 +561,10 @@ cd ../zifeng-server && mvn spring-boot:run
 cp .env.production .env.local
 # 编辑 .env.local 填入实际配置
 
-# 启动全部服务
+# 启动全部服务（Docker Engine 20.10+ 建议使用 docker compose）
+docker compose up -d
+
+# 旧版 Docker Compose 插件用户也可使用
 docker-compose up -d
 ```
 
@@ -590,23 +596,31 @@ JPA 会自动创建表结构，首次启动会初始化超级管理员账号。
 ## 🐳 生产部署架构
 
 ```
-                    ┌──────────────┐
-                    │   Nginx 网关  │ :80 / :443
-                    │  (SSL + 路由) │
-                    └──────┬───────┘
-               ┌───────────┼───────────┐
-               ▼           ▼           ▼
-        ┌──────────┐ ┌──────────┐ ┌──────────┐
-        │   Web    │ │  Admin   │ │  Server  │ :8080
-        │ (静态站)  │ │ (静态站)  │ │ Spring   │
-        └──────────┘ └──────────┘ └─────┬────┘
-                                       │
-                              ┌────────┼────────┐
-                              ▼        ▼        ▼
-                        ┌─────────┐ ┌──────┐ ┌────────┐
-                        │ Parser  │ │MySQL │ │ Redis  │
-                        │ :3001   │ │ :3306│ │ :6379  │
-                        └─────────┘ └──────┘ └────────┘
+        ┌─────────────┐      ┌─────────────┐      ┌─────────────────┐
+        │   Web 浏览器   │      │  Admin 浏览器  │      │  鸿蒙原生 App    │
+        │  :80 / :443  │      │  /admin       │      │  HarmonyOS NEXT │
+        └──────┬──────┘      └──────┬──────┘      └────────┬────────┘
+               │                    │                      │
+               └────────────────────┼──────────────────────┘
+                                    ▼
+                           ┌──────────────┐
+                           │   Nginx 网关  │ :80 / :443
+                           │ (SSL + 路由)  │
+                           └──────┬───────┘
+                                  │
+                    ┌─────────────┼─────────────┐
+                    ▼             ▼             ▼
+             ┌──────────┐  ┌──────────┐  ┌──────────┐
+             │   Web    │  │  Admin   │  │  Server  │ :8080
+             │ (静态站)  │  │ (静态站)  │  │ Spring   │
+             └──────────┘  └──────────┘  └─────┬────┘
+                                                │
+                                       ┌────────┼────────┐
+                                       ▼        ▼        ▼
+                                 ┌─────────┐ ┌──────┐ ┌────────┐
+                                 │ Parser  │ │MySQL │ │ Redis  │
+                                 │ :3001   │ │ :3306│ │ :6379  │
+                                 └─────────┘ └──────┘ └────────┘
 ```
 
 ### 部署工具链
