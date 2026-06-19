@@ -173,11 +173,13 @@ const FeedbackList = () => {
       ),
     },
     {
-      title: '用户ID',
-      dataIndex: 'userId',
-      key: 'userId',
-      width: 90,
-      render: (id) => <Tag>用户{id}</Tag>,
+      title: '用户',
+      dataIndex: 'username',
+      key: 'username',
+      width: 100,
+      render: (username, record) => username
+        ? <Tag color="blue">{username}</Tag>
+        : <Tag>用户{record.userId}</Tag>,
     },
     {
       title: '状态',
@@ -247,10 +249,11 @@ const FeedbackList = () => {
         {statCards.map((card) => (
           <Col xs={12} sm={12} md={6} key={card.key}>
             <Card
+              className="stat-card-brand"
               style={cardStyle}
               styles={{ body: { padding: '20px 24px' } }}
-              onMouseEnter={(e) => cardHover(e.currentTarget)}
-              onMouseLeave={(e) => cardLeave(e.currentTarget)}
+              onMouseEnter={(e) => cardHover(e.currentTarget, isDarkMode)}
+              onMouseLeave={(e) => cardLeave(e.currentTarget, isDarkMode)}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
@@ -290,7 +293,7 @@ const FeedbackList = () => {
         gap: 12,
         flexShrink: 0,
       }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>反馈列表</h2>
+        <h2 className="page-title">反馈列表</h2>
         <Space wrap>
           <Select
             placeholder="反馈类型"
@@ -403,7 +406,7 @@ const FeedbackList = () => {
               flexDirection: 'column',
               gap: 4,
             }}>
-              <span>提交用户：用户{detailModal.data.userId}</span>
+              <span>提交用户：{detailModal.data.username || `用户${detailModal.data.userId}`}</span>
               <span>提交时间：{detailModal.data.createdAt ? new Date(detailModal.data.createdAt).toLocaleString('zh-CN') : '-'}</span>
               {detailModal.data.pageUrl && <span>页面地址：{detailModal.data.pageUrl}</span>}
               {detailModal.data.userAgent && (
@@ -423,7 +426,7 @@ const FeedbackList = () => {
                 padding: 16,
               }}>
                 <div style={{ fontWeight: 600, marginBottom: 8, color: '#1890ff', fontSize: 13 }}>
-                  管理员回复
+                  管理员回复{detailModal.data.repliedByUsername ? `（${detailModal.data.repliedByUsername}）` : ''}
                 </div>
                 <div style={{ color: isDarkMode ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.75)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
                   {detailModal.data.adminReply}

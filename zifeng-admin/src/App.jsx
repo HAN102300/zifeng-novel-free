@@ -40,7 +40,7 @@ const { Header, Sider, Content } = Layout;
 const ThemeContext = createContext();
 
 const themeConfigs = {
-  default: { primaryColor: '#1890ff', name: '经典蓝' },
+  default: { primaryColor: '#667eea', name: '品牌紫' },
   green: { primaryColor: '#52c41a', name: '清新绿' },
   purple: { primaryColor: '#722ed1', name: '优雅紫' },
 };
@@ -105,7 +105,8 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
         targets: contentRef.current,
         opacity: [0, 1],
         translateY: [10, 0],
-        duration: 350,
+        scale: [0.98, 1],
+        duration: 400,
         easing: 'easeOutCubic',
       });
     }
@@ -179,7 +180,7 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
           overflow: 'hidden',
           padding: '0 16px',
         }}>
-          <div style={{
+          <div className="brand-pulse" style={{
             width: 36,
             height: 36,
             borderRadius: 10,
@@ -222,8 +223,13 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
           onOpenChange={(keys) => setOpenKeys(keys)}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
-          style={{ borderRight: 'none', marginTop: 8, background: 'transparent' }}
+          style={{ borderRight: 'none', marginTop: 8, background: 'transparent', flex: 1 }}
         />
+        {!collapsed && (
+          <div className="brand-footer" style={{ flexShrink: 0 }}>
+            紫枫小说 © 2026
+          </div>
+        )}
       </Sider>
       <Layout style={{ marginLeft: collapsed ? 72 : 220, transition: 'margin-left 0.2s ease' }}>
         <Header className="admin-header" style={{
@@ -258,7 +264,9 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
             <span style={{
               fontSize: 16,
               fontWeight: 600,
-              color: isDarkMode ? '#f0f0f0' : '#1a1a2e',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
             }}>
               紫枫小说管理后台
             </span>

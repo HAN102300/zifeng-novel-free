@@ -231,7 +231,7 @@ const AdminManagement = () => {
         gap: 12,
         flexShrink: 0,
       }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>管理员管理</h2>
+        <h2 className="page-title">管理员管理</h2>
         <Button
           type="primary"
           icon={<PlusOutlined />}

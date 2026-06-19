@@ -10,6 +10,11 @@
   --social-bg: rgba(244, 243, 236, 0.5);
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --brand-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --brand-color: #667eea;
+  --brand-purple: #764ba2;
+  --brand-shadow: rgba(102, 126, 234, 0.15);
+  --brand-shadow-hover: rgba(102, 126, 234, 0.25);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -302,4 +307,162 @@ code {
 /* Fix: pagination Select dropdown z-index stacking context */
 .ant-table-pagination .ant-select-dropdown {
   z-index: 1060 !important;
+}
+
+/* ===== Brand & Page Title Styles ===== */
+
+.page-title {
+  margin: 0 !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  position: relative;
+  padding-left: 12px !important;
+}
+
+.page-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 20px;
+  border-radius: 2px;
+  background: var(--brand-gradient);
+}
+
+/* ===== Stat Card Brand Border ===== */
+
+.stat-card-brand {
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card-brand::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--brand-gradient);
+  z-index: 1;
+}
+
+/* ===== Table Zebra Striping ===== */
+
+.ant-table-tbody > tr:nth-child(even) > td {
+  background: rgba(102, 126, 234, 0.02) !important;
+}
+
+.ant-table-tbody > tr:nth-child(even):hover > td {
+  background: rgba(102, 126, 234, 0.06) !important;
+}
+
+/* ===== Custom Scrollbar ===== */
+
+.ant-table-body::-webkit-scrollbar,
+.ant-layout-sider::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.ant-table-body::-webkit-scrollbar-track,
+.ant-layout-sider::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ant-table-body::-webkit-scrollbar-thumb,
+.ant-layout-sider::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.3);
+  border-radius: 3px;
+}
+
+.ant-table-body::-webkit-scrollbar-thumb:hover,
+.ant-layout-sider::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 126, 234, 0.5);
+}
+
+/* ===== Fade In Page Animation ===== */
+
+@keyframes fadeInPage {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in-page {
+  animation: fadeInPage 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* ===== Brand Pulse Animation ===== */
+
+@keyframes brandPulse {
+  0%, 100% { box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); }
+  50% { box-shadow: 0 4px 20px rgba(102, 126, 234, 0.5); }
+}
+
+.brand-pulse {
+  animation: brandPulse 4s ease-in-out infinite;
+}
+
+/* ===== Admin Card Unified Style ===== */
+
+.admin-card {
+  border-radius: 12px !important;
+  border: none !important;
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+/* ===== Brand Divider ===== */
+
+.brand-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(102, 126, 234, 0.3) 50%, transparent 100%);
+  margin: 16px 0;
+}
+
+/* ===== Table Brand Header ===== */
+
+.table-brand-header .ant-table-thead > tr > th {
+  background: linear-gradient(180deg, rgba(102, 126, 234, 0.04) 0%, rgba(118, 75, 162, 0.02) 100%) !important;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.2) !important;
+  font-weight: 600 !important;
+}
+
+/* ===== Slide In Left Animation ===== */
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ===== Shimmer Animation ===== */
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.brand-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(102, 126, 234, 0.1) 0%,
+    rgba(102, 126, 234, 0.3) 50%,
+    rgba(102, 126, 234, 0.1) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* ===== Brand Footer ===== */
+
+.brand-footer {
+  padding: 12px 16px;
+  text-align: center;
+  font-size: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  opacity: 0.7;
 }

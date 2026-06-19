@@ -9,10 +9,9 @@ import {
 import {
   getAdminSourcesPaged, deleteAdminSource, updateAdminSource,
   createAdminSource, testSource, loginSource, browserLogin,
-  importAdminSources, importFromUrl, batchDeleteAdminSources,
+  importAdminSources, batchDeleteAdminSources,
 } from '../../utils/adminApi';
 import { detectSourceType } from '../../utils/bookSourceManager';
-import { fadeInUp, cardHover, cardLeave } from '../../utils/animations';
 import { ThemeContext } from '../../App';
 
 const SOURCE_TYPE_MAP = {
@@ -451,7 +450,7 @@ const SourceList = () => {
   return (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12, flexShrink: 0 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>书源列表</h2>
+        <h2 className="page-title">书源列表</h2>
         <Space wrap>
           <Input.Search placeholder="搜索书源" allowClear value={searchText} onChange={(e) => handleSearch(e.target.value)} onSearch={(v) => fetchSources(1, pagination.pageSize, v)} style={{ width: 200 }} />
           <Button type="primary" icon={<PlusOutlined />} onClick={openAddModal}>添加书源</Button>
