@@ -19,6 +19,8 @@
 <img src="https://img.shields.io/badge/MySQL-8-4479A1?style=flat-square&logo=mysql&logoColor=white" />
 <img src="https://img.shields.io/badge/Redis-7-DC382D?style=flat-square&logo=redis&logoColor=white" />
 <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white" />
+<img src="https://img.shields.io/badge/HarmonyOS-Next-000000?style=flat-square&logo=harmonyos&logoColor=white" />
+<img src="https://img.shields.io/badge/ArkTS-API_12+-3178C6?style=flat-square&logo=typescript&logoColor=white" />
 
 </div>
 
@@ -138,6 +140,91 @@
 </tr>
 </table>
 
+### 📲 鸿蒙原生 App（zifeng-harmony）
+
+<table>
+<tr>
+<th width="25%">🏠 首页推荐</th>
+<th width="25%">🔍 全局搜索</th>
+<th width="25%">📖 沉浸阅读</th>
+<th width="25%">📚 个人书架</th>
+</tr>
+<tr>
+<td>
+
+- 推荐 / 分类 / 排行三Tab
+- 毛玻璃导航与粒子动效
+- ArkUI 原生组件渲染
+- 主题换肤与深色模式
+
+</td>
+<td>
+
+- 多书源聚合搜索
+- 搜索历史与热词
+- 结果列表/网格切换
+- 书源切换重搜
+
+</td>
+<td>
+
+- 目录跳转与章节缓存
+- 字体 / 行距 / 背景调节
+- 夜间模式与护眼主题
+- 阅读进度本地+云端同步
+
+</td>
+<td>
+
+- 登录注册 / 找回密码
+- 书架收藏与历史记录
+- 个人资料与头像
+- 用户反馈入口
+
+</td>
+</tr>
+<tr>
+<th>📂 分类浏览</th>
+<th>🏆 排行榜单</th>
+<th>⚙️ 系统设置</th>
+<th>👤 我的</th>
+</tr>
+<tr>
+<td>
+
+- 男频/女频双频道
+- 分类详情分页加载
+- 多维度筛选排序
+- 原生列表动画
+
+</td>
+<td>
+
+- 热门 / 潜力 / 完本 / 更新榜
+- 榜单数据实时刷新
+- 一键进入书籍详情
+- 分页浏览更多内容
+
+</td>
+<td>
+
+- 主题色切换
+- 阅读偏好设置
+- 缓存清理
+- 关于与帮助
+
+</td>
+<td>
+
+- 阅读历史
+- 我的书架
+- 账号安全
+- 意见反馈
+
+</td>
+</tr>
+</table>
+
 ### 🛠️ 管理后台（zifeng-admin）
 
 <table>
@@ -183,9 +270,9 @@
 </tr>
 <tr>
 <th>🔬 书源测活</th>
-<th>🔐 登录检测</th>
 <th>📈 书源统计</th>
 <th>💬 用户反馈</th>
+<th>🔧 系统管理</th>
 </tr>
 <tr>
 <td>
@@ -194,14 +281,6 @@
 - 多阶段检测（搜索→详情→目录→正文）
 - 成功率/失败原因展示
 - 批量测试 + 结果汇总
-
-</td>
-<td>
-
-- 自动检测登录需求
-- 登录 URL / 登录 UI 识别
-- 浏览器窗口弹出登录
-- Cookie 自动管理
 
 </td>
 <td>
@@ -218,6 +297,14 @@
 - 类型与状态筛选
 - 管理员回复 + 状态变更
 - 反馈详情查看
+
+</td>
+<td>
+
+- 管理员分级（超管/普通管理员）
+- 管理员独立认证体系
+- 访问日志查询与筛选
+- 系统数据看板
 
 </td>
 </tr>
@@ -238,7 +325,7 @@ zifeng-novel-free/
 ├── .env.production           生产环境变量配置
 ├── architecture-overview.svg 系统架构图
 │
-├── zifeng-web/               用户前端 (React 19 + Ant Design 5 + Vite 6)
+├── zifeng-web/               用户前端 (React 19 + Ant Design 6 + Vite 8)
 │   ├── src/pages/
 │   │   ├── Home                  首页推荐
 │   │   ├── SearchResult          聚合搜索
@@ -256,7 +343,7 @@ zifeng-novel-free/
 │       ├── cryptoConfig          加密配置
 │       └── novelConfig           小说缓存配置
 │
-├── zifeng-admin/             管理后台 (React 19 + Ant Design 5 + Vite 6)
+├── zifeng-admin/             管理后台 (React 19 + Ant Design 6 + Vite 8)
 │   ├── src/pages/
 │   │   ├── dashboard/            仪表盘（概览 + 日志）
 │   │   ├── booksource/           书源管理（列表 + 导入 + 统计）
@@ -285,6 +372,15 @@ zifeng-novel-free/
 │   ├── selectors.js              CSS/XPath 选择器
 │   └── utils.js                  工具函数
 │
+├── zifeng-harmony/           鸿蒙原生 App (HarmonyOS NEXT + ArkTS + ArkUI)
+│   ├── entry/src/main/ets/
+│   │   ├── pages/                页面（Index / SearchResult / Reader / Login 等）
+│   │   ├── modules/              首页模块（Recommend / Category / Rank / BookShelves / MyHome）
+│   │   ├── service/              API 与业务服务（ApiClient / Auth / Book / Search 等）
+│   │   ├── common/               公共组件（DesignSystem / Glass / Loading / Particle）
+│   │   └── utils/                工具（CryptoJS / splitContent）
+│   └── AppScope/                 应用级配置与资源
+│
 └── deploy/                   部署配置 (Docker + Nginx)
     ├── nginx/                    Nginx 网关配置
     └── init/                     数据库初始化脚本
@@ -304,7 +400,7 @@ zifeng-novel-free/
 |:-----|:-----|:---------|
 | `module-user` | 用户服务 | 注册登录、书架管理、阅读进度、头像上传 |
 | `module-source` | 书源服务 | 书源 CRUD、JSON/URL 导入导出、启用禁用 |
-| `module-parse` | 解析服务 | 解析代理、搜索/详情/目录/正文解析 |
+| `module-parse` | 解析服务 | 搜索/详情/目录/正文解析、分类/排行接口、解析代理 |
 | `module-admin` | 管理服务 | 数据统计、访问日志、管理员 CRUD |
 | `module-feedback` | 反馈服务 | 反馈提交、管理员回复、状态流转、统计 |
 | `module-invite` | 邀请码服务 | 邀请码生成、验证、批量管理 |
@@ -318,9 +414,9 @@ zifeng-novel-free/
 | 技术 | 版本 | 用途 |
 |:-----|:-----|:-----|
 | **React** | 19 | 最新并发特性，极速渲染 |
-| **Ant Design** | 5 | 企业级 UI 组件，精美交互 |
+| **Ant Design** | 6 | 企业级 UI 组件，精美交互 |
 | **Framer Motion** | 12 | 丝滑页面过渡与微动画 |
-| **Vite** | 6 | 毫秒级 HMR，闪电构建 |
+| **Vite** | 8 | 毫秒级 HMR，闪电构建 |
 | **Anime.js** | 3 | 精细动画编排 |
 | **Crypto-JS** | 4 | 前端内容解密 |
 | **React Avatar Editor** | 15 | 头像裁剪上传 |
@@ -559,6 +655,8 @@ JPA 会自动创建表结构，首次启动会初始化超级管理员账号。
 **后端** — [Spring Boot](https://spring.io/projects/spring-boot) · [Sa-Token](https://sa-token.cc/) · [Spring Data JPA](https://spring.io/projects/spring-data-jpa) · [Lombok](https://projectlombok.org/) · [Redis](https://redis.io/)
 
 **解析引擎** — [Express](https://expressjs.com/) · [Cheerio](https://cheerio.js.org/) · [Puppeteer](https://pptr.dev/) · [crypto-js](https://github.com/brix/crypto-js) · [opencc-js](https://github.com/nicktomlin/opencc-js)
+
+**鸿蒙端** — [HarmonyOS](https://www.harmonyos.com/) · [ArkTS](https://developer.harmonyos.com/cn/docs/documentation-guides/arkts-overview-0000001820879805) · [ArkUI](https://developer.harmonyos.com/cn/docs/documentation-guides/arkui-overview-0000001820999809)
 
 **部署** — [Docker](https://www.docker.com/) · [Nginx](https://nginx.org/)
 
