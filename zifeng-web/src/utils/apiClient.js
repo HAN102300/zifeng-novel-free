@@ -80,7 +80,9 @@ export const searchBooksAPI = async (source, keyword, page = 1) => {
     },
     { timeout: 20000 },
   );
-  return res.data;
+  const data = res.data;
+  if (data && data.data) return data.data;
+  return data;
 };
 
 export const getBookInfoAPI = async (source, bookUrl, bookData = null) => {
@@ -93,7 +95,9 @@ export const getBookInfoAPI = async (source, bookUrl, bookData = null) => {
     },
     { timeout: 15000 },
   );
-  return res.data;
+  const data = res.data;
+  if (data && data.data) return data.data;
+  return data;
 };
 
 export const getTocAPI = async (source, tocUrl, book = null) => {
@@ -106,7 +110,9 @@ export const getTocAPI = async (source, tocUrl, book = null) => {
     },
     { timeout: 15000 },
   );
-  return res.data;
+  const data = res.data;
+  if (data && data.data) return data.data;
+  return data;
 };
 
 export const getContentAPI = async (
@@ -125,7 +131,9 @@ export const getContentAPI = async (
     },
     { timeout: 15000 },
   );
-  return res.data;
+  const data = res.data;
+  if (data && data.data) return data.data;
+  return data;
 };
 
 export const importFromUrlAPI = async (url) => {

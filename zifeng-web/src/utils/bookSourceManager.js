@@ -40,7 +40,7 @@ const DEFAULT_SOURCE = {
   ruleToc: {
     chapterList: "$.data.list[*]",
     chapterName: "$.chapterName",
-    chapterUrl: `$.path@js:java.aesBase64DecodeToString(result,"${import.meta.env.VITE_MAOYAN_KEY}","AES/CBC/PKCS5Padding","${import.meta.env.VITE_MAOYAN_IV}")`,
+    chapterUrl: `$.path@js:java.aesBase64DecodeToString(result,"${CRYPTO_CONFIG.MAOYAN_KEY}","AES/CBC/PKCS5Padding","${CRYPTO_CONFIG.MAOYAN_IV}")`,
     updateTime: "{{$.updatedAt}} 字数：{{$.wordNum}}",
   },
   ruleContent: {

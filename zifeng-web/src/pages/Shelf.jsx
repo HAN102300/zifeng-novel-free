@@ -374,7 +374,7 @@ const Shelf = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.3 }}
             >
-              <Title level={4} style={{ margin: 0, marginBottom: 12 }}>请先登录</Title>
+              <Title level={4} style={{ margin: 0, marginBottom: 12, textAlign: 'center' }}>请先登录</Title>
               <Text type="secondary" style={{ marginBottom: 24, display: 'block' }}>
                 登录后可以查看您的书架和阅读历史
               </Text>
