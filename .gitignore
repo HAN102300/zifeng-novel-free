@@ -61,3 +61,14 @@ zifeng-server/uploads/
 
 # Parser runtime state
 zifeng-parser/auth_state.json
+
+# Trae AI skill installations and lock files
+.agents/
+skills-lock.json
+
+# HarmonyOS IDE / codegenie generated files
+zifeng-harmony/.codegenie/
+
+# Temporary stats / screenshot images not referenced by docs
+stats-*.png
+reader-page.png
