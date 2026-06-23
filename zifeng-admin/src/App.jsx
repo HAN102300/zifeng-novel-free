@@ -96,8 +96,10 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
   const [openKeys, setOpenKeys] = useState(getOpenKeys);
 
   useEffect(() => {
-    setOpenKeys(getOpenKeys());
-  }, [location.pathname]);
+    if (!collapsed) {
+      setOpenKeys(getOpenKeys());
+    }
+  }, [location.pathname, collapsed]);
 
   useEffect(() => {
     if (contentRef.current) {
@@ -219,8 +221,7 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
           theme="dark"
           mode="inline"
           selectedKeys={[location.pathname]}
-          openKeys={collapsed ? [] : openKeys}
-          onOpenChange={(keys) => setOpenKeys(keys)}
+          {...(collapsed ? {} : { openKeys, onOpenChange: (keys) => setOpenKeys(keys) })}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
           style={{ borderRight: 'none', marginTop: 8, background: 'transparent', flex: 1 }}
