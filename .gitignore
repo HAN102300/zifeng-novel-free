@@ -53,6 +53,9 @@ Thumbs.db
 # Trae IDE
 .trae/
 
+# AI-generated plans
+docs/superpowers/plans/
+
 # Uploads (user data)
 zifeng-server/uploads/
 
