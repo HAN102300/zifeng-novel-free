@@ -1187,7 +1187,10 @@ app.post("/api/search", async (req, res) => {
       total: results.length,
       page,
     };
-    searchCache.set(cacheKey, result, 5 * 60 * 1000);
+    // 仅在搜索结果非空时缓存，避免瞬时网络故障导致空结果被长期缓存
+    if (results && results.length > 0) {
+      searchCache.set(cacheKey, result, 5 * 60 * 1000);
+    }
 
     res.json(result);
   } catch (e) {
@@ -1273,7 +1276,8 @@ app.post("/api/book-info", async (req, res) => {
     });
 
     const result = { success: true, bookInfo };
-    if (bookInfoCacheKey) {
+    // 仅在书籍信息非空时缓存，避免瞬时网络故障导致空结果被长期缓存
+    if (bookInfoCacheKey && bookInfo && (bookInfo.name || bookInfo.author)) {
       bookInfoCache.set(bookInfoCacheKey, result, 15 * 60 * 1000);
     }
     res.json(result);
@@ -1358,7 +1362,10 @@ app.post("/api/toc", async (req, res) => {
     const chapters = await parseToc(source, responseData, { book });
 
     const tocResult = { success: true, chapters };
-    tocCache.set(tocCacheKey, tocResult, 10 * 60 * 1000);
+    // 仅在章节列表非空时缓存，避免瞬时网络故障导致空结果被长期缓存
+    if (chapters && chapters.length > 0) {
+      tocCache.set(tocCacheKey, tocResult, 10 * 60 * 1000);
+    }
     res.json(tocResult);
   } catch (e) {
     console.error("[TOC ERROR]", e.message);
@@ -1411,7 +1418,10 @@ app.post("/api/content", async (req, res) => {
         ? content.content || content
         : String(content || ""),
     };
-    contentCache.set(contentCacheKey, contentResult, 10 * 60 * 1000);
+    // 仅在内容非空时缓存，避免瞬时网络故障导致空结果被长期缓存
+    if (contentResult.content && contentResult.content.trim()) {
+      contentCache.set(contentCacheKey, contentResult, 10 * 60 * 1000);
+    }
     res.json(contentResult);
   } catch (e) {
     console.error("[CONTENT ERROR]", e.message);
