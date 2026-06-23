@@ -32,13 +32,31 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "10mb" }));
 
+/**
+ * 规范化 source 对象：将后端存储为 JSON 字符串的 rule 字段反序列化为对象
+ * 后端数据库中 ruleSearch/ruleBookInfo/ruleToc/ruleContent/header 等字段存储为 JSON 字符串
+ * parser 要求这些字段必须是对象才能正常解析
+ */
+function normalizeSource(source) {
+  if (!source || typeof source !== 'object') return source;
+  const ruleFields = ['ruleSearch', 'ruleBookInfo', 'ruleToc', 'ruleContent', 'ruleExplore', 'header', 'loginUi'];
+  for (const field of ruleFields) {
+    if (typeof source[field] === 'string' && source[field].trim()) {
+      try { source[field] = JSON.parse(source[field]); } catch {}
+    }
+  }
+  return source;
+}
+
 function checkSourceValid(req, res) {
   const { source } = req.body;
   if (!source) {
     res.status(400).json({ error: "缺少source参数" });
     return false;
   }
-  const validation = validateSource(source);
+  // 在验证前规范化 source，将字符串类型的 rule 字段转为对象
+  normalizeSource(req.body.source);
+  const validation = validateSource(req.body.source);
   if (!validation.valid) {
     res.status(400).json({ error: "source验证失败", details: validation.errors });
     return false;
@@ -195,7 +213,28 @@ async function fetchWithAuthRetry(config, source) {
   if (isAuthFailure(responseData, source)) {
     console.log(`[AUTH-RETRY] Detected auth failure for: ${source.bookSourceName}`);
 
-    if (source.loginUrl && !/^https?:\/\//i.test(source.loginUrl.trim())) {
+    // 猫眼书源：自动刷新 token
+    const sourceUrl = source.bookSourceUrl || '';
+    if (sourceUrl.includes('jmlldsc.com')) {
+      console.log(`[AUTH-RETRY] Attempting maoyan token refresh for: ${source.bookSourceName}`);
+      try {
+        const newToken = await refreshMaoyanToken();
+        if (newToken) {
+          // 直接更新请求 headers 中的 Authorization
+          const retryConfig = { ...config, headers: { ...config.headers, Authorization: newToken } };
+          authedConfig = injectAuthIntoConfig(retryConfig, source);
+          console.log(`[AUTH-RETRY] Token refreshed, retrying request...`);
+          responseData = await fetchWithConfig(authedConfig);
+          if (!isAuthFailure(responseData, source)) {
+            console.log(`[AUTH-RETRY] Request succeeded after token refresh`);
+          } else {
+            console.log(`[AUTH-RETRY] Still failing after token refresh`);
+          }
+        }
+      } catch (e) {
+        console.warn(`[AUTH-RETRY] Maoyan token refresh failed:`, e.message);
+      }
+    } else if (source.loginUrl && !/^https?:\/\//i.test(source.loginUrl.trim())) {
       console.log(`[AUTH-RETRY] Attempting re-login for: ${source.bookSourceName}`);
       try {
         const ctx = { baseUrl: source.bookSourceUrl, source, key: '', page: 1, _loginMode: true };
@@ -430,12 +469,23 @@ app.get("/api/proxy", rateLimitMiddleware(30, 60000), async (req, res) => {
     return res.status(403).json({ error: "Target URL not allowed" });
 
   try {
+    // 支持通过 headers 查询参数传入自定义请求头（JSON 编码）
+    let customHeaders = {};
+    if (req.query.headers) {
+      try {
+        customHeaders = JSON.parse(req.query.headers);
+      } catch {}
+    }
+
     const data = await fetchWithConfig({
       url: targetUrl,
       method: "GET",
-      headers: req.headers["user-agent"]
-        ? { "User-Agent": req.headers["user-agent"] }
-        : {},
+      headers: {
+        ...(req.headers["user-agent"]
+          ? { "User-Agent": req.headers["user-agent"] }
+          : {}),
+        ...customHeaders,
+      },
     });
 
     const contentType =
@@ -446,6 +496,48 @@ app.get("/api/proxy", rateLimitMiddleware(30, 60000), async (req, res) => {
     res.send(data);
   } catch (e) {
     res.status(502).json({ error: "Proxy failed" });
+  }
+});
+
+// 图片专用代理：直接透传二进制数据，不经过文本解码
+app.get("/api/img-proxy", rateLimitMiddleware(60, 60000), async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl)
+    return res.status(400).json({ error: "Missing url parameter" });
+  if (!isProxyUrlAllowed(targetUrl))
+    return res.status(403).json({ error: "Target URL not allowed" });
+
+  try {
+    let customHeaders = {};
+    if (req.query.headers) {
+      try { customHeaders = JSON.parse(req.query.headers); } catch {}
+    }
+
+    const response = await axios({
+      url: targetUrl,
+      method: "GET",
+      timeout: 10000,
+      responseType: "arraybuffer",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+        ...customHeaders,
+      },
+    });
+
+    const contentType = response.headers["content-type"];
+    if (contentType) {
+      res.set("Content-Type", contentType);
+    } else {
+      res.set("Content-Type", "image/jpeg");
+    }
+    // 缓存 1 天
+    res.set("Cache-Control", "public, max-age=86400");
+    res.send(Buffer.from(response.data));
+  } catch (e) {
+    // 图片加载失败返回 1x1 透明 GIF，避免页面显示错误图标
+    res.set("Content-Type", "image/gif");
+    res.send(Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64"));
   }
 });
 
@@ -1297,9 +1389,14 @@ app.post("/api/content", async (req, res) => {
       responseData = chapterUrl;
     } else {
       const headers = parseHeaders(source.header);
-      console.log(`[CONTENT] ${source.bookSourceName} -> ${chapterUrl}`);
+      // 拼接完整 URL（处理相对路径）
+      let contentUrl = chapterUrl;
+      if (!contentUrl.startsWith('http://') && !contentUrl.startsWith('https://') && !contentUrl.startsWith('data:')) {
+        contentUrl = resolveUrl(source.bookSourceUrl, contentUrl);
+      }
+      console.log(`[CONTENT] ${source.bookSourceName} -> ${contentUrl}`);
       const contentConfig = {
-        url: chapterUrl,
+        url: contentUrl,
         method: "GET",
         headers,
       };

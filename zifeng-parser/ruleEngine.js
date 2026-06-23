@@ -1094,22 +1094,24 @@ async function parseBookListFromRules(
 }
 
 async function parseSearchResults(source, responseData, context = {}) {
-  return parseBookListFromRules(
-    source,
-    responseData,
-    source.ruleSearch,
-    context,
-  );
+  let rules = source.ruleSearch;
+  if (typeof rules === "string") {
+    try {
+      rules = JSON.parse(rules);
+    } catch {}
+  }
+  return parseBookListFromRules(source, responseData, rules, context);
 }
 
 async function parseExplore(source, responseData, context = {}) {
   if (!source.ruleExplore) return [];
-  return parseBookListFromRules(
-    source,
-    responseData,
-    source.ruleExplore,
-    context,
-  );
+  let rules = source.ruleExplore;
+  if (typeof rules === "string") {
+    try {
+      rules = JSON.parse(rules);
+    } catch {}
+  }
+  return parseBookListFromRules(source, responseData, rules, context);
 }
 
 function parseExploreUrl(exploreUrl) {
@@ -1224,7 +1226,12 @@ function applyDefaultValues(value, defaultValues) {
 }
 
 async function parseBookInfo(source, responseData, context = {}) {
-  const rules = source.ruleBookInfo || {};
+  let rules = source.ruleBookInfo || {};
+  if (typeof rules === "string") {
+    try {
+      rules = JSON.parse(rules);
+    } catch {}
+  }
   const htmlStr =
     typeof responseData === "string"
       ? responseData
@@ -1349,7 +1356,12 @@ async function parseBookInfo(source, responseData, context = {}) {
 }
 
 async function parseToc(source, responseData, context = {}) {
-  const rules = source.ruleToc || {};
+  let rules = source.ruleToc || {};
+  if (typeof rules === "string") {
+    try {
+      rules = JSON.parse(rules);
+    } catch {}
+  }
   const htmlStr =
     typeof responseData === "string"
       ? responseData
@@ -1430,7 +1442,12 @@ async function parseContent(
   context = {},
   fetchFn = null,
 ) {
-  const rules = source.ruleContent || {};
+  let rules = source.ruleContent || {};
+  if (typeof rules === "string") {
+    try {
+      rules = JSON.parse(rules);
+    } catch {}
+  }
   const htmlStr =
     typeof responseData === "string"
       ? responseData

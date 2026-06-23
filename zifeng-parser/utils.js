@@ -47,6 +47,8 @@ function resolveUrl(baseUrl, relativePath) {
 
 function parseHeaders(headerStr) {
   if (!headerStr) return {};
+  // 如果已经是对象，直接返回
+  if (typeof headerStr === 'object') return headerStr;
   if (headerStr.includes("<js>")) return {};
 
   try {
