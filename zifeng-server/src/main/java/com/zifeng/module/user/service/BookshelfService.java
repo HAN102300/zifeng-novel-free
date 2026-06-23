@@ -107,6 +107,7 @@ public class BookshelfService {
 
     @Transactional
     public void removeFromBookshelf(Long userId, String bookUrl) {
+        // 从书架表中删除 (MySQL)，并同步清除书架缓存 (Redis)
         bookshelfRepository.deleteByUserIdAndBookUrl(userId, bookUrl);
         invalidateCache(userId);
     }

@@ -11,6 +11,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -45,8 +46,12 @@ public class ParsingProxyService {
 
         Map<String, Object> body = Map.of("source", source, "keyword", keyword, "page", page);
         Map<String, Object> result = postToParsingServer("/api/search", body);
+        // 仅在搜索结果非空时缓存，避免瞬时故障导致空结果被长期缓存
         if (result != null && Boolean.TRUE.equals(result.get("success"))) {
-            saveToCache(cacheKey, result, searchTtl);
+            Object results = result.get("results");
+            if (results instanceof List && !((List<?>) results).isEmpty()) {
+                saveToCache(cacheKey, result, searchTtl);
+            }
         }
         return result;
     }
@@ -63,8 +68,15 @@ public class ParsingProxyService {
 
         Map<String, Object> body = Map.of("source", source, "bookUrl", bookUrl, "bookData", bookData != null ? bookData : Map.of());
         Map<String, Object> result = postToParsingServer("/api/book-info", body);
+        // 仅在书籍信息非空时缓存，避免瞬时故障导致空结果被长期缓存
         if (result != null && Boolean.TRUE.equals(result.get("success"))) {
-            saveToCache(cacheKey, result, bookInfoTtl);
+            Object bookInfo = result.get("bookInfo");
+            if (bookInfo instanceof Map) {
+                Map<?, ?> info = (Map<?, ?>) bookInfo;
+                if (info.get("name") != null || info.get("author") != null) {
+                    saveToCache(cacheKey, result, bookInfoTtl);
+                }
+            }
         }
         return result;
     }
@@ -76,8 +88,12 @@ public class ParsingProxyService {
 
         Map<String, Object> body = Map.of("source", source, "tocUrl", tocUrl, "book", book != null ? book : Map.of());
         Map<String, Object> result = postToParsingServer("/api/toc", body);
+        // 仅在章节列表非空时缓存，避免瞬时故障导致空结果被长期缓存
         if (result != null && Boolean.TRUE.equals(result.get("success"))) {
-            saveToCache(cacheKey, result, tocTtl);
+            Object chapters = result.get("chapters");
+            if (chapters instanceof List && !((List<?>) chapters).isEmpty()) {
+                saveToCache(cacheKey, result, tocTtl);
+            }
         }
         return result;
     }
@@ -90,8 +106,12 @@ public class ParsingProxyService {
         Map<String, Object> body = Map.of("source", source, "chapterUrl", chapterUrl,
                 "book", book != null ? book : Map.of(), "chapter", chapter != null ? chapter : Map.of());
         Map<String, Object> result = postToParsingServer("/api/content", body);
+        // 仅在正文内容非空时缓存，避免瞬时故障导致空结果被长期缓存
         if (result != null && Boolean.TRUE.equals(result.get("success"))) {
-            saveToCache(cacheKey, result, contentTtl);
+            Object content = result.get("content");
+            if (content instanceof String && !((String) content).isBlank()) {
+                saveToCache(cacheKey, result, contentTtl);
+            }
         }
         return result;
     }
