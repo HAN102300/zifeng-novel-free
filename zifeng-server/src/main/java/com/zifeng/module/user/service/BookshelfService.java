@@ -25,7 +25,18 @@ public class BookshelfService {
     private static final String BOOKSHELF_KEY_PREFIX = "bookshelf:";
     private static final long BOOKSHELF_TTL_HOURS = 24;
 
+    @SuppressWarnings("unchecked")
     public List<Map<String, Object>> getBookshelf(Long userId) {
+        String cacheKey = BOOKSHELF_KEY_PREFIX + userId;
+        try {
+            Object cached = redisTemplate.opsForValue().get(cacheKey);
+            if (cached instanceof List) {
+                return (List<Map<String, Object>>) cached;
+            }
+        } catch (Exception e) {
+            // 缓存读取失败不影响正常流程，直接查库
+        }
+
         List<BookshelfItem> items = bookshelfRepository.findByUserIdOrderByAddedAtDesc(userId);
 
         List<ReadingHistory> histories = readingHistoryRepository.findByUserIdOrderByLastReadDesc(userId);
@@ -37,7 +48,7 @@ public class BookshelfService {
                         (a, b) -> b
                 ));
 
-        return items.stream().map(item -> {
+        List<Map<String, Object>> result = items.stream().map(item -> {
             Map<String, Object> map = new java.util.LinkedHashMap<>();
             map.put("id", item.getId());
             map.put("userId", item.getUserId());
@@ -54,6 +65,14 @@ public class BookshelfService {
             map.put("progress", progressMap.getOrDefault(item.getBookUrl(), 0.0));
             return map;
         }).collect(Collectors.toList());
+
+        try {
+            redisTemplate.opsForValue().set(cacheKey, result, BOOKSHELF_TTL_HOURS, java.util.concurrent.TimeUnit.HOURS);
+        } catch (Exception e) {
+            // 缓存写入失败不影响正常流程
+        }
+
+        return result;
     }
 
     public BookshelfItem addToBookshelf(Long userId, BookshelfRequest request) {

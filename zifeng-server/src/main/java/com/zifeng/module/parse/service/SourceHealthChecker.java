@@ -49,6 +49,10 @@ public class SourceHealthChecker {
 
     @Scheduled(cron = "0 0 */6 * * *")
     public void scheduledHealthCheck() {
+        if (!isParserAvailable()) {
+            log.warn("[HEALTHCHECK] Parser service unavailable, skipping scheduled health check");
+            return;
+        }
         log.info("[HEALTHCHECK] Starting scheduled health check...");
         List<BookSource> sources = bookSourceService.getAllEnabledSources();
         AtomicInteger checked = new AtomicInteger(0);
@@ -65,6 +69,25 @@ public class SourceHealthChecker {
         }
 
         log.info("[HEALTHCHECK] Done: checked={}, disabled={}", checked.get(), disabled.get());
+    }
+
+    private boolean isParserAvailable() {
+        try {
+            java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                    .connectTimeout(java.time.Duration.ofSeconds(2))
+                    .build();
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create("http://localhost:3001/api/health"))
+                    .timeout(java.time.Duration.ofSeconds(2))
+                    .GET()
+                    .build();
+            java.net.http.HttpResponse<String> response = client.send(request,
+                    java.net.http.HttpResponse.BodyHandlers.ofString());
+            return response.statusCode() == 200;
+        } catch (Exception e) {
+            log.warn("[HEALTHCHECK] Parser service unavailable: {}", e.getMessage());
+            return false;
+        }
     }
 
     public HealthReport checkSourceHealth(BookSource source) {

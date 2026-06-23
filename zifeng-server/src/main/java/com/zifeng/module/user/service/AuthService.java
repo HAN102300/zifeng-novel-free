@@ -27,11 +27,16 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final RedisTemplate<String, Object> redisTemplate;
     private final InviteCodeService inviteCodeService;
+    private final CaptchaService captchaService;
 
     @Value("${invite-code.required:false}")
     private boolean inviteCodeRequired;
 
     public AuthResponse login(LoginRequest request) {
+        // 验证码校验
+        if (!captchaService.verify(request.getCaptchaId(), request.getCaptchaCode())) {
+            throw new RuntimeException("验证码错误或已过期");
+        }
         User user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new RuntimeException("用户名或密码错误"));
 
@@ -60,6 +65,10 @@ public class AuthService {
     }
 
     public AuthResponse register(RegisterRequest request) {
+        // 验证码校验
+        if (!captchaService.verify(request.getCaptchaId(), request.getCaptchaCode())) {
+            throw new RuntimeException("验证码错误或已过期");
+        }
         if (inviteCodeRequired) {
             if (request.getInviteCode() == null || request.getInviteCode().isBlank()) {
                 throw new RuntimeException("内测期间需要邀请码才能注册");
@@ -149,18 +158,23 @@ public class AuthService {
         return true;
     }
 
-    public ApiResponse<Map<String, Object>> verifyEmailForReset(String email) {
-        User user = userRepository.findByEmail(email).orElse(null);
+    public ApiResponse<Map<String, Object>> verifyUserForReset(String username, String email) {
+        User user = userRepository.findByUsername(username).orElse(null);
         if (user == null) {
-            return ApiResponse.fail("该邮箱未注册");
+            return ApiResponse.fail("用户名不存在");
         }
-        String maskedUsername = user.getUsername().substring(0, 1) + "***" + user.getUsername().substring(Math.max(1, user.getUsername().length() - 1));
-        return ApiResponse.ok(Map.of("verified", true, "username", maskedUsername));
+        if (!email.equals(user.getEmail())) {
+            return ApiResponse.fail("用户名与邮箱不匹配");
+        }
+        return ApiResponse.ok(Map.of("verified", true, "username", user.getUsername()));
     }
 
-    public void resetPasswordDev(String email, String newPassword) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("该邮箱未注册"));
+    public void resetPasswordDev(String username, String email, String newPassword) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("用户名不存在"));
+        if (!email.equals(user.getEmail())) {
+            throw new RuntimeException("用户名与邮箱不匹配");
+        }
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
     }

@@ -6,6 +6,7 @@ import com.zifeng.module.admin.entity.VisitLog;
 import com.zifeng.module.admin.repository.VisitLogRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.zifeng.module.admin.service.IpRegionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class VisitLogInterceptor implements HandlerInterceptor {
 
     private final VisitLogRepository visitLogRepository;
+    private final IpRegionService ipRegionService;
 
     private static final Set<String> TRACKED_PATHS = Set.of(
             "/api/auth/login",
@@ -130,7 +132,7 @@ public class VisitLogInterceptor implements HandlerInterceptor {
 
             VisitLog visitLog = VisitLog.builder()
                     .ip(ip)
-                    .ipLocation(resolveIpLocation(ip))
+                    .ipLocation(ipRegionService.getRegion(ip))
                     .userAgent(userAgent)
                     .visitUrl(uri)
                     .visitDate(LocalDateTime.now())
@@ -192,13 +194,5 @@ public class VisitLogInterceptor implements HandlerInterceptor {
             ip = ip.split(",")[0].trim();
         }
         return ip;
-    }
-
-    private String resolveIpLocation(String ip) {
-        if (ip == null || ip.isBlank()) return null;
-        if (ip.equals("127.0.0.1") || ip.equals("0:0:0:0:0:0:0:1") || ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("172.")) {
-            return "本地网络";
-        }
-        return null;
     }
 }

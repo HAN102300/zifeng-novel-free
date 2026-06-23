@@ -21,6 +21,8 @@ public class ReadingProgressService {
 
     private static final String PROGRESS_KEY_PREFIX = "reading_progress:";
     private static final long PROGRESS_TTL_HOURS = 72;
+    private static final String HISTORY_KEY_PREFIX = "reading_history:";
+    private static final long HISTORY_TTL_HOURS = 12;
 
     public void saveProgress(Long userId, ReadingProgressRequest request) {
         String redisKey = PROGRESS_KEY_PREFIX + userId + ":" + request.getBookUrl();
@@ -76,6 +78,13 @@ public class ReadingProgressService {
         history.setLastRead(LocalDateTime.now());
 
         historyRepository.save(history);
+
+        // 进度更新会影响历史列表的排序与内容，失效历史缓存
+        try {
+            redisTemplate.delete(HISTORY_KEY_PREFIX + userId);
+        } catch (Exception e) {
+            // 缓存失效失败不影响正常流程
+        }
     }
 
     public ReadingProgressRequest getProgress(Long userId, String bookUrl) {
@@ -101,8 +110,27 @@ public class ReadingProgressService {
                 .orElse(null);
     }
 
+    @SuppressWarnings("unchecked")
     public List<ReadingHistory> getHistory(Long userId) {
-        return historyRepository.findByUserIdOrderByLastReadDesc(userId);
+        String cacheKey = HISTORY_KEY_PREFIX + userId;
+        try {
+            Object cached = redisTemplate.opsForValue().get(cacheKey);
+            if (cached instanceof List) {
+                return (List<ReadingHistory>) cached;
+            }
+        } catch (Exception e) {
+            // 缓存读取失败不影响正常流程，直接查库
+        }
+
+        List<ReadingHistory> result = historyRepository.findByUserIdOrderByLastReadDesc(userId);
+
+        try {
+            redisTemplate.opsForValue().set(cacheKey, result, HISTORY_TTL_HOURS, TimeUnit.HOURS);
+        } catch (Exception e) {
+            // 缓存写入失败不影响正常流程
+        }
+
+        return result;
     }
 
     @Transactional
@@ -110,5 +138,11 @@ public class ReadingProgressService {
         historyRepository.deleteByUserIdAndBookUrl(userId, bookUrl);
         String redisKey = PROGRESS_KEY_PREFIX + userId + ":" + bookUrl;
         redisTemplate.delete(redisKey);
+        // 删除历史记录后失效历史列表缓存
+        try {
+            redisTemplate.delete(HISTORY_KEY_PREFIX + userId);
+        } catch (Exception e) {
+            // 缓存失效失败不影响正常流程
+        }
     }
 }

@@ -62,24 +62,26 @@ public class AuthController {
 
     @PostMapping("/verify-email")
     public ApiResponse<Map<String, Object>> verifyEmail(@RequestBody Map<String, String> body) {
+        String username = body.get("username");
         String email = body.get("email");
-        if (email == null || email.isBlank()) {
-            return ApiResponse.fail("邮箱不能为空");
+        if (username == null || username.isBlank() || email == null || email.isBlank()) {
+            return ApiResponse.fail("用户名和邮箱不能为空");
         }
-        return authService.verifyEmailForReset(email);
+        return authService.verifyUserForReset(username, email);
     }
 
     @PostMapping("/reset-password-dev")
     public ApiResponse<Void> resetPasswordDev(@RequestBody Map<String, String> body) {
+        String username = body.get("username");
         String email = body.get("email");
         String newPassword = body.get("newPassword");
-        if (email == null || email.isBlank() || newPassword == null || newPassword.isBlank()) {
+        if (username == null || username.isBlank() || email == null || email.isBlank() || newPassword == null || newPassword.isBlank()) {
             return ApiResponse.fail("参数不完整");
         }
         if (newPassword.length() < 6) {
             return ApiResponse.fail("密码长度至少6位");
         }
-        authService.resetPasswordDev(email, newPassword);
+        authService.resetPasswordDev(username, email, newPassword);
         return ApiResponse.ok(null);
     }
 
