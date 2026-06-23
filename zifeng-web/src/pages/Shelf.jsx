@@ -8,7 +8,7 @@ import { AuthContext } from '../App';
 import { getTocAPI, getBookshelf, removeFromBookshelf, getReadingHistory, getReadingProgress, deleteReadingHistory, proxyImageUrl } from '../utils/apiClient';
 import SummaryText from '../components/SummaryText';
 import { getDefaultSource, saveReaderCache, simpleHash } from '../utils/novelConfig';
-import { getBookSources } from '../utils/bookSourceManager';
+import { getBookSources, normalizeSource } from '../utils/bookSourceManager';
 import { ShinyText, CountUp, ReactBitsErrorBoundary } from '../components/react-bits';
 import { glassCardStyle, glassItemStyle } from '../utils/glassStyle';
 
@@ -167,7 +167,7 @@ const Shelf = () => {
 
   const handleRemoveBook = async (bookId, type) => {
     if (!isLoggedIn || !userInfo) return;
-    
+
     try {
       if (type === 'shelf') {
         const book = favoriteBooks.find(b => b.id === bookId);
@@ -223,7 +223,8 @@ const Shelf = () => {
       let effectiveSource = null;
       if (sourceUrl) {
         const allSources = getBookSources();
-        effectiveSource = allSources.find(s => s.bookSourceUrl === sourceUrl);
+        const found = allSources.find(s => s.bookSourceUrl === sourceUrl);
+        if (found) effectiveSource = normalizeSource(found);
       }
       if (!effectiveSource) {
         const ds = getDefaultSource();
@@ -254,6 +255,16 @@ const Shelf = () => {
           } catch {}
         }
         tocUrl = tocUrlTemplate.replace(/\{\{[^}]+\}\}/g, extractedId);
+      }
+
+      // 书源模板中的 tocUrl 可能是相对路径（如 /novel/{{$.novelId}}/chapters?readNum=1）
+      // 解析器无法处理相对 URL，需要拼接 bookSourceUrl 转为绝对 URL
+      // 同时确保与 NovelDetail 路径产生的缓存键一致
+      if (tocUrl && !tocUrl.startsWith('http')) {
+        const baseUrl = effectiveSource.bookSourceUrl;
+        if (baseUrl) {
+          tocUrl = tocUrl.startsWith('/') ? baseUrl + tocUrl : baseUrl + '/' + tocUrl;
+        }
       }
 
       const bookData = { id: bookId, novelId: bookId, name: matchedBook?.name || '', author: matchedBook?.author || '', cover: matchedBook?.cover || '', summary: matchedBook?.summary || '', lastChapter: matchedBook?.lastChapter || '', sourceUrl, sourceName, bookUrl };

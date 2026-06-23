@@ -77,6 +77,7 @@ const RankDetail = () => {
             if (coverUrl && !coverUrl.startsWith('http') && !coverUrl.startsWith('data:') && !coverUrl.startsWith('//')) {
               coverUrl = `${ds.bookSourceUrl}${coverUrl.startsWith('/') ? '' : '/'}${coverUrl}`;
             }
+            coverUrl = proxyImageUrl(coverUrl);
             return {
               id: novel.novelId || index + 1,
               name: novel.novelName || '未知标题',

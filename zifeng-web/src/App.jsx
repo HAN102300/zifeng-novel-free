@@ -39,7 +39,7 @@ const Reader = lazy(() => import('./pages/Reader'));
 const SearchResult = lazy(() => import('./pages/SearchResult'));
 const BookSourcePage = lazy(() => import('./pages/BookSourcePage'));
 
-import { getCurrentUser } from './utils/apiClient';
+import { getCurrentUser, proxyImageUrl } from './utils/apiClient';
 import { getDefaultSource } from './utils/novelConfig';
 import { parseHeaders } from './utils/headers';
 
@@ -223,6 +223,8 @@ function App() {
           if (coverUrl && !coverUrl.startsWith('http') && !coverUrl.startsWith('data:') && !coverUrl.startsWith('//')) {
             coverUrl = `${defaultSource.bookSourceUrl}${coverUrl.startsWith('/') ? '' : '/'}${coverUrl}`;
           }
+          // 将 HTTP 封面 URL 转为同源代理 URL，避免 HTTPS 站点下的混合内容拦截
+          coverUrl = proxyImageUrl(coverUrl);
           return {
             id: novel.novelId || index + 1,
             name: novel.novelName || '未知标题',

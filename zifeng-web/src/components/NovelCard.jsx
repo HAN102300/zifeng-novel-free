@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, Typography, Tag, Space, Badge } from 'antd';
 import { StarOutlined } from '@ant-design/icons';
 import { getDefaultSource, saveNovelCache } from '../utils/novelConfig';
+import { proxyImageUrl } from '../utils/apiClient';
 import { glassItemStyle } from '../utils/glassStyle';
 
 const { Text } = Typography;
@@ -15,13 +16,20 @@ const NovelCard = ({ novel, index, color, glassMode, isDarkMode, rankBadge, show
   const handleClick = () => {
     const ds = getDefaultSource();
     const sourceUrl = ds.bookSourceUrl;
-    const novelId = String(novel.id || novel.novelId || '');
+    // 优先使用已有的 bookUrl（搜索结果中已包含正确的编码 ID）
+    // 其次使用 novelId（编码 ID 如 el7w36），最后回退到 novel.id
+    const rawId = novel.novelId || novel._raw?.novelId || novel.id || '';
+    const novelId = String(rawId);
     const bookUrlTemplate = ds.ruleSearch?.bookUrl || '';
-    let bookUrl = novelId;
-    if (bookUrlTemplate && bookUrlTemplate.includes('{{')) {
-      bookUrl = bookUrlTemplate.replace(/\{\{\$?\.?novelId\}\}/g, novelId);
-    } else if (bookUrlTemplate && !bookUrlTemplate.includes('{{')) {
-      bookUrl = bookUrlTemplate;
+    let bookUrl = novel.bookUrl || '';
+    if (!bookUrl) {
+      if (bookUrlTemplate && bookUrlTemplate.includes('{{')) {
+        bookUrl = bookUrlTemplate.replace(/\{\{\$?\.?novelId\}\}/g, novelId);
+      } else if (bookUrlTemplate && !bookUrlTemplate.includes('{{')) {
+        bookUrl = bookUrlTemplate;
+      } else {
+        bookUrl = novelId;
+      }
     }
     saveNovelCache(novel, sourceUrl, bookUrl);
 
@@ -47,7 +55,7 @@ const NovelCard = ({ novel, index, color, glassMode, isDarkMode, rankBadge, show
           <div style={{ position: 'relative', height: 200, overflow: 'hidden' }}>
             <img
               alt={novel.name}
-              src={novel.cover || `https://placehold.co/200x300/${color.replace('#', '')}/white?text=${encodeURIComponent(novel.name.slice(0, 2))}`}
+              src={proxyImageUrl(novel.cover) || `https://placehold.co/200x300/${color.replace('#', '')}/white?text=${encodeURIComponent(novel.name.slice(0, 2))}`}
               style={{
                 width: '100%',
                 height: '100%',
