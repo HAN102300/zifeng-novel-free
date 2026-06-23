@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { Table, Input, Tag, Progress, Space, message, Spin } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
-import { getReadingHistory } from '../../utils/adminApi';
+import { getReadingHistory, proxyImageUrl } from '../../utils/adminApi';
 import { fadeInUp } from '../../utils/animations';
 import { ThemeContext } from '../../App';
 
@@ -29,7 +29,7 @@ const History = () => {
       title: '书名', dataIndex: 'bookName', key: 'bookName',
       render: (text, record) => (
         <Space>
-          {record.coverUrl && <img src={record.coverUrl} alt="" style={{ width: 32, height: 42, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} onError={(e) => { e.target.style.display = 'none'; }} />}
+          {record.coverUrl && <img src={proxyImageUrl(record.coverUrl)} alt="" style={{ width: 32, height: 42, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} onError={(e) => { e.target.style.display = 'none'; }} />}
           <span style={{ fontWeight: 500 }}>{text}</span>
         </Space>
       ),

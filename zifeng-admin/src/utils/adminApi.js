@@ -2,6 +2,17 @@ import axios from 'axios';
 
 let isAdminLoggingOut = false;
 
+/**
+ * 将 HTTP 图片 URL 转换为同源代理 URL，避免 HTTPS 站点下的混合内容拦截
+ * 与用户前端 zifeng-web 的 proxyImageUrl 逻辑保持一致
+ */
+export const proxyImageUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('/') || url.startsWith('data:') || url.startsWith('https://')) return url;
+  if (url.startsWith('http://')) return `/api/img-proxy?url=${encodeURIComponent(url)}`;
+  return url;
+};
+
 const requestCache = new Map();
 const CACHE_TTL = 30000;
 
