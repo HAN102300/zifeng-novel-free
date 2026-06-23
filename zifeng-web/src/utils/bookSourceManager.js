@@ -51,6 +51,35 @@ const DEFAULT_SOURCE = {
 
 export const getDefaultSource = () => ({ ...DEFAULT_SOURCE });
 
+/**
+ * 将后端返回的书源中字符串类型的 rule 字段反序列化为对象
+ * 后端数据库中 ruleSearch/ruleBookInfo/ruleToc/ruleContent/header 等字段存储为 JSON 字符串
+ * parser 要求这些字段必须是对象，否则验证失败
+ */
+export const normalizeSource = (source) => {
+  if (!source || typeof source !== 'object') return source;
+  const ruleFields = ['ruleSearch', 'ruleBookInfo', 'ruleToc', 'ruleContent', 'ruleExplore', 'header', 'loginUi'];
+  const normalized = { ...source };
+  for (const field of ruleFields) {
+    if (typeof normalized[field] === 'string' && normalized[field].trim()) {
+      try {
+        normalized[field] = JSON.parse(normalized[field]);
+      } catch {
+        // 解析失败保留原值
+      }
+    }
+  }
+  return normalized;
+};
+
+/**
+ * 批量规范化书源列表
+ */
+export const normalizeSources = (sources) => {
+  if (!Array.isArray(sources)) return sources;
+  return sources.map(normalizeSource);
+};
+
 export const getBookSources = () => {
   try {
     const data = localStorage.getItem(STORAGE_KEY);

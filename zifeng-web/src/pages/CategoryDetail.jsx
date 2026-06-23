@@ -6,8 +6,9 @@ import { StarOutlined } from '@ant-design/icons';
 import BackButton from '../components/BackButton';
 import { ThemeContext } from '../App';
 import axios from 'axios';
-import { getDefaultSource } from '../utils/novelConfig';
-import { glassCardStyle } from '../utils/glassStyle';
+import { getDefaultSource, saveNovelCache } from '../utils/novelConfig';
+import { proxyImageUrl } from '../utils/apiClient';
+import { glassCardStyle, glassItemStyle } from '../utils/glassStyle';
 import { BlurText, ReactBitsErrorBoundary } from '../components/react-bits';
 import NovelCard from '../components/NovelCard';
 import { parseHeaders } from '../utils/headers';
@@ -16,6 +17,34 @@ const categoryCache = new Map();
 
 const getCacheKey = (categoryId, sort, page) =>
   `category_${categoryId}_sort${sort}_page${page}`;
+
+const getPageSessionKey = (categoryId, sortNum) =>
+  `category_page_${categoryId}_${sortNum}`;
+
+const getSavedPage = (categoryId, sortNum) => {
+  try {
+    const saved = sessionStorage.getItem(getPageSessionKey(categoryId, sortNum));
+    return saved ? Number(saved) : 1;
+  } catch {
+    return 1;
+  }
+};
+
+const savePageToSession = (categoryId, sortNum, page) => {
+  try {
+    sessionStorage.setItem(getPageSessionKey(categoryId, sortNum), String(page));
+  } catch {
+    // ignore
+  }
+};
+
+const clearPageSession = (categoryId, sortNum) => {
+  try {
+    sessionStorage.removeItem(getPageSessionKey(categoryId, sortNum));
+  } catch {
+    // ignore
+  }
+};
 
 const { Title, Text } = Typography;
 
@@ -28,14 +57,21 @@ const CategoryDetail = () => {
   const { currentTheme, themeConfigs, isDarkMode, glassMode } = useContext(ThemeContext);
   const color = themeConfigs[currentTheme].colors[0];
 
+  const sortNum = Number(sort);
+
   const [novels, setNovels] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(() => getSavedPage(categoryId, sortNum));
   const [total, setTotal] = useState(0);
   const [maxKnownPage, setMaxKnownPage] = useState(1);
 
   const fetchingRef = useRef(false);
-  const sortNum = Number(sort);
+  const isInitialMount = useRef(true);
+
+  const goToPage = (page) => {
+    setCurrentPage(page);
+    savePageToSession(categoryId, sortNum, page);
+  };
 
   const fetchCategoryData = useCallback(async (page) => {
     if (fetchingRef.current) return;
@@ -53,28 +89,40 @@ const CategoryDetail = () => {
     setLoading(true);
     try {
       const ds = getDefaultSource();
-      let url = `${ds.bookSourceUrl}/novel?sort=1&page=${page}&categoryId=${categoryId}`;
+      let targetUrl = `${ds.bookSourceUrl}/novel?sort=1&page=${page}&categoryId=${categoryId}`;
       if (sortNum === 2) {
-        url += '&isComplete=1';
+        targetUrl += '&isComplete=1';
       } else if (sortNum === 3) {
-        url += '&isComplete=0';
+        targetUrl += '&isComplete=0';
       }
 
-      const response = await axios.get(url, { headers: parseHeaders(ds.header) });
+      const sourceHeaders = parseHeaders(ds.header);
+      const response = await axios.get('/api/proxy', {
+        params: {
+          url: targetUrl,
+          headers: JSON.stringify(sourceHeaders)
+        }
+      });
 
       if (response.data && response.data.code === 200 && response.data.data) {
         const rawData = response.data.data;
-        const data = rawData.map((novel, index) => ({
-          id: novel.novelId || index + 1,
-          name: novel.novelName || '未知标题',
-          author: novel.authorName || '未知作者',
-          cover: novel.cover || '',
-          category: novel.categoryNames && novel.categoryNames.length > 0
-            ? novel.categoryNames[0].className
-            : '未知分类',
-          score: novel.averageScore || 0,
-          rankInfo: novel.rankInfo || '',
-        }));
+        const data = rawData.map((novel, index) => {
+          let coverUrl = novel.cover || '';
+          if (coverUrl && !coverUrl.startsWith('http') && !coverUrl.startsWith('data:') && !coverUrl.startsWith('//')) {
+            coverUrl = `${ds.bookSourceUrl}${coverUrl.startsWith('/') ? '' : '/'}${coverUrl}`;
+          }
+          return {
+            id: novel.novelId || index + 1,
+            name: novel.novelName || '未知标题',
+            author: novel.authorName || '未知作者',
+            cover: coverUrl,
+            category: novel.categoryNames && novel.categoryNames.length > 0
+              ? novel.categoryNames[0].className
+              : '未知分类',
+            score: novel.averageScore || 0,
+            rankInfo: novel.rankInfo || '',
+          };
+        });
 
         setNovels(data);
 
@@ -115,7 +163,11 @@ const CategoryDetail = () => {
   }, [currentPage]);
 
   useEffect(() => {
-    setCurrentPage(1);
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return; // 首次挂载时跳过重置，使用 sessionStorage 中保存的页码
+    }
+    goToPage(1);
     setMaxKnownPage(1);
     setTotal(0);
     setNovels([]);
@@ -127,6 +179,8 @@ const CategoryDetail = () => {
     if (sortNum === 3) return '连载';
     return '全部';
   };
+
+
 
   if (loading && novels.length === 0) {
     return (
@@ -222,7 +276,7 @@ const CategoryDetail = () => {
               current={currentPage}
               total={total}
               pageSize={PAGE_SIZE}
-              onChange={(page) => setCurrentPage(page)}
+              onChange={(page) => goToPage(page)}
               showSizeChanger={false}
               showQuickJumper={false}
             />

@@ -203,24 +203,37 @@ function App() {
     return null;
   });
 
-  // 获取榜单数据
+  // 获取榜单数据（通过后端代理，避免浏览器跨域和混合内容限制）
   const fetchRankData = async (url, key, limit) => {
     try {
-      const response = await axios.get(`${defaultSource.bookSourceUrl}${url}`, {
-        headers: parseHeaders(defaultSource.header)
+      const targetUrl = `${defaultSource.bookSourceUrl}${url}`;
+      const sourceHeaders = parseHeaders(defaultSource.header);
+      const response = await axios.get('/api/proxy', {
+        params: {
+          url: targetUrl,
+          headers: JSON.stringify(sourceHeaders)
+        }
       });
-      
-      if (response.data && response.data.data) {
-        const data = response.data.data.slice(0, limit).map((novel, index) => ({
-          id: novel.novelId || index + 1,
-          name: novel.novelName || '未知标题',
-          author: novel.authorName || '未知作者',
-          cover: novel.cover || '',
-          category: novel.categoryNames && novel.categoryNames.length > 0 ? novel.categoryNames[0].className : '未知分类',
-          score: novel.averageScore || 0,
-          rankInfo: novel.rankInfo || `${index + 1}`,
-          rank: index + 1
-        }));
+
+      const responseData = response.data;
+      if (responseData && responseData.data) {
+        const data = responseData.data.slice(0, limit).map((novel, index) => {
+          let coverUrl = novel.cover || '';
+          // 处理相对路径的封面 URL
+          if (coverUrl && !coverUrl.startsWith('http') && !coverUrl.startsWith('data:') && !coverUrl.startsWith('//')) {
+            coverUrl = `${defaultSource.bookSourceUrl}${coverUrl.startsWith('/') ? '' : '/'}${coverUrl}`;
+          }
+          return {
+            id: novel.novelId || index + 1,
+            name: novel.novelName || '未知标题',
+            author: novel.authorName || '未知作者',
+            cover: coverUrl,
+            category: novel.categoryNames && novel.categoryNames.length > 0 ? novel.categoryNames[0].className : '未知分类',
+            score: novel.averageScore || 0,
+            rankInfo: novel.rankInfo || `${index + 1}`,
+            rank: index + 1
+          };
+        });
         setNovels(prev => ({ ...prev, [key]: data }));
       }
     } catch (error) {

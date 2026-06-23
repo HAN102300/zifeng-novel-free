@@ -5,7 +5,7 @@ import { Card, Row, Col, Typography, Space, Empty, Button, Tag, message, Badge, 
 import { BookOutlined, PlusOutlined, ClockCircleOutlined, StarOutlined, DeleteOutlined, UserOutlined, HeartOutlined, ReadOutlined, AppstoreOutlined, OrderedListOutlined } from '@ant-design/icons';
 import { ThemeContext } from '../App';
 import { AuthContext } from '../App';
-import { getTocAPI, getBookshelf, removeFromBookshelf, getReadingHistory, getReadingProgress, deleteReadingHistory } from '../utils/apiClient';
+import { getTocAPI, getBookshelf, removeFromBookshelf, getReadingHistory, getReadingProgress, deleteReadingHistory, proxyImageUrl } from '../utils/apiClient';
 import SummaryText from '../components/SummaryText';
 import { getDefaultSource, saveReaderCache, simpleHash } from '../utils/novelConfig';
 import { getBookSources } from '../utils/bookSourceManager';
@@ -106,8 +106,10 @@ const Shelf = () => {
           const token = localStorage.getItem('zifeng_token');
           if (!token) return;
 
-          const serverShelf = await getBookshelf();
-          const serverHistory = await getReadingHistory();
+          const [serverShelf, serverHistory] = await Promise.all([
+            getBookshelf(),
+            getReadingHistory(),
+          ]);
 
           const mappedShelf = serverShelf.map(item => ({
             id: item.bookUrl,
@@ -528,7 +530,7 @@ const Shelf = () => {
                               )}
                               <img
                                 alt={book.name}
-                                src={book.cover || `https://placehold.co/200x300/${colors[(index + 3) % colors.length].replace('#', '')}/white?text=${encodeURIComponent(book.name.slice(0, 2))}`}
+                                src={proxyImageUrl(book.cover) || `https://placehold.co/200x300/${colors[(index + 3) % colors.length].replace('#', '')}/white?text=${encodeURIComponent(book.name.slice(0, 2))}`}
                                 style={{ 
                                   width: '100%', 
                                   height: '100%', 
@@ -618,7 +620,7 @@ const Shelf = () => {
                               )}
                               <img
                                 alt={book.name}
-                                src={book.cover || `https://placehold.co/200x300/${colors[(index + 3) % colors.length].replace('#', '')}/white?text=${encodeURIComponent(book.name.slice(0, 2))}`}
+                                src={proxyImageUrl(book.cover) || `https://placehold.co/200x300/${colors[(index + 3) % colors.length].replace('#', '')}/white?text=${encodeURIComponent(book.name.slice(0, 2))}`}
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                               />
                             </div>
@@ -823,7 +825,7 @@ const Shelf = () => {
                               )}
                               <img
                                 alt={book.name}
-                                src={book.cover || `https://placehold.co/200x300/${colors[index % colors.length].replace('#', '')}/white?text=${encodeURIComponent(book.name.slice(0, 2))}`}
+                                src={proxyImageUrl(book.cover) || `https://placehold.co/200x300/${colors[index % colors.length].replace('#', '')}/white?text=${encodeURIComponent(book.name.slice(0, 2))}`}
                                 style={{ 
                                   width: '100%', 
                                   height: '100%', 
@@ -925,7 +927,7 @@ const Shelf = () => {
                               )}
                               <img
                                 alt={book.name}
-                                src={book.cover || `https://placehold.co/200x300/${colors[index % colors.length].replace('#', '')}/white?text=${encodeURIComponent(book.name.slice(0, 2))}`}
+                                src={proxyImageUrl(book.cover) || `https://placehold.co/200x300/${colors[index % colors.length].replace('#', '')}/white?text=${encodeURIComponent(book.name.slice(0, 2))}`}
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                               />
                             </div>

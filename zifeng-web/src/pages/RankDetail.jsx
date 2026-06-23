@@ -8,9 +8,9 @@ import { ThemeContext } from '../App';
 import { glassCardStyle } from '../utils/glassStyle';
 import { CountUp, BlurText, ReactBitsErrorBoundary } from '../components/react-bits';
 import axios from 'axios';
-import { getDefaultSource } from '../utils/novelConfig';
+import { getDefaultSource, saveNovelCache } from '../utils/novelConfig';
 import NovelCard from '../components/NovelCard';
-import { parseHeaders } from '../utils/headers';
+import { proxyImageUrl } from '../utils/apiClient';
 
 // 缓存机制
 const rankCache = new Map();
@@ -63,22 +63,31 @@ const RankDetail = () => {
       setLoading(true);
       try {
         const ds = getDefaultSource();
-        const headers = parseHeaders(ds.header);
-        const response = await axios.get(`${ds.bookSourceUrl}/module/rank?type=${config.type}&channel=1&page=${currentPage}`, {
-          headers
+        const sourceHeaders = (() => { try { return JSON.parse((ds.header || '{}').replace(/'/g, '"')); } catch { return {}; } })();
+        const response = await axios.get(`/api/proxy`, {
+          params: {
+            url: `${ds.bookSourceUrl}/module/rank?type=${config.type}&channel=1&page=${currentPage}`,
+            headers: JSON.stringify(sourceHeaders)
+          }
         });
         
         if (response.data && response.data.data) {
-          const data = response.data.data.map((novel, index) => ({
-            id: novel.novelId || index + 1,
-            name: novel.novelName || '未知标题',
-            author: novel.authorName || '未知作者',
-            cover: novel.cover || '',
-            category: novel.categoryNames && novel.categoryNames.length > 0 ? novel.categoryNames[0].className : '未知分类',
-            score: novel.averageScore || 0,
-            rankInfo: novel.rankInfo || `${index + 1}`,
-            rank: (currentPage - 1) * 15 + index + 1
-          }));
+          const data = response.data.data.map((novel, index) => {
+            let coverUrl = novel.cover || '';
+            if (coverUrl && !coverUrl.startsWith('http') && !coverUrl.startsWith('data:') && !coverUrl.startsWith('//')) {
+              coverUrl = `${ds.bookSourceUrl}${coverUrl.startsWith('/') ? '' : '/'}${coverUrl}`;
+            }
+            return {
+              id: novel.novelId || index + 1,
+              name: novel.novelName || '未知标题',
+              author: novel.authorName || '未知作者',
+              cover: coverUrl,
+              category: novel.categoryNames && novel.categoryNames.length > 0 ? novel.categoryNames[0].className : '未知分类',
+              score: novel.averageScore || 0,
+              rankInfo: novel.rankInfo || `${index + 1}`,
+              rank: (currentPage - 1) * 15 + index + 1
+            };
+          });
           setNovels(data);
           
           // 优化分页逻辑：限制最大页码为5，总数据量不超过75
@@ -109,6 +118,8 @@ const RankDetail = () => {
 
     fetchRankData();
   }, [rankType, currentPage, config]);
+
+
 
   if (loading) {
     return (

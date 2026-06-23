@@ -26,9 +26,10 @@ import {
 import { NovelContext, ThemeContext } from '../App';
 import { BlurText, ShinyText, ReactBitsErrorBoundary } from '../components/react-bits';
 import NovelCard from '../components/NovelCard';
-import { glassCardStyle, glassHeroStyle } from '../utils/glassStyle';
+import { glassCardStyle, glassItemStyle, glassHeroStyle } from '../utils/glassStyle';
 
 const { Title, Text } = Typography;
+
 
 const SectionHeader = ({ title, icon: Icon, color, onClick, rankType, navigate }) => {
   const [isHovered, setIsHovered] = useState(false);

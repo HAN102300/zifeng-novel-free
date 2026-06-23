@@ -7,9 +7,9 @@ import BackButton from '../components/BackButton';
 import SummaryText from '../components/SummaryText';
 import { ThemeContext } from '../App';
 import {
-  getBookSources, getActiveSource, setActiveSource as saveActiveSource
+  getBookSources, getActiveSource, setActiveSource as saveActiveSource, normalizeSources
 } from '../utils/bookSourceManager';
-import { searchBooksAPI, getAllEnabledSources } from '../utils/apiClient';
+import { searchBooksAPI, getAllEnabledSources, proxyImageUrl } from '../utils/apiClient';
 import { saveNovelCache, simpleHash } from '../utils/novelConfig';
 import { adaptSearchResult, computeCompleteness } from '../utils/bookAdapter';
 import { BatchSearchController } from '../utils/batchSearch';
@@ -17,6 +17,43 @@ import { CountUp, ShinyText, ReactBitsErrorBoundary } from '../components/react-
 import { glassCardStyle, glassItemStyle } from '../utils/glassStyle';
 
 const { Text } = Typography;
+
+const SEARCH_CACHE_TTL_MS = 10 * 60 * 1000; // 10 分钟
+
+const getSearchCacheKey = (keyword, searchMode) =>
+  `search_results_${keyword}_${searchMode}`;
+
+const saveSearchResultsToSession = (keyword, searchMode, data) => {
+  try {
+    const payload = { ...data, timestamp: Date.now() };
+    sessionStorage.setItem(getSearchCacheKey(keyword, searchMode), JSON.stringify(payload));
+  } catch {
+    // ignore quota errors
+  }
+};
+
+const loadSearchResultsFromSession = (keyword, searchMode) => {
+  try {
+    const raw = sessionStorage.getItem(getSearchCacheKey(keyword, searchMode));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Date.now() - parsed.timestamp > SEARCH_CACHE_TTL_MS) {
+      sessionStorage.removeItem(getSearchCacheKey(keyword, searchMode));
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const clearSearchResultsSession = (keyword, searchMode) => {
+  try {
+    sessionStorage.removeItem(getSearchCacheKey(keyword, searchMode));
+  } catch {
+    // ignore
+  }
+};
 
 const SearchResult = () => {
   const navigate = useNavigate();
@@ -58,6 +95,8 @@ const SearchResult = () => {
   const pageRef = useRef(1);
   const searchTimerRef = useRef(null);
   const prevResultCountRef = useRef(0);
+  const resultsCacheRef = useRef({ aggregated: null, single: null });
+  const lastKeywordRef = useRef('');
 
   useEffect(() => {
     const loadSources = async () => {
@@ -66,7 +105,7 @@ const SearchResult = () => {
         const res = await getAllEnabledSources();
         const backendSources = res.data?.data;
         if (backendSources && backendSources.length > 0) {
-          enabled = backendSources.filter(s => s.enabled);
+          enabled = normalizeSources(backendSources).filter(s => s.enabled);
         }
       } catch {}
 
@@ -349,7 +388,47 @@ const SearchResult = () => {
   }, [searchCancelled, cancelSearch]);
 
   useEffect(() => {
+    // 关键词变化时清空缓存（通过 ref 比较）
+    if (lastKeywordRef.current !== keyword) {
+      // 清除旧关键词的 sessionStorage 缓存
+      if (lastKeywordRef.current) {
+        clearSearchResultsSession(lastKeywordRef.current, 'aggregated');
+        clearSearchResultsSession(lastKeywordRef.current, 'single');
+      }
+      resultsCacheRef.current = { aggregated: null, single: null };
+      lastKeywordRef.current = keyword;
+    }
+
     if (keyword && sourcesLoaded) {
+      // 尝试从缓存恢复结果
+      const cached = searchMode === 'aggregated' ? resultsCacheRef.current.aggregated : resultsCacheRef.current.single;
+      if (cached && cached.results && cached.results.length > 0) {
+        setResults(cached.results);
+        if (searchMode === 'aggregated') {
+          setAggregatedMeta(cached.aggregatedMeta);
+          setSourceDetails(cached.sourceDetails || []);
+        }
+        return;
+      }
+
+      // 先尝试从 sessionStorage 恢复（导航返回场景）
+      const sessionCache = loadSearchResultsFromSession(keyword, searchMode);
+      if (sessionCache && sessionCache.results && sessionCache.results.length > 0) {
+        setResults(sessionCache.results);
+        if (searchMode === 'aggregated') {
+          setAggregatedMeta(sessionCache.aggregatedMeta);
+          setSourceDetails(sessionCache.sourceDetails || []);
+          setBatchProgress(sessionCache.batchProgress);
+          setHasMore(false);
+          setAllLoaded(true);
+        } else {
+          setPage(sessionCache.page || 1);
+          setHasMore(sessionCache.hasMore || false);
+        }
+        setBatchRunning(false);
+        return; // 不触发搜索
+      }
+
       setPage(1);
       pageRef.current = 1;
       setHasMore(true);
@@ -408,6 +487,29 @@ const SearchResult = () => {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [keyword, fetchSearchResults, allLoaded]);
+
+  // 当聚合搜索结果变化时，保存到 sessionStorage
+  useEffect(() => {
+    if (searchMode === 'aggregated' && keyword && results.length > 0) {
+      saveSearchResultsToSession(keyword, 'aggregated', {
+        results,
+        aggregatedMeta,
+        sourceDetails,
+        batchProgress,
+      });
+    }
+  }, [results, aggregatedMeta, sourceDetails, batchProgress, searchMode, keyword]);
+
+  // 当单书源搜索结果变化时，保存到 sessionStorage
+  useEffect(() => {
+    if (searchMode === 'single' && keyword && results.length > 0) {
+      saveSearchResultsToSession(keyword, 'single', {
+        results,
+        page,
+        hasMore,
+      });
+    }
+  }, [results, page, hasMore, searchMode, keyword]);
 
   const handleSourceChange = (url) => {
     const source = availableSources.find(s => s.bookSourceUrl === url);
@@ -519,8 +621,35 @@ const SearchResult = () => {
                 <Segmented
                   value={searchMode}
                   onChange={(val) => {
+                    // 缓存当前模式的结果
+                    if (searchMode === 'aggregated') {
+                      resultsCacheRef.current.aggregated = { results, aggregatedMeta, sourceDetails, batchProgress };
+                    } else {
+                      resultsCacheRef.current.single = { results, page, hasMore };
+                    }
                     setSearchMode(val);
                     localStorage.setItem('zifeng_search_mode', val);
+
+                    // 尝试从缓存恢复目标模式的结果
+                    const cached = val === 'aggregated' ? resultsCacheRef.current.aggregated : resultsCacheRef.current.single;
+                    if (cached && cached.results) {
+                      setResults(cached.results);
+                      if (val === 'aggregated') {
+                        setAggregatedMeta(cached.aggregatedMeta);
+                        setSourceDetails(cached.sourceDetails || []);
+                        setBatchProgress(cached.batchProgress);
+                        setHasMore(false);
+                        setAllLoaded(true);
+                      } else {
+                        setPage(cached.page || 1);
+                        setHasMore(cached.hasMore || false);
+                      }
+                      return;
+                    }
+                    // 无缓存则清空结果，触发重新搜索
+                    setResults([]);
+                    setAggregatedMeta(null);
+                    setSourceDetails([]);
                   }}
                   size="small"
                   options={[
@@ -590,7 +719,7 @@ const SearchResult = () => {
               </Text>
               {searchMode === 'aggregated' && sourceDetails.length > 0 && (
                 <div style={{ maxWidth: 600, width: '100%' }}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', maxHeight: 80, overflowY: 'auto', padding: '4px' }}>
                     {sourceDetails.slice(-20).map((sd, i) => (
                       <Tag
                         key={i}
@@ -652,7 +781,7 @@ const SearchResult = () => {
                     </div>
                   </Card>
                   {sourceDetails.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 80, overflowY: 'auto', padding: '4px' }}>
                       {sourceDetails.map((sd, i) => (
                         <Tag
                           key={i}
@@ -695,7 +824,7 @@ const SearchResult = () => {
                           }}>
                             <img
                               alt={book.name}
-                              src={book.coverUrl || book.cover || `https://placehold.co/90x120/${colors[index % colors.length].replace('#', '')}/white?text=${encodeURIComponent(book.name.slice(0, 2))}`}
+                              src={proxyImageUrl(book.coverUrl || book.cover) || `https://placehold.co/90x120/${colors[index % colors.length].replace('#', '')}/white?text=${encodeURIComponent(book.name.slice(0, 2))}`}
                               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                               loading="lazy"
                             />
@@ -804,7 +933,7 @@ const SearchResult = () => {
                         }}>
                           <img
                             alt={book.name}
-                            src={book.coverUrl || book.cover || `https://placehold.co/200x300/${colors[index % colors.length].replace('#', '')}/white?text=${encodeURIComponent(book.name.slice(0, 2))}`}
+                            src={proxyImageUrl(book.coverUrl || book.cover) || `https://placehold.co/200x300/${colors[index % colors.length].replace('#', '')}/white?text=${encodeURIComponent(book.name.slice(0, 2))}`}
                             style={{
                               width: '100%',
                               height: '100%',
@@ -887,24 +1016,6 @@ const SearchResult = () => {
                 </div>
               )}
 
-              {batchRunning && (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '24px 0', gap: 8 }}>
-                  <SyncOutlined spin style={{ color, fontSize: 16 }} />
-                  <Text style={{ color: isDarkMode ? '#888' : '#999' }}>
-                    正在搜索更多书源... ({batchProgress ? `${batchProgress.completedSources}/${batchProgress.totalSources}` : ''})
-                  </Text>
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<CloseCircleOutlined />}
-                    onClick={cancelSearch}
-                    style={{ color: isDarkMode ? '#888' : '#999', fontSize: 12 }}
-                  >
-                    停止
-                  </Button>
-                </div>
-              )}
-
               {allLoaded && !loadingMore && !batchRunning && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -956,7 +1067,9 @@ const SearchResult = () => {
                           animate={{ opacity: 1, filter: 'blur(0px)' }}
                           transition={{ duration: 0.5 }}
                         >
-                          {`未找到与「${keyword}」相关的小说`}
+                          {aggregatedMeta && aggregatedMeta.totalResults > 0
+                            ? `共 0 条结果（去重前 ${aggregatedMeta.totalResults} 条）`
+                            : `未找到与「${keyword}」相关的小说`}
                         </motion.span>
                       <Text style={{ fontSize: 13, color: isDarkMode ? '#888' : '#999' }}>
                         试试换个关键词或切换书源搜索
@@ -1019,6 +1132,39 @@ const SearchResult = () => {
           )}
         </AnimatePresence>
       </div>
+      <AnimatePresence>
+        {batchRunning && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            onClick={cancelSearch}
+            style={{
+              position: 'fixed',
+              right: 24,
+              bottom: 160,
+              zIndex: 1000,
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              border: 'none',
+              background: color,
+              color: '#fff',
+              cursor: 'pointer',
+              boxShadow: `0 4px 16px ${color}60`,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 2,
+            }}
+            title="停止搜索"
+          >
+            <CloseCircleOutlined style={{ fontSize: 20 }} />
+            <span style={{ fontSize: 10 }}>停止</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

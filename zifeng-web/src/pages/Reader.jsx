@@ -11,7 +11,7 @@ import {
 import BackButton from '../components/BackButton';
 import { ThemeContext, AuthContext } from '../App';
 import { getTocAPI, getContentAPI, saveReadingProgress as apiSaveReadingProgress, getReadingProgress as apiGetReadingProgress } from '../utils/apiClient';
-import { getBookSources, getDefaultSource as getDefaultSourceFromManager } from '../utils/bookSourceManager';
+import { getBookSources, getDefaultSource as getDefaultSourceFromManager, normalizeSource } from '../utils/bookSourceManager';
 import { loadReaderCache, simpleHash, isDefaultSource } from '../utils/novelConfig';
 import { CountUp, ReactBitsErrorBoundary } from '../components/react-bits';
 
@@ -205,7 +205,7 @@ const Reader = () => {
     if (sourceUrl) {
       const allSources = getBookSources();
       const found = allSources.find(s => s.bookSourceUrl === sourceUrl);
-      if (found) return found;
+      if (found) return normalizeSource(found);
     }
     return getDefaultSourceFromManager();
   }, [sourceUrl]);

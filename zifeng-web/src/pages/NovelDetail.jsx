@@ -6,8 +6,8 @@ import { CheckOutlined } from '@ant-design/icons';
 import BackButton from '../components/BackButton';
 import { ThemeContext } from '../App';
 import { addToBookShelf, addToReadHistory, getUserInfo, getBookShelf } from '../utils/storage';
-import { getBookInfoAPI, getTocAPI, addToBookshelf as apiAddToBookshelf, checkBookInShelf, unifiedBookInfoAPI } from '../utils/apiClient';
-import { getBookSources, getDefaultSource as getDefaultSourceFromManager } from '../utils/bookSourceManager';
+import { getBookInfoAPI, getTocAPI, addToBookshelf as apiAddToBookshelf, checkBookInShelf, unifiedBookInfoAPI, proxyImageUrl } from '../utils/apiClient';
+import { getBookSources, getDefaultSource as getDefaultSourceFromManager, normalizeSource } from '../utils/bookSourceManager';
 import { loadNovelCache, saveReaderCache, simpleHash, getDefaultSource, isDefaultSource } from '../utils/novelConfig';
 import { adaptBookInfo, computeCompleteness } from '../utils/bookAdapter';
 import { glassCardStyle, glassItemStyle } from '../utils/glassStyle';
@@ -104,6 +104,7 @@ const NovelDetail = () => {
         } else if (effectiveSourceUrl) {
           const allSources = getBookSources();
           source = allSources.find(s => s.bookSourceUrl === effectiveSourceUrl);
+          if (source) source = normalizeSource(source);
         }
         if (!source) {
           source = getDefaultSourceFromManager();
@@ -261,6 +262,7 @@ const NovelDetail = () => {
       } else if (sourceUrl) {
         const allSources = getBookSources();
         source = allSources.find(s => s.bookSourceUrl === sourceUrl);
+        if (source) source = normalizeSource(source);
       }
       if (!source) source = getDefaultSourceFromManager();
 
@@ -429,7 +431,7 @@ const NovelDetail = () => {
                 }}>
                   <img
                     alt={novel.novelName}
-                    src={novel.cover || `https://placehold.co/200x300/${color.replace('#', '')}/white?text=${encodeURIComponent(novel.novelName.slice(0, 2))}`}
+                    src={proxyImageUrl(novel.cover) || `https://placehold.co/200x300/${color.replace('#', '')}/white?text=${encodeURIComponent(novel.novelName.slice(0, 2))}`}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
                 </div>

@@ -2,6 +2,23 @@ import axios from "axios";
 
 const API_BASE = "/api";
 
+/**
+ * 将外部 HTTP 图片 URL 转为通过后端图片代理的同源 URL
+ * 解决 HTTPS 页面加载 HTTP 图片被混合内容策略拦截的问题
+ * 使用 /api/img-proxy 而非 /api/proxy，因为后者会把二进制数据当文本处理导致图片损坏
+ */
+export const proxyImageUrl = (url) => {
+  if (!url) return '';
+  // 已经是同源或 HTTPS 的 URL 直接返回
+  if (url.startsWith('/') || url.startsWith('data:') || url.startsWith('https://')) return url;
+  // HTTP URL 走图片专用代理
+  if (url.startsWith('http://')) return `/api/img-proxy?url=${encodeURIComponent(url)}`;
+  return url;
+};
+
+let serverAvailable = null;
+let backendAvailable = null;
+
 const getAuthToken = () => localStorage.getItem("zifeng_token");
 
 const backendAxios = axios.create({
@@ -154,12 +171,18 @@ export const proxyRequest = async (url) => {
 
 // ========== SpringBoot Backend APIs ==========
 
-export const authLogin = async (username, password, rememberMe = false) => {
-  const res = await backendAxios.post("/auth/login", {
-    username,
-    password,
-    rememberMe,
-  });
+export const getCaptcha = async () => {
+  try {
+    const response = await backendAxios.get('/auth/captcha');
+    return response.data;
+  } catch (error) {
+    console.error('获取验证码失败:', error);
+    return null;
+  }
+};
+
+export const authLogin = async (username, password, rememberMe = false, captchaId = '', captchaCode = '') => {
+  const res = await backendAxios.post('/auth/login', { username, password, rememberMe, captchaId, captchaCode });
   if (res.data?.success && res.data?.data?.token) {
     localStorage.setItem("zifeng_token", res.data.data.token);
     const userData = {
@@ -178,12 +201,8 @@ export const authLogin = async (username, password, rememberMe = false) => {
   return res.data;
 };
 
-export const authRegister = async (username, password, email) => {
-  const res = await backendAxios.post("/auth/register", {
-    username,
-    password,
-    email,
-  });
+export const authRegister = async (username, password, email, captchaId = '', captchaCode = '') => {
+  const res = await backendAxios.post('/auth/register', { username, password, email, captchaId, captchaCode });
   if (res.data?.success && res.data?.data?.token) {
     localStorage.setItem("zifeng_token", res.data.data.token);
     const userData = {
@@ -214,12 +233,23 @@ export const getCurrentUser = async () => {
   return res.data?.data;
 };
 
-export const verifyEmail = async (email) => {
-  const res = await backendAxios.post("/auth/verify-email", { email });
+export const sendResetCode = async (email) => {
+  const res = await backendAxios.post("/auth/send-reset-code", { email });
+  return res.data;
+};
+
+export const resetPassword = async (data) => {
+  const res = await backendAxios.post("/auth/reset-password", data);
+  return res.data;
+};
+
+export const verifyUserForReset = async (username, email) => {
+  const res = await backendAxios.post("/auth/verify-email", { username, email });
   return res.data;
 };
 
 export const resetPasswordDev = async (data) => {
+  // data 应包含 { username, email, newPassword }
   const res = await backendAxios.post("/auth/reset-password-dev", data);
   return res.data;
 };

@@ -19,6 +19,8 @@ import {
   toggleBookSource as toggleLocalSource,
   getActiveSource,
   setActiveSource,
+  saveBookSources,
+  normalizeSources,
 } from '../utils/bookSourceManager';
 import {
   getAllEnabledSources,
@@ -108,7 +110,7 @@ const BookSourcePage = () => {
         const res = await getAllEnabledSources();
         const backendSources = res.data?.data;
         if (backendSources && backendSources.length > 0) {
-          sources = backendSources;
+          sources = normalizeSources(backendSources);
           syncToLocal(backendSources);
         } else {
           sources = getBookSources();
@@ -129,10 +131,8 @@ const BookSourcePage = () => {
   };
 
   const syncToLocal = (backendSources) => {
-    try {
-      const { saveBookSources } = require('../utils/bookSourceManager');
-      saveBookSources(backendSources);
-    } catch {}
+    const normalized = normalizeSources(backendSources);
+    saveBookSources(normalized);
   };
 
   const syncToBackend = async (localSources) => {
