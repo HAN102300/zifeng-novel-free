@@ -310,7 +310,7 @@ public class BookSourceService {
     }
 
     public List<BookSource> searchAllSources(String keyword) {
-        return bookSourceRepository.findByBookSourceNameContainingOrBookSourceUrlContaining(keyword, keyword);
+        return bookSourceRepository.searchAllFields(keyword);
     }
 
     public void adminDeleteSource(Long id) {
@@ -366,8 +366,7 @@ public class BookSourceService {
     public Page<BookSource> adminListSourcesPaged(String keyword, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
         if (keyword != null && !keyword.isBlank()) {
-            return bookSourceRepository.findByBookSourceNameContainingOrBookSourceUrlContaining(keyword, keyword,
-                    pageable);
+            return bookSourceRepository.searchAllFieldsPaged(keyword, pageable);
         }
         return bookSourceRepository.findAll(pageable);
     }
