@@ -26,6 +26,26 @@ const { AnalyzeRule } = require("./legadoEngine");
 
 const ruleVariables = createTTLMap(5 * 60 * 1000, 30 * 60 * 1000, 2000);
 
+// 递归查找 JSON 数据中的第一个数组（用于 bookList 规则未配置时的智能推断）
+function findFirstArray(data, maxDepth = 3) {
+  if (data == null || maxDepth < 0) return null;
+  if (Array.isArray(data)) return data;
+  if (typeof data === "object") {
+    for (const key of Object.keys(data)) {
+      const val = data[key];
+      if (Array.isArray(val)) return val;
+    }
+    for (const key of Object.keys(data)) {
+      const val = data[key];
+      if (val && typeof val === "object") {
+        const found = findFirstArray(val, maxDepth - 1);
+        if (found) return found;
+      }
+    }
+  }
+  return null;
+}
+
 function resolveJsonPath(data, path) {
   if (!path || data == null) return null;
 
@@ -864,7 +884,7 @@ async function parseBookListFromRules(
   if (!responseData) return [];
   if (!rules || typeof rules !== "object") return [];
 
-  const bookListRule = rules.bookList || "$.data";
+  const bookListRule = rules.bookList || "";
   const htmlStr =
     typeof responseData === "string"
       ? responseData
@@ -920,6 +940,14 @@ async function parseBookListFromRules(
     bookList = resolveJsonPath(responseData, bookListRule);
   } else {
     bookList = resolveJsonPath(responseData, bookListRule);
+  }
+
+  // bookList 规则为空或未匹配到数组时，智能推断 JSON 中的数组位置
+  if ((!bookListRule || !Array.isArray(bookList)) && !isHtmlSource && responseData && typeof responseData === "object") {
+    const inferred = findFirstArray(responseData);
+    if (inferred && Array.isArray(inferred) && inferred.length > 0) {
+      bookList = inferred;
+    }
   }
 
   if (!Array.isArray(bookList)) {
@@ -1090,7 +1118,12 @@ async function parseBookListFromRules(
     });
   }
 
-  return results.filter((item) => item.name && item.name !== "未知书名");
+  // 保留有 name 或 bookUrl 的结果，避免字段名不匹配导致全部被过滤
+  return results.filter((item) => {
+    if (item.name && item.name !== "未知书名") return true;
+    if (item.bookUrl) return true;
+    return false;
+  });
 }
 
 async function parseSearchResults(source, responseData, context = {}) {

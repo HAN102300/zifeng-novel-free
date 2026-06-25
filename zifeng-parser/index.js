@@ -644,7 +644,8 @@ app.post("/api/test-source", async (req, res) => {
       typeof responseData === "string" &&
       (responseData.includes("<") || responseData.includes("&lt;"));
     const isJson =
-      typeof responseData === "string" && responseData.trim().startsWith("{");
+      typeof responseData === "string" &&
+      (responseData.trim().startsWith("{") || responseData.trim().startsWith("["));
 
     if (!fullTest) {
       const hasLoginUrl = !!source.loginUrl;
