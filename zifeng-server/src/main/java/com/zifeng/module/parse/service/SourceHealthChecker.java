@@ -32,6 +32,7 @@ public class SourceHealthChecker {
     private static final String HEALTH_KEYWORD = "人";
     private static final int CONSECUTIVE_FAILURE_THRESHOLD = 3;
     private static final int MIN_HEALTH_SCORE_TO_KEEP = 30;
+    private static final int HEALTH_CHECK_TIMEOUT_SECONDS = 20;
 
     public List<Map<String, Object>> runManualHealthCheck() {
         List<BookSource> sources = bookSourceService.getAllEnabledSources();
@@ -47,7 +48,7 @@ public class SourceHealthChecker {
         return reports;
     }
 
-    @Scheduled(cron = "0 0 */6 * * *")
+    @Scheduled(cron = "0 0 2 * * *")
     public void scheduledHealthCheck() {
         if (!isParserAvailable()) {
             log.warn("[HEALTHCHECK] Parser service unavailable, skipping scheduled health check");
@@ -99,7 +100,7 @@ public class SourceHealthChecker {
 
         try {
             Map<String, Object> testResult = parsingProxyService.testSource(
-                sourceMap, HEALTH_KEYWORD, 1, true);
+                sourceMap, HEALTH_KEYWORD, 1, true, HEALTH_CHECK_TIMEOUT_SECONDS);
 
             if (testResult == null || !Boolean.TRUE.equals(testResult.get("success"))) {
                 report.connectivityOk = false;

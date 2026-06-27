@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -57,7 +58,14 @@ public class ParsingProxyService {
     }
 
     public Map<String, Object> testSource(Map<String, Object> source, String keyword, int page, boolean fullTest) {
+        return testSource(source, keyword, page, fullTest, 0);
+    }
+
+    public Map<String, Object> testSource(Map<String, Object> source, String keyword, int page, boolean fullTest, int timeoutSeconds) {
         Map<String, Object> body = Map.of("source", source, "keyword", keyword, "page", page, "fullTest", fullTest);
+        if (timeoutSeconds > 0) {
+            return postToParsingServer("/api/test-source", body, timeoutSeconds);
+        }
         return postToParsingServer("/api/test-source", body);
     }
 
@@ -123,13 +131,26 @@ public class ParsingProxyService {
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> postToParsingServer(String path, Map<String, Object> body) {
+        return postToParsingServer(path, body, 0);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> postToParsingServer(String path, Map<String, Object> body, int timeoutSeconds) {
         String url = parsingServerUrl + path;
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
+            RestTemplate client = restTemplate;
+            if (timeoutSeconds > 0) {
+                client = new RestTemplateBuilder()
+                        .setConnectTimeout(java.time.Duration.ofSeconds(5))
+                        .setReadTimeout(java.time.Duration.ofSeconds(timeoutSeconds))
+                        .build();
+            }
+
+            ResponseEntity<Map> response = client.exchange(url, HttpMethod.POST, entity, Map.class);
             Map<String, Object> result = response.getBody();
             if (result == null) {
                 return createFallbackResponse("解析服务返回空响应");
