@@ -120,10 +120,26 @@ public class FeedbackService {
         return feedbackRepository.save(feedback);
     }
 
+    // 允许的状态流转规则：key=当前状态, value=可切换到的状态集合
+    private static final java.util.Map<Integer, java.util.Set<Integer>> ALLOWED_TRANSITIONS = java.util.Map.of(
+            0, java.util.Set.of(1, 3),    // 待处理 → 处理中, 已关闭
+            1, java.util.Set.of(2, 3),    // 处理中 → 已解决, 已关闭
+            2, java.util.Set.of(1, 3),    // 已解决 → 处理中(重开), 已关闭
+            3, java.util.Set.of()         // 已关闭 → 终态，不可切换
+    );
+
     @Transactional
     public Feedback updateStatus(Long id, Integer status) {
         Feedback feedback = feedbackRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("反馈不存在"));
+
+        Integer currentStatus = feedback.getStatus();
+        java.util.Set<Integer> allowed = ALLOWED_TRANSITIONS.getOrDefault(currentStatus, java.util.Set.of());
+
+        if (!allowed.contains(status)) {
+            throw new RuntimeException("当前状态不允许切换到目标状态");
+        }
+
         feedback.setStatus(status);
         return feedbackRepository.save(feedback);
     }
