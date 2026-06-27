@@ -16,6 +16,14 @@ const categoryMap = {
   other: { label: '其他', color: 'default' },
 };
 
+// 允许的状态流转：key=当前状态, value=可切换到的状态码数组
+const ALLOWED_TRANSITIONS = {
+  0: [1, 3],    // 待处理 → 处理中, 已关闭
+  1: [2, 3],    // 处理中 → 已解决, 已关闭
+  2: [1, 3],    // 已解决 → 处理中(重开), 已关闭
+  3: [],        // 已关闭 → 终态
+};
+
 const statusMap = {
   0: { label: '待处理', color: 'orange', icon: <ClockCircleOutlined /> },
   1: { label: '处理中', color: 'blue', icon: <SyncOutlined spin /> },
@@ -123,8 +131,9 @@ const FeedbackList = () => {
       message.success('状态更新成功');
       fetchFeedbacks(pagination.current, pagination.pageSize);
       fetchStats();
-    } catch {
-      message.error('状态更新失败');
+    } catch (err) {
+      const msg = err?.response?.data?.message || '状态更新失败';
+      message.error(msg);
     }
   };
 
@@ -204,11 +213,12 @@ const FeedbackList = () => {
       width: 160,
       fixed: 'right',
       render: (_, record) => {
-        const statusItems = Object.entries(statusMap).map(([value, info]) => ({
-          key: value,
-          label: info.label,
-          icon: info.icon,
-        }));
+        const allowedNext = ALLOWED_TRANSITIONS[record.status] || [];
+        const statusItems = allowedNext.map((value) => {
+          const info = statusMap[value];
+          return { key: String(value), label: info.label, icon: info.icon };
+        });
+        const isTerminal = statusItems.length === 0;
 
         return (
           <Space size={4}>
@@ -225,8 +235,9 @@ const FeedbackList = () => {
                 items: statusItems,
                 onClick: ({ key }) => handleStatusChange(record.id, parseInt(key)),
               }}
+              disabled={isTerminal}
             >
-              <Button type="link" size="small">
+              <Button type="link" size="small" disabled={isTerminal}>
                 状态 <span style={{ fontSize: 10 }}>▼</span>
               </Button>
             </Dropdown>
