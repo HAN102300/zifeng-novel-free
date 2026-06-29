@@ -151,9 +151,11 @@ const CategoryDetail = () => {
   const { themeConfigs, currentTheme, isDarkMode, glassMode } = useContext(ThemeContext);
   const primaryColor = themeConfigs[currentTheme].primaryColor;
 
+  const sortNum = Number(sort);
+
   const [novels, setNovels] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(() => getSavedPage(categoryId, sortNum));
   const [total, setTotal] = useState(0);
   const [maxKnownPage, setMaxKnownPage] = useState(1);
 
@@ -244,7 +246,11 @@ const CategoryDetail = () => {
   }, [currentPage]);
 
   useEffect(() => {
-    setCurrentPage(1);
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return; // 首次挂载时跳过重置，使用 sessionStorage 中保存的页码
+    }
+    goToPage(1);
     setMaxKnownPage(1);
     setTotal(0);
     setNovels([]);

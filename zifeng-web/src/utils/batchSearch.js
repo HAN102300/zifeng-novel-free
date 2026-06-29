@@ -1,5 +1,5 @@
 import { searchBooksAPI } from './apiClient';
-import { adaptSearchResult, computeCompleteness } from './bookAdapter';
+import { adaptSearchResult, computeCompleteness, computeRelevanceScore } from './bookAdapter';
 
 const DEFAULT_SOURCE_TIMEOUT_MS = 8000;
 const BATCH_DELAY_MS = 100;
@@ -33,7 +33,7 @@ function setCachedResult(source, keyword, result) {
 }
 
 function computeBatchSize(sourceCount) {
-  return Math.min(Math.max(Math.ceil(sourceCount / 3), 5), 10);
+  return 3;
 }
 
 function isValidSourceUrl(url) {
@@ -95,7 +95,7 @@ function searchSingleSource(source, keyword, signal, timeoutMs = DEFAULT_SOURCE_
     });
 }
 
-function mergeBooks(allBooks) {
+function mergeBooks(allBooks, keyword) {
   const map = {};
   for (const book of allBooks) {
     const key = normalizeForDedup(book.name, book.author);
@@ -127,9 +127,11 @@ function mergeBooks(allBooks) {
       map[key] = { ...book };
     }
   }
-  return Object.values(map).sort(
-    (a, b) => (b.completeness || 0) - (a.completeness || 0)
-  );
+  return Object.values(map).sort((a, b) => {
+    const scoreA = (a.completeness || 0) + computeRelevanceScore(a, keyword);
+    const scoreB = (b.completeness || 0) + computeRelevanceScore(b, keyword);
+    return scoreB - scoreA;
+  });
 }
 
 class BatchSearchController {
@@ -246,7 +248,7 @@ class BatchSearchController {
         if (firstSettled.status === 'fulfilled' && firstSettled.value) {
           this._accumulateResult(firstSettled.value);
           if (firstSettled.value.books.length > 0) {
-            const deduplicated = mergeBooks([...this.allBooks]);
+            const deduplicated = mergeBooks([...this.allBooks], this.keyword);
             this.allBooks = deduplicated;
           }
         } else {

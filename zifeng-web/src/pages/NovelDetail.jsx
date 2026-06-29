@@ -6,8 +6,8 @@ import { CheckOutlined } from '@ant-design/icons';
 import BackButton from '../components/BackButton';
 import { ThemeContext } from '../App';
 import { addToBookShelf, addToReadHistory, getUserInfo, getBookShelf } from '../utils/storage';
-import { getBookInfoAPI, getTocAPI, addToBookshelf as apiAddToBookshelf, checkBookInShelf, unifiedBookInfoAPI } from '../utils/apiClient';
-import { getBookSources, getDefaultSource as getDefaultSourceFromManager } from '../utils/bookSourceManager';
+import { getBookInfoAPI, getTocAPI, addToBookshelf as apiAddToBookshelf, checkBookInShelf, unifiedBookInfoAPI, proxyImageUrl } from '../utils/apiClient';
+import { getBookSources, getDefaultSource as getDefaultSourceFromManager, normalizeSource } from '../utils/bookSourceManager';
 import { loadNovelCache, saveReaderCache, simpleHash, getDefaultSource, isDefaultSource } from '../utils/novelConfig';
 import { adaptBookInfo, computeCompleteness } from '../utils/bookAdapter';
 import { glassCardStyle, glassItemStyle } from '../utils/glassStyle';
@@ -104,6 +104,7 @@ const NovelDetail = () => {
         } else if (effectiveSourceUrl) {
           const allSources = getBookSources();
           source = allSources.find(s => s.bookSourceUrl === effectiveSourceUrl);
+          if (source) source = normalizeSource(source);
         }
         if (!source) {
           source = getDefaultSourceFromManager();
@@ -261,10 +262,47 @@ const NovelDetail = () => {
       } else if (sourceUrl) {
         const allSources = getBookSources();
         source = allSources.find(s => s.bookSourceUrl === sourceUrl);
+        if (source) source = normalizeSource(source);
       }
       if (!source) source = getDefaultSourceFromManager();
 
-      const tocUrl = novel._tocUrl || searchParams.get('bookUrl') || '';
+      // 当 _tocUrl 未获取到或与 bookUrl 相同时，从 bookUrl 构造正确的 tocUrl
+      const rawBookUrl = searchParams.get('bookUrl') || '';
+      let tocUrl = novel._tocUrl || '';
+      if (!tocUrl || tocUrl === rawBookUrl) {
+        const tocUrlTemplate = source.ruleBookInfo?.tocUrl || '';
+        if (tocUrlTemplate && tocUrlTemplate.includes('{{') && rawBookUrl) {
+          let extractedId = rawBookUrl;
+          const bookUrlTemplate = source.ruleSearch?.bookUrl || '';
+          if (bookUrlTemplate && bookUrlTemplate.includes('{{')) {
+            const templatePattern = bookUrlTemplate.replace(/\{\{[^}]+\}\}/g, '([^/?#]+)');
+            const regex = new RegExp('^' + templatePattern + '$');
+            const match = rawBookUrl.match(regex);
+            if (match && match[1]) {
+              extractedId = match[1];
+            }
+          }
+          if (extractedId === rawBookUrl) {
+            try {
+              const urlPath = new URL(rawBookUrl.startsWith('http') ? rawBookUrl : 'http://dummy' + rawBookUrl).pathname;
+              const segments = urlPath.split('/').filter(Boolean);
+              if (segments.length > 0) {
+                extractedId = segments[segments.length - 1];
+              }
+            } catch {}
+          }
+          tocUrl = tocUrlTemplate.replace(/\{\{[^}]+\}\}/g, extractedId);
+        } else {
+          tocUrl = tocUrl || rawBookUrl;
+        }
+        // 书源模板中的 tocUrl 可能是相对路径，解析器无法处理，需要拼接 bookSourceUrl 转为绝对 URL
+        if (tocUrl && !tocUrl.startsWith('http')) {
+          const baseUrl = source.bookSourceUrl;
+          if (baseUrl) {
+            tocUrl = tocUrl.startsWith('/') ? baseUrl + tocUrl : baseUrl + '/' + tocUrl;
+          }
+        }
+      }
       const result = await getTocAPI(source, tocUrl, bookData);
 
       if (result.success && result.chapters && result.chapters.length > 0) {
@@ -429,7 +467,7 @@ const NovelDetail = () => {
                 }}>
                   <img
                     alt={novel.novelName}
-                    src={novel.cover || `https://placehold.co/200x300/${color.replace('#', '')}/white?text=${encodeURIComponent(novel.novelName.slice(0, 2))}`}
+                    src={proxyImageUrl(novel.cover) || `https://placehold.co/200x300/${color.replace('#', '')}/white?text=${encodeURIComponent(novel.novelName.slice(0, 2))}`}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
                 </div>

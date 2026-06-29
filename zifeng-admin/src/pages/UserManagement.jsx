@@ -176,7 +176,7 @@ const UserManagement = () => {
         gap: 12,
         flexShrink: 0,
       }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>用户管理</h2>
+        <h2 className="page-title">用户管理</h2>
         <Input.Search
           placeholder="搜索用户名或邮箱"
           allowClear

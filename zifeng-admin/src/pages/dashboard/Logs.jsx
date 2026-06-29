@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useContext } from 'react';
 import { Table, Input, Select, DatePicker, Button, Space, Tag, Tooltip, Popconfirm, message } from 'antd';
 import { SearchOutlined, ReloadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { getLogsPaged, batchDeleteLogs } from '../../utils/adminApi';
+import { fadeInUp } from '../../utils/animations';
 import { ThemeContext } from '../../App';
 import dayjs from 'dayjs';
 
@@ -26,6 +27,13 @@ const Logs = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const searchTimerRef = useRef(null);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      fadeInUp(containerRef.current, 100);
+    }
+  }, []);
 
   const fetchLogs = async (page = 1, size = 20, keyword = filters.keyword, userType = filters.userType, dateRange = filters.dateRange) => {
     setLoading(true);
@@ -41,8 +49,8 @@ const Logs = () => {
       const res = await getLogsPaged(params);
       const data = res.data?.data;
       if (data) {
-        setLogs(data.content || []);
-        setPagination({ current: (data.number || 0) + 1, pageSize: data.size || 20, total: data.totalElements || 0 });
+        setLogs(data.items || []);
+        setPagination({ current: (data.page || 0) + 1, pageSize: data.size || 20, total: data.total || 0 });
       }
     } catch (e) {
       message.error('获取日志失败');
@@ -98,16 +106,9 @@ const Logs = () => {
     }
   };
 
-  const getUserTypeTag = (userId) => {
-    if (userId === null || userId === undefined) {
-      const info = userTypeMap.guest;
-      return <Tag color={info.color}>{info.label}</Tag>;
-    }
-    if (userId < 0) {
-      const info = userTypeMap.admin;
-      return <Tag color={info.color}>{info.label}</Tag>;
-    }
-    const info = userTypeMap.user;
+  const getUserTypeTag = (record) => {
+    const userType = record.userType;
+    const info = userTypeMap[userType] || userTypeMap.guest;
     return <Tag color={info.color}>{info.label}</Tag>;
   };
 
@@ -145,10 +146,19 @@ const Logs = () => {
       ),
     },
     {
+      title: '用户名',
+      dataIndex: 'username',
+      key: 'username',
+      width: 120,
+      render: (username) => username
+        ? <span style={{ fontWeight: 500 }}>{username}</span>
+        : <span style={{ color: isDarkMode ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)' }}>游客</span>,
+    },
+    {
       title: '用户类型',
       key: 'userType',
       width: 110,
-      render: (_, r) => getUserTypeTag(r.userId),
+      render: (_, r) => getUserTypeTag(r),
     },
     {
       title: 'User-Agent',
@@ -161,9 +171,9 @@ const Logs = () => {
   ];
 
   return (
-    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div ref={containerRef} style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12, flexShrink: 0 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>访问日志</h2>
+        <h2 className="page-title">访问日志</h2>
         <Space wrap>
           <Input.Search
             placeholder="搜索IP/路径/UA等"

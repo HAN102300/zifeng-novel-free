@@ -1,0 +1,1 @@
+npm error A complete log of this run can be found in: E:\NodeJS\node_cache\_logs\2026-06-15T04_56_15_881Z-debug-0.log

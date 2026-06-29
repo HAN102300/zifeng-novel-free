@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -18,6 +19,11 @@ import java.util.UUID;
 @RequestMapping("/api/user")
 @RequiredArgsConstructor
 public class AvatarController {
+
+    /**
+     * 允许上传的图片扩展名白名单
+     */
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png", ".gif", ".webp");
 
     @Value("${app.upload.dir:uploads/avatars}")
     private String uploadDir;
@@ -44,6 +50,17 @@ public class AvatarController {
             return ApiResponse.fail("只能上传图片文件");
         }
 
+        // 验证文件扩展名白名单
+        String originalName = file.getOriginalFilename();
+        String ext = "";
+        if (originalName != null && originalName.contains(".")) {
+            ext = originalName.substring(originalName.lastIndexOf(".")).toLowerCase();
+        }
+        if (!ALLOWED_EXTENSIONS.contains(ext)) {
+            log.warn("[头像上传] 文件扩展名不在白名单中: {}, 允许: {}", ext, ALLOWED_EXTENSIONS);
+            return ApiResponse.fail("不支持的图片格式，仅支持 jpg, jpeg, png, gif, webp");
+        }
+
         try {
             Path dirPath = Paths.get(uploadDir).toAbsolutePath().normalize();
             if (!Files.exists(dirPath)) {
@@ -51,11 +68,6 @@ public class AvatarController {
                 log.info("[头像上传] 创建上传目录: {}", dirPath);
             }
 
-            String originalName = file.getOriginalFilename();
-            String ext = "";
-            if (originalName != null && originalName.contains(".")) {
-                ext = originalName.substring(originalName.lastIndexOf("."));
-            }
             String fileName = UUID.randomUUID().toString() + ext;
             Path filePath = dirPath.resolve(fileName);
             file.transferTo(filePath.toFile());

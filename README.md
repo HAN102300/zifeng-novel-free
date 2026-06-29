@@ -19,6 +19,8 @@
 <img src="https://img.shields.io/badge/MySQL-8-4479A1?style=flat-square&logo=mysql&logoColor=white" />
 <img src="https://img.shields.io/badge/Redis-7-DC382D?style=flat-square&logo=redis&logoColor=white" />
 <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white" />
+<img src="https://img.shields.io/badge/HarmonyOS-Next-000000?style=flat-square&logo=harmonyos&logoColor=white" />
+<img src="https://img.shields.io/badge/ArkTS-API_26-3178C6?style=flat-square&logo=typescript&logoColor=white" />
 
 </div>
 
@@ -138,6 +140,91 @@
 </tr>
 </table>
 
+### 📲 鸿蒙原生 App（zifeng-harmony）
+
+<table>
+<tr>
+<th width="25%">🏠 首页推荐</th>
+<th width="25%">🔍 全局搜索</th>
+<th width="25%">📖 沉浸阅读</th>
+<th width="25%">📚 个人书架</th>
+</tr>
+<tr>
+<td>
+
+- 推荐 / 分类 / 排行三Tab
+- 毛玻璃导航与粒子动效
+- ArkUI 原生组件渲染
+- 主题换肤与深色模式
+
+</td>
+<td>
+
+- 多书源聚合搜索
+- 搜索历史与热词
+- 结果列表/网格切换
+- 书源切换重搜
+
+</td>
+<td>
+
+- 目录跳转与章节缓存
+- 字体 / 行距 / 背景调节
+- 夜间模式与护眼主题
+- 阅读进度本地+云端同步
+
+</td>
+<td>
+
+- 登录注册 / 找回密码
+- 书架收藏与历史记录
+- 个人资料与头像
+- 用户反馈入口
+
+</td>
+</tr>
+<tr>
+<th>📂 分类浏览</th>
+<th>🏆 排行榜单</th>
+<th>⚙️ 系统设置</th>
+<th>👤 我的</th>
+</tr>
+<tr>
+<td>
+
+- 男频/女频双频道
+- 分类详情分页加载
+- 多维度筛选排序
+- 原生列表动画
+
+</td>
+<td>
+
+- 热门 / 潜力 / 完本 / 更新榜
+- 榜单数据实时刷新
+- 一键进入书籍详情
+- 分页浏览更多内容
+
+</td>
+<td>
+
+- 主题色切换
+- 阅读偏好设置
+- 缓存清理
+- 关于与帮助
+
+</td>
+<td>
+
+- 阅读历史
+- 我的书架
+- 账号安全
+- 意见反馈
+
+</td>
+</tr>
+</table>
+
 ### 🛠️ 管理后台（zifeng-admin）
 
 <table>
@@ -183,9 +270,9 @@
 </tr>
 <tr>
 <th>🔬 书源测活</th>
-<th>🔐 登录检测</th>
 <th>📈 书源统计</th>
 <th>💬 用户反馈</th>
+<th>🔧 系统管理</th>
 </tr>
 <tr>
 <td>
@@ -194,14 +281,6 @@
 - 多阶段检测（搜索→详情→目录→正文）
 - 成功率/失败原因展示
 - 批量测试 + 结果汇总
-
-</td>
-<td>
-
-- 自动检测登录需求
-- 登录 URL / 登录 UI 识别
-- 浏览器窗口弹出登录
-- Cookie 自动管理
 
 </td>
 <td>
@@ -220,6 +299,14 @@
 - 反馈详情查看
 
 </td>
+<td>
+
+- 管理员分级（超管/普通管理员）
+- 管理员独立认证体系
+- 访问日志查询与筛选
+- 系统数据看板
+
+</td>
 </tr>
 </table>
 
@@ -227,115 +314,76 @@
 
 ## 系统架构
 
-<div style="width: 100%; max-width: 1200px; box-sizing: border-box; margin: 20px auto; background: #fafbff; padding: 24px; border-radius: 12px;">
-  <style scoped>
-    .arch-wrapper { display: flex; gap: 12px; }.arch-sidebar { width: 165px; flex-shrink: 0; }.arch-main { flex: 1; min-width: 0; }.arch-title { text-align: center; font-size: 24px; font-weight: bold; color: #1e293b; margin-bottom: 20px; letter-spacing: 1px; }
-    .arch-layer { margin: 10px 0; padding: 16px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); }.arch-layer-title { font-size: 13px; font-weight: bold; margin-bottom: 12px; text-align: center; letter-spacing: 0.5px; }
-    .arch-grid { display: grid; gap: 8px; }.arch-grid-2 { grid-template-columns: repeat(2, 1fr); }.arch-grid-3 { grid-template-columns: repeat(3, 1fr); }.arch-grid-4 { grid-template-columns: repeat(4, 1fr); }.arch-grid-5 { grid-template-columns: repeat(5, 1fr); }.arch-grid-6 { grid-template-columns: repeat(6, 1fr); }
-    .arch-box { border-radius: 6px; padding: 10px 8px; text-align: center; font-size: 11px; font-weight: 600; line-height: 1.4; color: #1e293b; background: rgba(255,255,255,0.85); border: 1px solid rgba(0,0,0,0.08); backdrop-filter: blur(2px); }.arch-box.highlight { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border: 2px solid #2563eb; }.arch-box.tech { font-size: 10px; color: #475569; background: rgba(255,255,255,0.7); }
-    .arch-layer.external { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 2px dashed #94a3b8; }.arch-layer.external .arch-layer-title { color: #64748b; }.arch-layer.user { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border: 2px solid #3b82f6; }.arch-layer.user .arch-layer-title { color: #1e40af; }.arch-layer.application { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 2px solid #eab308; }.arch-layer.application .arch-layer-title { color: #854d0e; }.arch-layer.ai { background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); border: 2px solid #22c55e; }.arch-layer.ai .arch-layer-title { color: #15803d; }.arch-layer.data { background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%); border: 2px solid #ec4899; }.arch-layer.data .arch-layer-title { color: #9d174d; }.arch-layer.infra { background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); border: 2px solid #6366f1; }.arch-layer.infra .arch-layer-title { color: #4338ca; }
-    .arch-sidebar-panel { border-radius: 8px; padding: 10px; background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); border: 1px solid #9ca3af; margin-bottom: 8px; }.arch-sidebar-title { font-size: 11px; font-weight: bold; text-align: center; color: #1e293b; margin-bottom: 6px; }.arch-sidebar-item { font-size: 10px; text-align: center; color: #374151; background: #ffffff; padding: 5px; border-radius: 5px; margin: 3px 0; border: 1px solid #e5e7eb; }.arch-sidebar-item.metric { background: #dbeafe; border: 1px solid #3b82f6; color: #1e40af; font-weight: 600; }
-  </style>
-  <div class="arch-title">紫枫免费小说 — 系统架构图</div>
-  <div class="arch-wrapper">
-    <div class="arch-sidebar">
-      <div class="arch-sidebar-panel"><div class="arch-sidebar-title">开发工具</div><div class="arch-sidebar-item">start-dev.py</div><div class="arch-sidebar-item">stop-dev.py</div><div class="arch-sidebar-item">Nginx 配置</div><div class="arch-sidebar-item">热更新 HMR</div></div>
-      <div class="arch-sidebar-panel"><div class="arch-sidebar-title">监控运维</div><div class="arch-sidebar-item">Spring Actuator</div><div class="arch-sidebar-item">Nginx 日志</div><div class="arch-sidebar-item">Docker 监控</div><div class="arch-sidebar-item">健康检查</div></div>
-      <div class="arch-sidebar-panel"><div class="arch-sidebar-title">安全</div><div class="arch-sidebar-item">Sa-Token 认证</div><div class="arch-sidebar-item">CORS</div><div class="arch-sidebar-item">XSS 防护</div><div class="arch-sidebar-item">SQL 注入防护</div></div>
-    </div>
-    <div class="arch-main">
-      <div class="arch-layer user">
-        <div class="arch-layer-title">👤 用户层 (User Layer)</div>
-        <div class="arch-grid arch-grid-4"><div class="arch-box">🖥️ 桌面浏览器<br><small>Chrome / Edge / Safari</small></div><div class="arch-box">📱 移动浏览器<br><small>手机端 H5 访问</small></div><div class="arch-box">💬 微信小程序<br><small>WeChat Mini Program</small></div><div class="arch-box">🔌 API 客户端<br><small>RESTful API 调用</small></div></div>
-      </div>
-      <div class="arch-layer application">
-        <div class="arch-layer-title">🚪 网关层 (Gateway) — Nginx 反向代理</div>
-        <div class="arch-grid arch-grid-4"><div class="arch-box highlight">SSL 终止<br><small>HTTPS 证书管理</small></div><div class="arch-box">请求路由<br><small>/ → 前端 /api/ → 后端</small></div><div class="arch-box">负载均衡<br><small>多实例分发</small></div><div class="arch-box">静态资源<br><small>前端 dist 文件服务</small></div></div>
-      </div>
-      <div class="arch-layer user">
-        <div class="arch-layer-title">🎨 前端层 (Frontend) — React 19 + Vite 8</div>
-        <div class="arch-grid arch-grid-2"><div class="arch-box highlight">zifeng-web<br><small>用户端 · TypeScript + Vite 8 · 端口 8088/</small></div><div class="arch-box highlight">zifeng-admin<br><small>管理后台 · Ant Design 6 · 端口 8088/admin/</small></div></div>
-      </div>
-      <div class="arch-layer application">
-        <div class="arch-layer-title">⚙️ 后端层 (Backend) — Spring Boot 3.2</div>
-        <div class="arch-grid arch-grid-6"><div class="arch-box">module-user<br><small>用户管理</small></div><div class="arch-box">module-source<br><small>书源管理</small></div><div class="arch-box">module-parse<br><small>内容解析</small></div><div class="arch-box">module-admin<br><small>后台管理</small></div><div class="arch-box">module-feedback<br><small>用户反馈</small></div><div class="arch-box">module-invite<br><small>邀请码</small></div></div>
-        <div style="margin-top: 8px;"><div class="arch-grid arch-grid-3"><div class="arch-box tech">Sa-Token 认证<br><small>RBAC 权限控制</small></div><div class="arch-box tech">限流熔断<br><small>Sentinel 防护</small></div><div class="arch-box tech">缓存管理<br><small>Redis 缓存策略</small></div></div></div>
-      </div>
-      <div class="arch-layer ai">
-        <div class="arch-layer-title">🧠 解析引擎层 (Parser Engine) — Express + Cheerio + Puppeteer</div>
-        <div class="arch-grid arch-grid-4"><div class="arch-box">规则引擎<br><small>动态书源规则匹配</small></div><div class="arch-box">Java Shim<br><small>Java 原生模块桥接</small></div><div class="arch-box">内容解密<br><small>反爬虫绕过 · 内容提取</small></div><div class="arch-box">语言转换<br><small>简繁转换 · 编码处理</small></div></div>
-      </div>
-      <div class="arch-layer data">
-        <div class="arch-layer-title">🗄️ 数据层 (Data Layer)</div>
-        <div class="arch-grid arch-grid-2"><div class="arch-box highlight">MySQL 8<br><small>结构化数据 · 用户/书籍/章节</small></div><div class="arch-box highlight">Redis 7<br><small>缓存 · 会话 · 限流计数器</small></div></div>
-      </div>
-      <div class="arch-layer infra">
-        <div class="arch-layer-title">☸️ 部署层 (Deploy & Operations)</div>
-        <div class="arch-grid arch-grid-4"><div class="arch-box tech">Docker Compose<br><small>本地开发部署</small></div><div class="arch-box tech">Docker Swarm<br><small>集群编排</small></div><div class="arch-box tech">Kubernetes<br><small>容器编排 · Helm 包管理</small></div><div class="arch-box tech">Nginx<br><small>反向代理 · 负载均衡</small></div></div>
-      </div>
-    </div>
-    <div class="arch-sidebar">
-      <div class="arch-sidebar-panel"><div class="arch-sidebar-title">关键技术栈</div><div class="arch-sidebar-item metric">React 19</div><div class="arch-sidebar-item metric">Spring Boot 3</div><div class="arch-sidebar-item metric">Express</div><div class="arch-sidebar-item metric">MySQL 8 / Redis 7</div></div>
-      <div class="arch-sidebar-panel"><div class="arch-sidebar-title">服务端口</div><div class="arch-sidebar-item">Nginx: 8088</div><div class="arch-sidebar-item">Server: 8080</div><div class="arch-sidebar-item">Parser: 3001</div></div>
-      <div class="arch-sidebar-panel"><div class="arch-sidebar-title">部署方式</div><div class="arch-sidebar-item">🐳 Docker 部署</div><div class="arch-sidebar-item">☁️ 云端 K8s</div></div>
-    </div>
-  </div>
-</div>
-
-同时提供了对应的 SVG 版本： [architecture-overview.svg](architecture-overview.svg)
+![系统架构图](architecture-overview.svg)
 
 ### 项目目录结构
 
 ```
 zifeng-novel-free/
-├── start-dev.py         🚀 开发环境一键启动脚本
-├── stop-dev.py          🛑 开发环境一键停止脚本
-├── zifeng-web/          🎨 用户前端      React 19 + Ant Design 6 + Vite 8
-│   ├── pages/
-│   │   ├── Home              首页推荐
-│   │   ├── SearchResult      聚合搜索
-│   │   ├── NovelDetail       书籍详情
-│   │   ├── Reader            沉浸阅读器
-│   │   ├── Shelf             智能书架
-│   │   ├── Category          分类浏览
-│   │   ├── RankDetail        排行榜单
-│   │   ├── BookSourcePage    书源选择
-│   │   ├── UserCenter        个人中心
-│   │   └── Setting           个性设置
-│   └── utils/
-│       ├── bookSourceManager 书源状态管理
-│       ├── apiClient         API 请求封装
-│       ├── cryptoConfig      加密配置
-│       └── novelConfig       小说缓存配置
+├── start-dev.py              开发环境一键启动脚本
+├── stop-dev.py               开发环境一键停止脚本
+├── .env.production           生产环境变量配置
+├── architecture-overview.svg 系统架构图
 │
-├── zifeng-admin/        🛠️ 管理后台      React 19 + Ant Design 6 + Vite 8
-│   ├── pages/
-│   │   ├── dashboard/        仪表盘（概览 + 日志）
-│   │   ├── booksource/       书源管理（列表 + 导入 + 统计）
-│   │   ├── feedback/         用户反馈（统计 + 列表 + 回复）
-│   │   ├── reading/          阅读管理（书架 + 历史）
-│   │   ├── UserManagement    用户管理
-│   │   └── AdminManagement   管理员管理
-│   └── utils/
-│       ├── adminApi          管理 API（含缓存 + 限流处理）
-│       └── bookSourceManager 书源工具
+├── zifeng-web/               用户前端 (React 19 + Ant Design 6 + Vite 8)
+│   ├── src/pages/
+│   │   ├── Home                  首页推荐
+│   │   ├── SearchResult          聚合搜索
+│   │   ├── NovelDetail           书籍详情
+│   │   ├── Reader                沉浸阅读器
+│   │   ├── Shelf                 智能书架
+│   │   ├── Category              分类浏览
+│   │   ├── RankDetail            排行榜单
+│   │   ├── BookSourcePage        书源选择
+│   │   ├── UserCenter            个人中心
+│   │   └── Setting               个性设置
+│   └── src/utils/
+│       ├── bookSourceManager     书源状态管理
+│       ├── apiClient             API 请求封装
+│       ├── cryptoConfig          加密配置
+│       └── novelConfig           小说缓存配置
 │
-├── zifeng-server/       ☕ 后端服务       Spring Boot 3.2 + JPA + Sa-Token
-│   └── com.zifeng/
-│       ├── config/           配置（缓存 + 限流 + CORS + Sa-Token）
-│       ├── module-user/      用户模块（认证/书架/进度/头像）
-│       ├── module-source/    书源模块（CRUD/导入导出）
-│       ├── module-parse/     解析模块（代理/缓存）
-│       ├── module-admin/     管理模块（统计/日志/管理）
-│       ├── module-feedback/  反馈模块（提交/回复/状态管理）
-│       └── module-invite/    邀请码模块（生成/验证/管理）
+├── zifeng-admin/             管理后台 (React 19 + Ant Design 6 + Vite 8)
+│   ├── src/pages/
+│   │   ├── dashboard/            仪表盘（概览 + 日志）
+│   │   ├── booksource/           书源管理（列表 + 导入 + 统计）
+│   │   ├── feedback/             用户反馈（统计 + 列表 + 回复）
+│   │   ├── reading/              阅读管理（书架 + 历史）
+│   │   ├── UserManagement        用户管理
+│   │   └── AdminManagement       管理员管理
+│   └── src/utils/
+│       ├── adminApi              管理 API（含缓存 + 限流处理）
+│       └── bookSourceManager     书源工具
 │
-├── zifeng-parser/       ⚡ 解析引擎       Express + Cheerio + Puppeteer
-    ├── index.js              服务入口 + API 路由
-    ├── ruleEngine.js         规则引擎（JSONPath/XPath/CSS/JS）
-    ├── javaShim.js           Java 方法模拟层
-    ├── selectors.js          CSS/XPath 选择器
-    └── utils.js              工具函数
+├── zifeng-server/            后端服务 (Spring Boot 3.2 + JPA + Sa-Token)
+│   └── src/main/java/com/zifeng/
+│       ├── config/               配置（缓存 + 限流 + CORS + Sa-Token）
+│       ├── module-user/          用户模块（认证/书架/进度/头像）
+│       ├── module-source/        书源模块（CRUD/导入导出）
+│       ├── module-parse/         解析模块（代理/缓存）
+│       ├── module-admin/         管理模块（统计/日志/管理）
+│       ├── module-feedback/      反馈模块（提交/回复/状态管理）
+│       └── module-invite/        邀请码模块（生成/验证/管理）
+│
+├── zifeng-parser/            解析引擎 (Express + Cheerio + Puppeteer)
+│   ├── index.js                  服务入口 + API 路由
+│   ├── ruleEngine.js             规则引擎（JSONPath/XPath/CSS/JS）
+│   ├── javaShim.js               Java 方法模拟层
+│   ├── selectors.js              CSS/XPath 选择器
+│   └── utils.js                  工具函数
+│
+├── zifeng-harmony/           鸿蒙原生 App (HarmonyOS NEXT + ArkTS + ArkUI)
+│   ├── entry/src/main/ets/
+│   │   ├── pages/                页面（Index / SearchResult / Reader / Login 等）
+│   │   ├── modules/              首页模块（Recommend / Category / Rank / BookShelves / MyHome）
+│   │   ├── service/              API 与业务服务（ApiClient / Auth / Book / Search 等）
+│   │   ├── common/               公共组件（DesignSystem / Glass / Loading / Particle）
+│   │   └── utils/                工具（CryptoJS / splitContent）
+│   └── AppScope/                 应用级配置与资源
+│
+└── deploy/                   部署配置 (Docker + Nginx)
+    ├── nginx/                    Nginx 网关配置
+    └── init/                     数据库初始化脚本
 ```
 
 ### 服务端口
@@ -352,7 +400,7 @@ zifeng-novel-free/
 |:-----|:-----|:---------|
 | `module-user` | 用户服务 | 注册登录、书架管理、阅读进度、头像上传 |
 | `module-source` | 书源服务 | 书源 CRUD、JSON/URL 导入导出、启用禁用 |
-| `module-parse` | 解析服务 | 解析代理、搜索/详情/目录/正文解析 |
+| `module-parse` | 解析服务 | 搜索/详情/目录/正文解析、分类/排行接口、解析代理 |
 | `module-admin` | 管理服务 | 数据统计、访问日志、管理员 CRUD |
 | `module-feedback` | 反馈服务 | 反馈提交、管理员回复、状态流转、统计 |
 | `module-invite` | 邀请码服务 | 邀请码生成、验证、批量管理 |
@@ -481,7 +529,10 @@ python stop-dev.py
 4. 启动解析引擎 `zifeng-parser`（端口 3001）
 5. 启动 Spring Boot 后端 `zifeng-server`（端口 8080）
 
-启动后访问 **http://localhost:8088** 即可使用。
+启动后访问：
+
+- **用户端**：http://localhost:8088
+- **管理后台**：http://localhost:8088/admin
 
 ### 方式二：手动启动
 
@@ -493,8 +544,8 @@ cd zifeng-web && npm install && npm run build
 cd ../zifeng-admin && npm install && npm run build
 
 # 3. 启动 Nginx（代理前端 + 反向代理 API）
-#    确保 Nginx 已安装并配置好 zifeng-local.conf
-nginx -c /path/to/deploy/nginx/zifeng-local.conf
+#    将 deploy/nginx/nginx-gateway.conf 引入 Nginx 主配置后启动
+nginx
 
 # 4. 解析引擎（新终端）
 cd ../zifeng-parser && npm install && npm start
@@ -506,14 +557,15 @@ cd ../zifeng-server && mvn spring-boot:run
 ### 方式三：Docker Compose 生产部署
 
 ```bash
-cd deploy
+# 配置环境变量（参照 .env.production 中的变量说明）
+cp .env.production .env.local
+# 编辑 .env.local 填入实际配置
 
-# 配置环境变量
-cp .env.production.template .env.production
-# 编辑 .env.production 填入实际配置
+# 启动全部服务（Docker Engine 20.10+ 建议使用 docker compose）
+docker compose up -d
 
-# 启动全部 7 个服务
-docker-compose -f docker-compose.prod.yml up -d
+# 旧版 Docker Compose 插件用户也可使用
+docker-compose up -d
 ```
 
 Docker Compose 包含：**Nginx 网关 + Spring Boot + Parser + Web + Admin + MySQL + Redis**
@@ -537,30 +589,38 @@ JPA 会自动创建表结构，首次启动会初始化超级管理员账号。
 | `zifeng-server/src/main/resources/application.yml` | Spring Boot 主配置 |
 | `zifeng-server/src/main/resources/application-prod.yml` | 生产环境配置 |
 | `.env.production` | 生产部署环境变量 |
-| `deploy/.env.production.template` | 生产部署环境变量模板 |
+| `deploy/nginx/nginx-gateway.conf` | Nginx 网关路由配置 |
 
 ---
 
 ## 🐳 生产部署架构
 
 ```
-                    ┌──────────────┐
-                    │   Nginx 网关  │ :80 / :443
-                    │  (SSL + 路由) │
-                    └──────┬───────┘
-               ┌───────────┼───────────┐
-               ▼           ▼           ▼
-        ┌──────────┐ ┌──────────┐ ┌──────────┐
-        │   Web    │ │  Admin   │ │  Server  │ :8080
-        │ (静态站)  │ │ (静态站)  │ │ Spring   │
-        └──────────┘ └──────────┘ └─────┬────┘
-                                       │
-                              ┌────────┼────────┐
-                              ▼        ▼        ▼
-                        ┌─────────┐ ┌──────┐ ┌────────┐
-                        │ Parser  │ │MySQL │ │ Redis  │
-                        │ :3001   │ │ :3306│ │ :6379  │
-                        └─────────┘ └──────┘ └────────┘
+        ┌─────────────┐      ┌─────────────┐      ┌─────────────────┐
+        │   Web 浏览器   │      │  Admin 浏览器  │      │  鸿蒙原生 App    │
+        │  :80 / :443  │      │  /admin       │      │  HarmonyOS NEXT │
+        └──────┬──────┘      └──────┬──────┘      └────────┬────────┘
+               │                    │                      │
+               └────────────────────┼──────────────────────┘
+                                    ▼
+                           ┌──────────────┐
+                           │   Nginx 网关  │ :80 / :443
+                           │ (SSL + 路由)  │
+                           └──────┬───────┘
+                                  │
+                    ┌─────────────┼─────────────┐
+                    ▼             ▼             ▼
+             ┌──────────┐  ┌──────────┐  ┌──────────┐
+             │   Web    │  │  Admin   │  │  Server  │ :8080
+             │ (静态站)  │  │ (静态站)  │  │ Spring   │
+             └──────────┘  └──────────┘  └─────┬────┘
+                                                │
+                                       ┌────────┼────────┐
+                                       ▼        ▼        ▼
+                                 ┌─────────┐ ┌──────┐ ┌────────┐
+                                 │ Parser  │ │MySQL │ │ Redis  │
+                                 │ :3001   │ │ :3306│ │ :6379  │
+                                 └─────────┘ └──────┘ └────────┘
 ```
 
 ### 部署工具链
@@ -568,10 +628,8 @@ JPA 会自动创建表结构，首次启动会初始化超级管理员账号。
 | 工具 | 用途 |
 |:-----|:-----|
 | **Docker Compose** | 单机全容器化部署 |
-| **Docker Swarm** | 集群化部署 + Prometheus + Grafana 监控 |
-| **Kubernetes + Helm** | 云原生编排 + ArgoCD GitOps |
 | **Nginx** | 网关路由 + SSL 终止 + 负载均衡 |
-| **部署脚本** | 健康检查 / 备份恢复 / 灰度发布 / 回滚 |
+| **部署脚本** | 健康检查 / 备份恢复 / 回滚 |
 
 ---
 
@@ -612,7 +670,9 @@ JPA 会自动创建表结构，首次启动会初始化超级管理员账号。
 
 **解析引擎** — [Express](https://expressjs.com/) · [Cheerio](https://cheerio.js.org/) · [Puppeteer](https://pptr.dev/) · [crypto-js](https://github.com/brix/crypto-js) · [opencc-js](https://github.com/nicktomlin/opencc-js)
 
-**部署** — [Docker](https://www.docker.com/) · [Nginx](https://nginx.org/) · [Kubernetes](https://kubernetes.io/) · [Helm](https://helm.sh/) · [ArgoCD](https://argoproj.github.io/cd/) · [Prometheus](https://prometheus.io/) · [Grafana](https://grafana.com/)
+**鸿蒙端** — [HarmonyOS](https://www.harmonyos.com/) · [ArkTS](https://developer.harmonyos.com/cn/docs/documentation-guides/arkts-overview-0000001820879805) · [ArkUI](https://developer.harmonyos.com/cn/docs/documentation-guides/arkui-overview-0000001820999809)
+
+**部署** — [Docker](https://www.docker.com/) · [Nginx](https://nginx.org/)
 
 ### 灵感来源
 

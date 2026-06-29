@@ -12,6 +12,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -34,8 +35,8 @@ public class BookSourceController {
 
     @PostMapping
     @CacheEvict(value = "publicSources", allEntries = true)
-    public ApiResponse<BookSource> addSource(@RequestBody Map<String, Object> sourceData) {
-        return ApiResponse.ok(bookSourceService.addSource(getCurrentUserId(), sourceData));
+    public ApiResponse<BookSource> addSource(@Valid @RequestBody AddSourceRequest request) {
+        return ApiResponse.ok(bookSourceService.addSource(getCurrentUserId(), request));
     }
 
     @DeleteMapping
@@ -65,10 +66,10 @@ public class BookSourceController {
 
     @PutMapping
     @CacheEvict(value = "publicSources", allEntries = true)
-    public ApiResponse<BookSource> updateSource(@RequestBody Map<String, Object> sourceData) {
+    public ApiResponse<BookSource> updateSource(@Valid @RequestBody UpdateSourceRequest request) {
         try {
             Long userId = getCurrentUserId();
-            BookSource updated = bookSourceService.updateSource(userId, sourceData);
+            BookSource updated = bookSourceService.updateSource(userId, request);
             return ApiResponse.ok(updated);
         } catch (RuntimeException e) {
             return ApiResponse.fail(e.getMessage());
@@ -157,7 +158,30 @@ public class BookSourceController {
         long hasLogin = bookSourceService.getHasLoginCount();
         long hasJs = bookSourceService.getHasJsCount();
         long hasExplore = bookSourceService.getHasExploreCount();
-        return ApiResponse.ok(Map.of("total", total, "enabled", enabled, "disabled", total - enabled, "hasLogin", hasLogin, "hasJs", hasJs, "hasExplore", hasExplore));
+        long hasSearch = bookSourceService.getHasSearchCount();
+        long hasContent = bookSourceService.getHasContentCount();
+        long hasExploreUrl = bookSourceService.getHasExploreUrlCount();
+        long typeText = bookSourceService.getTypeTextCount();
+        long typeWeb = bookSourceService.getTypeWebCount();
+        long typeComic = bookSourceService.getTypeComicCount();
+        long typeAudio = bookSourceService.getTypeAudioCount();
+        long hasCookie = bookSourceService.getHasCookieCount();
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("total", total);
+        stats.put("enabled", enabled);
+        stats.put("disabled", total - enabled);
+        stats.put("hasLogin", hasLogin);
+        stats.put("hasJs", hasJs);
+        stats.put("hasExplore", hasExplore);
+        stats.put("hasSearch", hasSearch);
+        stats.put("hasContent", hasContent);
+        stats.put("hasExploreUrl", hasExploreUrl);
+        stats.put("typeText", typeText);
+        stats.put("typeWeb", typeWeb);
+        stats.put("typeComic", typeComic);
+        stats.put("typeAudio", typeAudio);
+        stats.put("hasCookie", hasCookie);
+        return ApiResponse.ok(stats);
     }
 
     @GetMapping("/admin/paged")

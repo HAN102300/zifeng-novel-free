@@ -49,7 +49,7 @@ const Login = () => {
         localStorage.setItem('zifeng_admin_info', JSON.stringify(admin));
         window.dispatchEvent(new Event('auth-change'));
         message.success('登录成功');
-        navigate('/dashboard');
+        navigate('/dashboard/overview');
       } else {
         message.error(res.data?.message || '登录失败');
         fetchCaptcha();
@@ -94,6 +94,17 @@ const Login = () => {
         borderRadius: '50%',
         background: 'rgba(255,255,255,0.03)',
         filter: 'blur(60px)',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute',
+        top: '40%',
+        left: '30%',
+        width: 300,
+        height: 300,
+        borderRadius: '50%',
+        background: 'rgba(118, 75, 162, 0.06)',
+        filter: 'blur(70px)',
         pointerEvents: 'none',
       }} />
 
@@ -142,7 +153,7 @@ const Login = () => {
             transition={{ delay: 0.2, duration: 0.5 }}
             style={{ textAlign: 'center', marginBottom: 36 }}
           >
-            <div style={{
+            <div className="brand-pulse" style={{
               width: 64,
               height: 64,
               borderRadius: 16,

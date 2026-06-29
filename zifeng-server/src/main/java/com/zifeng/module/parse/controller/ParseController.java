@@ -103,13 +103,27 @@ public class ParseController {
 
     @PostMapping("/book-info/unified")
     public ApiResponse<Map<String, Object>> getUnifiedBookInfo(@RequestBody ParseRequest request) {
-        Map<String, Object> rawResult = parsingProxyService.getBookInfo(
-                request.getSource(),
-                request.getBookUrl(),
-                request.getBook());
+        Map<String, Object> rawResult;
+        try {
+            rawResult = parsingProxyService.getBookInfo(
+                    request.getSource(),
+                    request.getBookUrl(),
+                    request.getBook());
+        } catch (Exception e) {
+            Map<String, Object> fallback = new HashMap<>();
+            fallback.put("success", false);
+            fallback.put("message", "解析服务异常: " + e.getMessage());
+            return ApiResponse.ok(fallback);
+        }
 
         if (rawResult != null && Boolean.TRUE.equals(rawResult.get("success"))) {
             Map<String, Object> rawInfo = unifiedAdapter.safeGetMap(rawResult, "bookInfo");
+            if (rawInfo == null) {
+                Map<String, Object> fallback = new HashMap<>();
+                fallback.put("success", false);
+                fallback.put("message", "书籍信息为空");
+                return ApiResponse.ok(fallback);
+            }
             String sourceUrl = request.getSource() != null
                 ? String.valueOf(request.getSource().getOrDefault("bookSourceUrl", ""))
                 : "";

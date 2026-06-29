@@ -9,10 +9,9 @@ import {
 import {
   getAdminSourcesPaged, deleteAdminSource, updateAdminSource,
   createAdminSource, testSource, loginSource, browserLogin,
-  importAdminSources, importFromUrl, batchDeleteAdminSources,
+  importAdminSources, batchDeleteAdminSources,
 } from '../../utils/adminApi';
 import { detectSourceType } from '../../utils/bookSourceManager';
-import { fadeInUp, cardHover, cardLeave } from '../../utils/animations';
 import { ThemeContext } from '../../App';
 
 const SOURCE_TYPE_MAP = {
@@ -421,7 +420,7 @@ const SourceList = () => {
     { title: '名称', dataIndex: 'bookSourceName', key: 'bookSourceName', width: 160, ellipsis: true, render: (text) => <span style={{ fontWeight: 500 }}>{text}</span> },
     { title: 'URL', dataIndex: 'bookSourceUrl', key: 'bookSourceUrl', width: 200, ellipsis: true, render: (text) => <Tooltip placement="topLeft" title={text}><span style={{ fontFamily: "'SF Mono', 'Cascadia Code', Consolas, monospace", fontSize: 13, fontWeight: 400, color: isDarkMode ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)' }}>{text}</span></Tooltip> },
     { title: '分组', dataIndex: 'bookSourceGroup', key: 'bookSourceGroup', width: 100, ellipsis: true, render: (text) => text ? <Tag>{text}</Tag> : '-' },
-    { title: '类型', dataIndex: 'bookSourceType', key: 'bookSourceType', width: 80, render: (val, record) => { const detectedType = detectSourceType(record); const info = SOURCE_TYPE_MAP[detectedType] || { color: 'default', label: '未知' }; return <Tag color={info.color}>{info.label}</Tag>; } },
+    { title: '类型', dataIndex: 'bookSourceType', key: 'bookSourceType', width: 80, render: (val) => { const info = SOURCE_TYPE_MAP[val] || { color: 'default', label: '未知' }; return <Tag color={info.color}>{info.label}</Tag>; } },
     { title: '启用', dataIndex: 'enabled', key: 'enabled', width: 70, render: (val, record) => <Switch size="small" checked={val} onChange={() => handleToggleEnabled(record)} /> },
     {
       title: '操作', key: 'actions', width: 200, fixed: 'right',
@@ -451,7 +450,7 @@ const SourceList = () => {
   return (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12, flexShrink: 0 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>书源列表</h2>
+        <h2 className="page-title">书源列表</h2>
         <Space wrap>
           <Input.Search placeholder="搜索书源" allowClear value={searchText} onChange={(e) => handleSearch(e.target.value)} onSearch={(v) => fetchSources(1, pagination.pageSize, v)} style={{ width: 200 }} />
           <Button type="primary" icon={<PlusOutlined />} onClick={openAddModal}>添加书源</Button>

@@ -1,66 +1,35 @@
-import anime from 'animejs/lib/anime.es.js';
-
-export const fadeInUp = (targets, delay = 0) => {
-  return anime({
-    targets,
-    opacity: [0, 1],
-    translateY: [24, 0],
-    duration: 600,
-    delay,
-    easing: 'easeOutCubic',
-  });
-};
-
-export const fadeIn = (targets, delay = 0) => {
-  return anime({
-    targets,
-    opacity: [0, 1],
-    duration: 500,
-    delay,
-    easing: 'easeOutCubic',
-  });
-};
-
-export const scaleIn = (targets, delay = 0) => {
-  return anime({
-    targets,
-    opacity: [0, 1],
-    scale: [0.9, 1],
-    duration: 500,
-    delay,
-    easing: 'easeOutCubic',
+export const fadeInUp = (targets) => {
+  if (!targets) return;
+  const elements = Array.isArray(targets) ? targets : [targets];
+  elements.forEach((el, i) => {
+    if (!el || !el.style) return;
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(24px)';
+    el.style.transition = 'none';
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.style.transition = `opacity 600ms ease ${i * 60}ms, transform 600ms ease ${i * 60}ms`;
+        el.style.opacity = '1';
+        el.style.transform = 'translateY(0)';
+      });
+    });
   });
 };
 
 export const staggerFadeIn = (targets, staggerDelay = 60) => {
-  return anime({
-    targets,
-    opacity: [0, 1],
-    translateY: [16, 0],
-    duration: 500,
-    delay: anime.stagger(staggerDelay),
-    easing: 'easeOutCubic',
+  if (!targets) return;
+  const elements = Array.isArray(targets) ? targets : Array.from(targets);
+  elements.forEach((el, i) => {
+    if (!el || !el.style) return;
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(16px)';
+    el.style.transition = 'none';
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.style.transition = `opacity 500ms ease ${i * staggerDelay}ms, transform 500ms ease ${i * staggerDelay}ms`;
+        el.style.opacity = '1';
+        el.style.transform = 'translateY(0)';
+      });
+    });
   });
 };
-
-export const slideInLeft = (targets, delay = 0) => {
-  return anime({
-    targets,
-    opacity: [0, 1],
-    translateX: [-20, 0],
-    duration: 500,
-    delay,
-    easing: 'easeOutCubic',
-  });
-};
-
-export const pulseEffect = (targets) => {
-  return anime({
-    targets,
-    scale: [1, 1.05, 1],
-    duration: 400,
-    easing: 'easeInOutQuad',
-  });
-};
-
-export { anime };

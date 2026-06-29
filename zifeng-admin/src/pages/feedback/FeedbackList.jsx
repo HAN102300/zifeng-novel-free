@@ -16,6 +16,14 @@ const categoryMap = {
   other: { label: '其他', color: 'default' },
 };
 
+// 允许的状态流转：key=当前状态, value=可切换到的状态码数组
+const ALLOWED_TRANSITIONS = {
+  0: [1, 3],    // 待处理 → 处理中, 已关闭
+  1: [2, 3],    // 处理中 → 已解决, 已关闭
+  2: [1, 3],    // 已解决 → 处理中(重开), 已关闭
+  3: [],        // 已关闭 → 终态
+};
+
 const statusMap = {
   0: { label: '待处理', color: 'orange', icon: <ClockCircleOutlined /> },
   1: { label: '处理中', color: 'blue', icon: <SyncOutlined spin /> },
@@ -123,8 +131,9 @@ const FeedbackList = () => {
       message.success('状态更新成功');
       fetchFeedbacks(pagination.current, pagination.pageSize);
       fetchStats();
-    } catch {
-      message.error('状态更新失败');
+    } catch (err) {
+      const msg = err?.response?.data?.message || '状态更新失败';
+      message.error(msg);
     }
   };
 
@@ -173,11 +182,13 @@ const FeedbackList = () => {
       ),
     },
     {
-      title: '用户ID',
-      dataIndex: 'userId',
-      key: 'userId',
-      width: 90,
-      render: (id) => <Tag>用户{id}</Tag>,
+      title: '用户',
+      dataIndex: 'username',
+      key: 'username',
+      width: 100,
+      render: (username, record) => username
+        ? <Tag color="blue">{username}</Tag>
+        : <Tag>用户{record.userId}</Tag>,
     },
     {
       title: '状态',
@@ -202,11 +213,12 @@ const FeedbackList = () => {
       width: 160,
       fixed: 'right',
       render: (_, record) => {
-        const statusItems = Object.entries(statusMap).map(([value, info]) => ({
-          key: value,
-          label: info.label,
-          icon: info.icon,
-        }));
+        const allowedNext = ALLOWED_TRANSITIONS[record.status] || [];
+        const statusItems = allowedNext.map((value) => {
+          const info = statusMap[value];
+          return { key: String(value), label: info.label, icon: info.icon };
+        });
+        const isTerminal = statusItems.length === 0;
 
         return (
           <Space size={4}>
@@ -223,8 +235,9 @@ const FeedbackList = () => {
                 items: statusItems,
                 onClick: ({ key }) => handleStatusChange(record.id, parseInt(key)),
               }}
+              disabled={isTerminal}
             >
-              <Button type="link" size="small">
+              <Button type="link" size="small" disabled={isTerminal}>
                 状态 <span style={{ fontSize: 10 }}>▼</span>
               </Button>
             </Dropdown>
@@ -247,10 +260,11 @@ const FeedbackList = () => {
         {statCards.map((card) => (
           <Col xs={12} sm={12} md={6} key={card.key}>
             <Card
+              className="stat-card-brand"
               style={cardStyle}
               styles={{ body: { padding: '20px 24px' } }}
-              onMouseEnter={(e) => cardHover(e.currentTarget)}
-              onMouseLeave={(e) => cardLeave(e.currentTarget)}
+              onMouseEnter={(e) => cardHover(e.currentTarget, isDarkMode)}
+              onMouseLeave={(e) => cardLeave(e.currentTarget, isDarkMode)}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
@@ -290,7 +304,7 @@ const FeedbackList = () => {
         gap: 12,
         flexShrink: 0,
       }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>反馈列表</h2>
+        <h2 className="page-title">反馈列表</h2>
         <Space wrap>
           <Select
             placeholder="反馈类型"
@@ -403,7 +417,7 @@ const FeedbackList = () => {
               flexDirection: 'column',
               gap: 4,
             }}>
-              <span>提交用户：用户{detailModal.data.userId}</span>
+              <span>提交用户：{detailModal.data.username || `用户${detailModal.data.userId}`}</span>
               <span>提交时间：{detailModal.data.createdAt ? new Date(detailModal.data.createdAt).toLocaleString('zh-CN') : '-'}</span>
               {detailModal.data.pageUrl && <span>页面地址：{detailModal.data.pageUrl}</span>}
               {detailModal.data.userAgent && (
@@ -423,7 +437,7 @@ const FeedbackList = () => {
                 padding: 16,
               }}>
                 <div style={{ fontWeight: 600, marginBottom: 8, color: '#1890ff', fontSize: 13 }}>
-                  管理员回复
+                  管理员回复{detailModal.data.repliedByUsername ? `（${detailModal.data.repliedByUsername}）` : ''}
                 </div>
                 <div style={{ color: isDarkMode ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.75)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
                   {detailModal.data.adminReply}

@@ -8,7 +8,7 @@ import { ThemeContext } from '../../App';
 const { Text } = Typography;
 
 const Overview = () => {
-  const { isDarkMode } = useContext(ThemeContext);
+  const { isDarkMode, currentTheme, themeConfigs } = useContext(ThemeContext);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState(0);
@@ -81,6 +81,7 @@ const Overview = () => {
     border: 'none',
     boxShadow: isDarkMode ? '0 2px 12px rgba(0,0,0,0.3)' : '0 2px 12px rgba(0,0,0,0.06)',
     overflow: 'hidden',
+    transition: 'transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.25s cubic-bezier(0.25, 0.1, 0.25, 1)',
   };
 
   const columnConfig = {
@@ -96,53 +97,86 @@ const Overview = () => {
       style: { fill: isDarkMode ? '#fff' : '#333', fontSize: 13, fontWeight: 600 },
     },
     axis: {
-      x: { label: { style: { fill: isDarkMode ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)', fontSize: 12 } } },
+      x: {
+        label: {
+          style: { fill: isDarkMode ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)', fontSize: 12 },
+          autoHide: true,
+          autoRotate: false,
+        },
+      },
       y: { label: { style: { fill: isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' } } },
     },
     style: { radiusTopLeft: 6, radiusTopRight: 6 },
+    tooltip: (d) => ({ name: d.name, value: d.value.toLocaleString() }),
+    interaction: { elementHighlight: { background: true } },
     theme: isDarkMode ? 'classicDark' : 'classic',
+    animation: { appear: { animation: 'fade-in', duration: 600 } },
   };
+
+  const primaryColor = themeConfigs[currentTheme]?.primaryColor || '#1890ff';
 
   const areaConfig = {
     data: visitTrendData,
     xField: 'date',
     yField: 'value',
     smooth: true,
-    style: { fill: 'linear-gradient(-90deg, #1890ff 0%, rgba(24,144,255,0.1) 100%)' },
+    style: {
+      fill: `linear-gradient(-90deg, ${primaryColor} 0%, ${primaryColor}20 100%)`,
+    },
+    line: {
+      style: { stroke: primaryColor, lineWidth: 3, shadowColor: primaryColor, shadowBlur: 10 },
+    },
     axis: {
-      x: { label: { style: { fill: isDarkMode ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)', fontSize: 11 } } },
+      x: {
+        label: {
+          style: { fill: isDarkMode ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)', fontSize: 12 },
+          rotate: 0,
+          autoHide: true,
+          autoRotate: false,
+        },
+      },
       y: { label: { style: { fill: isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' } } },
     },
-    interaction: { tooltip: { marker: false } },
+    tooltip: (d) => ({ name: '访问量', value: d.value.toLocaleString(), title: d.date }),
+    interaction: { tooltip: { shared: true, marker: false }, elementHighlight: true },
     theme: isDarkMode ? 'classicDark' : 'classic',
+    animation: { appear: { animation: 'path-in', duration: 800, easing: 'ease-out' } },
   };
 
   const pieConfig = {
     data: ipPieData,
     angleField: 'value',
     colorField: 'type',
-    color: ['#1890ff', '#bae7ff'],
-    radius: 0.8,
+    color: [primaryColor, `${primaryColor}33`],
+    radius: 0.85,
     innerRadius: 0.6,
     label: {
-      text: (d) => `${d.type}: ${d.value}`,
-      style: { fontWeight: 600, fill: isDarkMode ? '#fff' : '#333' },
+      text: (d) => `${d.type}: ${d.value.toLocaleString()}`,
+      position: 'outside',
+      connector: true,
+      style: { fontSize: 12, fontWeight: 500, fill: isDarkMode ? '#fff' : '#333' },
+      layout: [{ type: 'overlap-hide' }, { type: 'limit-in-canvas' }],
     },
-    legend: { color: { position: 'bottom' } },
+    legend: { color: { position: 'right' } },
+    tooltip: (d) => ({ name: d.type, value: d.value.toLocaleString() }),
+    interaction: { elementHighlight: true },
     theme: isDarkMode ? 'classicDark' : 'classic',
+    animation: { appear: { animation: 'fade-in', duration: 600 } },
   };
 
   return (
-    <div style={{ flex: 1, overflow: 'auto' }}>
-      <Row gutter={[16, 16]} ref={statsRef}>
+    <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+      <h2 className="page-title" style={{ marginBottom: 16 }}>数据概览</h2>
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }} ref={statsRef}>
         <Col xs={24} lg={14}>
           <Card
-            title={<span style={{ fontWeight: 600, fontSize: 16 }}>核心数据指标</span>}
+            className="stat-card-brand"
+            title={<span style={{ fontWeight: 600, fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }} />核心数据指标</span>}
             extra={<Text style={{ fontSize: 13, color: isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' }}>{today}</Text>}
             style={cardStyle}
-            styles={{ body: { padding: '16px 16px 8px' } }}
-            onMouseEnter={(e) => cardHover(e.currentTarget)}
-            onMouseLeave={(e) => cardLeave(e.currentTarget)}
+            styles={{ body: { padding: '16px 16px 24px' } }}
+            onMouseEnter={(e) => cardHover(e.currentTarget, isDarkMode)}
+            onMouseLeave={(e) => cardLeave(e.currentTarget, isDarkMode)}
           >
             <Column {...columnConfig} height={320} />
           </Card>
@@ -151,20 +185,21 @@ const Overview = () => {
           <Card
             title={<span style={{ fontWeight: 600, fontSize: 16 }}>IP分布</span>}
             style={cardStyle}
-            styles={{ body: { padding: '16px 16px 8px' } }}
-            onMouseEnter={(e) => cardHover(e.currentTarget)}
-            onMouseLeave={(e) => cardLeave(e.currentTarget)}
+            styles={{ body: { padding: '16px 16px 24px' } }}
+            onMouseEnter={(e) => cardHover(e.currentTarget, isDarkMode)}
+            onMouseLeave={(e) => cardLeave(e.currentTarget, isDarkMode)}
           >
             <Pie {...pieConfig} height={320} />
           </Card>
         </Col>
         <Col xs={24}>
           <Card
-            title={<span style={{ fontWeight: 600, fontSize: 16 }}>访问趋势</span>}
+            className="stat-card-brand"
+            title={<span style={{ fontWeight: 600, fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }} />访问趋势</span>}
             style={cardStyle}
-            styles={{ body: { padding: '16px 16px 8px' } }}
-            onMouseEnter={(e) => cardHover(e.currentTarget)}
-            onMouseLeave={(e) => cardLeave(e.currentTarget)}
+            styles={{ body: { padding: '16px 16px 24px' } }}
+            onMouseEnter={(e) => cardHover(e.currentTarget, isDarkMode)}
+            onMouseLeave={(e) => cardLeave(e.currentTarget, isDarkMode)}
           >
             <Area {...areaConfig} height={280} />
           </Card>

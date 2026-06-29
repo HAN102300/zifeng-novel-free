@@ -5,7 +5,7 @@ import { Card, Form, Input, Button, Steps, Typography, Space, message, Alert } f
 import { LockOutlined, MailOutlined, EyeInvisibleOutlined, EyeTwoTone, UserOutlined } from '@ant-design/icons';
 import BackButton from '../components/BackButton';
 import { ThemeContext } from '../App';
-import { verifyEmail, resetPasswordDev } from '../utils/apiClient';
+import { verifyUserForReset, resetPasswordDev } from '../utils/apiClient';
 import { glassCardStyle } from '../utils/glassStyle';
 
 const { Title, Text } = Typography;
@@ -16,6 +16,7 @@ const ResetPassword = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [emailValue, setEmailValue] = useState('');
+  const [usernameValue, setUsernameValue] = useState('');
   const [maskedUsername, setMaskedUsername] = useState('');
   const [step1Form] = Form.useForm();
   const [step2Form] = Form.useForm();
@@ -25,17 +26,18 @@ const ResetPassword = () => {
   const handleVerifyEmail = async (values) => {
     setLoading(true);
     try {
-      const result = await verifyEmail(values.email);
+      const result = await verifyUserForReset(values.username, values.email);
       if (result.success && result.data?.verified) {
         setEmailValue(values.email);
+        setUsernameValue(values.username);
         setMaskedUsername(result.data.username || '');
         setCurrentStep(1);
-        message.success('邮箱验证成功');
+        message.success('身份验证成功');
       } else {
-        message.error(result.message || '邮箱验证失败');
+        message.error(result.message || '身份验证失败');
       }
     } catch (error) {
-      const msg = error.response?.data?.message || '邮箱验证失败';
+      const msg = error.response?.data?.message || '身份验证失败';
       message.error(msg);
     } finally {
       setLoading(false);
@@ -46,6 +48,7 @@ const ResetPassword = () => {
     setLoading(true);
     try {
       const result = await resetPasswordDev({
+        username: usernameValue,
         email: emailValue,
         newPassword: values.newPassword,
       });
@@ -107,7 +110,7 @@ const ResetPassword = () => {
             </motion.span>
           </Title>
           <Text type="secondary">
-            {currentStep === 0 ? '请输入注册邮箱进行验证' : '请设置新密码'}
+            {currentStep === 0 ? '请输入用户名和邮箱进行身份验证' : '请设置新密码'}
           </Text>
         </div>
 
@@ -116,7 +119,7 @@ const ResetPassword = () => {
           size="small"
           style={{ marginBottom: 24 }}
           items={[
-            { title: '验证邮箱' },
+            { title: '验证身份' },
             { title: '设置新密码' }
           ]}
         />
@@ -133,6 +136,22 @@ const ResetPassword = () => {
               onFinish={handleVerifyEmail}
               layout="vertical"
             >
+              <Form.Item
+                name="username"
+                label="用户名"
+                rules={[
+                  { required: true, message: '请输入用户名' },
+                  { min: 3, max: 20, message: '用户名长度在3-20之间' }
+                ]}
+              >
+                <Input
+                  prefix={<UserOutlined style={{ color: color }} />}
+                  placeholder="请输入注册时使用的用户名"
+                  size="large"
+                  style={{ borderRadius: 8 }}
+                />
+              </Form.Item>
+
               <Form.Item
                 name="email"
                 label="注册邮箱"
@@ -164,7 +183,7 @@ const ResetPassword = () => {
                     boxShadow: `0 6px 22px ${color}66, var(--zf-glow-primary)`
                   }}
                 >
-                  验证邮箱
+                  验证身份
                 </Button>
               </Form.Item>
             </Form>
@@ -185,8 +204,8 @@ const ResetPassword = () => {
               style={{ marginBottom: 16, borderRadius: 8 }}
               message={
                 <Space direction="vertical" size={2}>
-                  <Text>验证邮箱: {emailValue}</Text>
-                  <Text>关联账号: {maskedUsername}</Text>
+                  <Text>用户名: {usernameValue}</Text>
+                  <Text>邮箱: {emailValue}</Text>
                 </Space>
               }
             />

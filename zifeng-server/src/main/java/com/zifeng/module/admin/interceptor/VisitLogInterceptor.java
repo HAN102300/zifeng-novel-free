@@ -6,6 +6,7 @@ import com.zifeng.module.admin.entity.VisitLog;
 import com.zifeng.module.admin.repository.VisitLogRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.zifeng.module.admin.service.IpRegionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -22,8 +23,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class VisitLogInterceptor implements HandlerInterceptor {
 
     private final VisitLogRepository visitLogRepository;
+    private final IpRegionService ipRegionService;
 
     private static final Set<String> TRACKED_PATHS = Set.of(
+            // === 用户认证 ===
             "/api/auth/login",
             "/api/auth/register",
             "/api/auth/info",
@@ -32,16 +35,47 @@ public class VisitLogInterceptor implements HandlerInterceptor {
             "/api/auth/password",
             "/api/auth/reset-password",
             "/api/auth/send-reset-code",
+            "/api/auth/captcha",
+            "/api/auth/verify-email",
+            "/api/auth/reset-password-dev",
+            // === 书架 ===
             "/api/bookshelf",
             "/api/bookshelf/check",
+            "/api/bookshelf/count",
+            // === 阅读 ===
             "/api/reading/progress",
             "/api/reading/history",
+            // === 用户操作 ===
+            "/api/user/avatar",
+            "/api/user/heartbeat",
+            // === 书源 ===
             "/api/sources",
             "/api/sources/enabled",
             "/api/sources/import",
+            "/api/sources/public/all",
+            "/api/sources/toggle",
+            "/api/sources/import-url",
+            "/api/sources/export",
+            "/api/sources/list",
             "/api/sources/admin/all",
             "/api/sources/admin/import",
             "/api/sources/admin/count",
+            // === 反馈 ===
+            "/api/feedback",
+            "/api/feedback/mine",
+            // === 解析 ===
+            "/api/parse/search",
+            "/api/parse/search/aggregated",
+            "/api/parse/test-source",
+            "/api/parse/book-info",
+            "/api/parse/book-info/unified",
+            "/api/parse/toc",
+            "/api/parse/toc/unified",
+            "/api/parse/content",
+            "/api/parse/content/unified",
+            "/api/parse/explore",
+            "/api/parse/proxy",
+            // === 管理端 ===
             "/api/admin/auth/login",
             "/api/admin/auth/captcha",
             "/api/admin/auth/info",
@@ -49,36 +83,30 @@ public class VisitLogInterceptor implements HandlerInterceptor {
             "/api/admin/users",
             "/api/admin/admins",
             "/api/admin/reading/bookshelf",
-            "/api/admin/reading/history",
-            "/api/user/avatar",
-            "/api/parse/search",
-            "/api/parse/test-source",
-            "/api/parse/book-info",
-            "/api/parse/toc",
-            "/api/parse/content",
-            "/api/parse/explore",
-            "/api/novels/detail",
-            "/api/categories",
-            "/api/categories/detail",
-            "/api/rank",
-            "/api/rank/detail",
-            "/api/sources/list"
+            "/api/admin/reading/history"
     );
 
     private static final Set<String> TRACKED_PREFIXES = Set.of(
             "/api/admin/users/",
             "/api/admin/admins/",
-            "/api/sources/admin/"
+            "/api/sources/admin/",
+            "/api/categories/",
+            "/api/rank/"
     );
 
     private static final Set<String> DEDUPLICATE_PATHS = Set.of(
             "/api/auth/info",
             "/api/auth/me",
+            "/api/auth/captcha",
             "/api/sources",
             "/api/sources/enabled",
+            "/api/sources/public/all",
+            "/api/sources/list",
             "/api/admin/auth/info",
             "/api/admin/auth/captcha",
-            "/api/admin/dashboard"
+            "/api/admin/dashboard",
+            "/api/user/heartbeat",
+            "/api/parse/proxy"
     );
 
     private static final long DEDUP_WINDOW_MS = 10_000L;
@@ -130,7 +158,7 @@ public class VisitLogInterceptor implements HandlerInterceptor {
 
             VisitLog visitLog = VisitLog.builder()
                     .ip(ip)
-                    .ipLocation(resolveIpLocation(ip))
+                    .ipLocation(ipRegionService.getRegion(ip))
                     .userAgent(userAgent)
                     .visitUrl(uri)
                     .visitDate(LocalDateTime.now())
@@ -192,13 +220,5 @@ public class VisitLogInterceptor implements HandlerInterceptor {
             ip = ip.split(",")[0].trim();
         }
         return ip;
-    }
-
-    private String resolveIpLocation(String ip) {
-        if (ip == null || ip.isBlank()) return null;
-        if (ip.equals("127.0.0.1") || ip.equals("0:0:0:0:0:0:0:1") || ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("172.")) {
-            return "本地网络";
-        }
-        return null;
     }
 }

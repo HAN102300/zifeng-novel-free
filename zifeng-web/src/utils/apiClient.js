@@ -2,6 +2,20 @@ import axios from "axios";
 
 const API_BASE = "/api";
 
+/**
+ * 将外部 HTTP 图片 URL 转为通过后端图片代理的同源 URL
+ * 解决 HTTPS 页面加载 HTTP 图片被混合内容策略拦截的问题
+ * 使用 /api/img-proxy 而非 /api/proxy，因为后者会把二进制数据当文本处理导致图片损坏
+ */
+export const proxyImageUrl = (url) => {
+  if (!url) return '';
+  // 已经是同源或 HTTPS 的 URL 直接返回
+  if (url.startsWith('/') || url.startsWith('data:') || url.startsWith('https://')) return url;
+  // HTTP URL 走图片专用代理
+  if (url.startsWith('http://')) return `/api/img-proxy?url=${encodeURIComponent(url)}`;
+  return url;
+};
+
 let serverAvailable = null;
 let backendAvailable = null;
 
@@ -34,8 +48,7 @@ backendAxios.interceptors.response.use(
           msg.includes("无效") ||
           msg.includes("其他设备") ||
           msg.includes("踢下线") ||
-          msg.includes("请先登录") ||
-          msg.includes("未提供登录凭证");
+          msg.includes("请先登录");
 
         if (isTokenInvalid) {
           isLoggingOut = true;
@@ -53,38 +66,16 @@ backendAxios.interceptors.response.use(
   },
 );
 
-export const checkServerHealth = async () => {
-  try {
-    const res = await axios.get(`${API_BASE}/health`, { timeout: 3000 });
-    serverAvailable = res.data?.status === "ok";
-    return serverAvailable;
-  } catch {
-    serverAvailable = false;
-    return false;
-  }
-};
+// ========== Parse APIs (通过SpringBoot后端代理) ==========
 
-export const checkBackendHealth = async () => {
-  try {
-    const res = await backendAxios.get("/auth/info", { timeout: 3000 });
-    backendAvailable = true;
-    return true;
-  } catch (e) {
-    if (e.response?.status === 401) {
-      backendAvailable = true;
-      return true;
-    }
-    backendAvailable = false;
-    return false;
-  }
-};
-
-export const isServerAvailable = () => serverAvailable;
-export const isBackendAvailable = () => backendAvailable;
-
-export const testBookSourceAPI = async (source, keyword = "人", page = 1, fullTest = false) => {
-  const res = await axios.post(
-    `${API_BASE}/test-source`,
+export const testBookSourceAPI = async (
+  source,
+  keyword = "人",
+  page = 1,
+  fullTest = false,
+) => {
+  const res = await backendAxios.post(
+    "/parse/test-source",
     {
       source,
       keyword,
@@ -97,8 +88,8 @@ export const testBookSourceAPI = async (source, keyword = "人", page = 1, fullT
 };
 
 export const searchBooksAPI = async (source, keyword, page = 1) => {
-  const res = await axios.post(
-    `${API_BASE}/search`,
+  const res = await backendAxios.post(
+    "/parse/search",
     {
       source,
       keyword,
@@ -106,24 +97,14 @@ export const searchBooksAPI = async (source, keyword, page = 1) => {
     },
     { timeout: 20000 },
   );
-  return res.data;
-};
-
-export const getExploreAPI = async (source, exploreUrl) => {
-  const res = await axios.post(
-    `${API_BASE}/explore`,
-    {
-      source,
-      exploreUrl,
-    },
-    { timeout: 20000 },
-  );
-  return res.data;
+  const data = res.data;
+  if (data && data.data) return data.data;
+  return data;
 };
 
 export const getBookInfoAPI = async (source, bookUrl, bookData = null) => {
-  const res = await axios.post(
-    `${API_BASE}/book-info`,
+  const res = await backendAxios.post(
+    "/parse/book-info",
     {
       source,
       bookUrl,
@@ -131,12 +112,14 @@ export const getBookInfoAPI = async (source, bookUrl, bookData = null) => {
     },
     { timeout: 15000 },
   );
-  return res.data;
+  const data = res.data;
+  if (data && data.data) return data.data;
+  return data;
 };
 
 export const getTocAPI = async (source, tocUrl, book = null) => {
-  const res = await axios.post(
-    `${API_BASE}/toc`,
+  const res = await backendAxios.post(
+    "/parse/toc",
     {
       source,
       tocUrl,
@@ -144,12 +127,19 @@ export const getTocAPI = async (source, tocUrl, book = null) => {
     },
     { timeout: 15000 },
   );
-  return res.data;
+  const data = res.data;
+  if (data && data.data) return data.data;
+  return data;
 };
 
-export const getContentAPI = async (source, chapterUrl, book = null, chapter = null) => {
-  const res = await axios.post(
-    `${API_BASE}/content`,
+export const getContentAPI = async (
+  source,
+  chapterUrl,
+  book = null,
+  chapter = null,
+) => {
+  const res = await backendAxios.post(
+    "/parse/content",
     {
       source,
       chapterUrl,
@@ -158,59 +148,41 @@ export const getContentAPI = async (source, chapterUrl, book = null, chapter = n
     },
     { timeout: 15000 },
   );
-  return res.data;
+  const data = res.data;
+  if (data && data.data) return data.data;
+  return data;
 };
 
 export const importFromUrlAPI = async (url) => {
-  const res = await axios.get(`${API_BASE}/import-from-url`, {
+  const res = await backendAxios.get("/sources/import-url", {
     params: { url },
     timeout: 20000,
   });
   return res.data;
 };
 
-export const importFromJsonAPI = async (json) => {
-  const res = await axios.post(
-    `${API_BASE}/import-from-json`,
-    {
-      json,
-    },
-    { timeout: 10000 },
-  );
-  return res.data;
-};
-
 export const proxyRequest = async (url) => {
-  const res = await axios.get(`${API_BASE}/proxy`, {
+  const res = await backendAxios.get("/parse/proxy", {
     params: { url },
     timeout: 15000,
   });
   return res.data;
 };
 
-export const proxyPostRequest = async (
-  url,
-  method = "GET",
-  headers = {},
-  body = null,
-) => {
-  const res = await axios.post(
-    `${API_BASE}/proxy`,
-    {
-      url,
-      method,
-      headers,
-      body,
-    },
-    { timeout: 15000 },
-  );
-  return res.data;
-};
-
 // ========== SpringBoot Backend APIs ==========
 
-export const authLogin = async (username, password, rememberMe = false) => {
-  const res = await backendAxios.post("/auth/login", { username, password, rememberMe });
+export const getCaptcha = async () => {
+  try {
+    const response = await backendAxios.get('/auth/captcha');
+    return response.data;
+  } catch (error) {
+    console.error('获取验证码失败:', error);
+    return null;
+  }
+};
+
+export const authLogin = async (username, password, rememberMe = false, captchaId = '', captchaCode = '') => {
+  const res = await backendAxios.post('/auth/login', { username, password, rememberMe, captchaId, captchaCode });
   if (res.data?.success && res.data?.data?.token) {
     localStorage.setItem("zifeng_token", res.data.data.token);
     const userData = {
@@ -220,14 +192,33 @@ export const authLogin = async (username, password, rememberMe = false) => {
     };
     localStorage.setItem("zifeng_user", JSON.stringify(userData));
     if (res.data.data.expiresAt) {
-      localStorage.setItem("zifeng_token_expires", String(res.data.data.expiresAt));
+      localStorage.setItem(
+        "zifeng_token_expires",
+        String(res.data.data.expiresAt),
+      );
     }
   }
   return res.data;
 };
 
-export const authRegister = async (username, password, email) => {
-  const res = await backendAxios.post("/auth/register", { username, password, email });
+export const authRegister = async (username, password, email, captchaId = '', captchaCode = '') => {
+  const res = await backendAxios.post('/auth/register', { username, password, email, captchaId, captchaCode });
+  if (res.data?.success && res.data?.data?.token) {
+    localStorage.setItem("zifeng_token", res.data.data.token);
+    const userData = {
+      id: res.data.data.userId,
+      username: res.data.data.username,
+      avatar: res.data.data.avatar,
+    };
+    localStorage.setItem("zifeng_user", JSON.stringify(userData));
+    if (res.data.data.expiresAt) {
+      localStorage.setItem(
+        "zifeng_token_expires",
+        String(res.data.data.expiresAt),
+      );
+    }
+    window.dispatchEvent(new Event("auth-login"));
+  }
   return res.data;
 };
 
@@ -252,12 +243,13 @@ export const resetPassword = async (data) => {
   return res.data;
 };
 
-export const verifyEmail = async (email) => {
-  const res = await backendAxios.post("/auth/verify-email", { email });
+export const verifyUserForReset = async (username, email) => {
+  const res = await backendAxios.post("/auth/verify-email", { username, email });
   return res.data;
 };
 
 export const resetPasswordDev = async (data) => {
+  // data 应包含 { username, email, newPassword }
   const res = await backendAxios.post("/auth/reset-password-dev", data);
   return res.data;
 };
@@ -269,15 +261,10 @@ export const updateProfile = async (avatar, email) => {
 
 export const uploadAvatar = async (file) => {
   const formData = new FormData();
-  formData.append('file', file);
-  const res = await backendAxios.post('/user/avatar', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+  formData.append("file", file);
+  const res = await backendAxios.post("/user/avatar", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
   });
-  return res.data;
-};
-
-export const changePassword = async (oldPassword, newPassword) => {
-  const res = await backendAxios.put("/auth/password", { oldPassword, newPassword });
   return res.data;
 };
 
@@ -297,7 +284,9 @@ export const removeFromBookshelf = async (bookUrl) => {
 };
 
 export const checkBookInShelf = async (bookUrl) => {
-  const res = await backendAxios.get("/bookshelf/check", { params: { bookUrl } });
+  const res = await backendAxios.get("/bookshelf/check", {
+    params: { bookUrl },
+  });
   return res.data?.data || false;
 };
 
@@ -307,7 +296,9 @@ export const saveReadingProgress = async (progressData) => {
 };
 
 export const getReadingProgress = async (bookUrl) => {
-  const res = await backendAxios.get("/reading/progress", { params: { bookUrl } });
+  const res = await backendAxios.get("/reading/progress", {
+    params: { bookUrl },
+  });
   return res.data?.data || null;
 };
 
@@ -317,34 +308,20 @@ export const getReadingHistory = async () => {
 };
 
 export const deleteReadingHistory = async (bookUrl) => {
-  const res = await backendAxios.delete("/reading/history", { data: { bookUrl } });
+  const res = await backendAxios.delete("/reading/history", {
+    data: { bookUrl },
+  });
   return res.data;
 };
 
-export const getUserBookSources = async () => {
-  const res = await backendAxios.get("/sources");
-  return res.data?.data || [];
-};
-
-export const getAllEnabledSources = () => backendAxios.get('/sources/public/all');
-
-export const getEnabledBookSources = async () => {
-  const res = await backendAxios.get("/sources/enabled");
-  return res.data?.data || [];
-};
-
-export const addBookSource = async (sourceData) => {
-  const res = await backendAxios.post("/sources", sourceData);
-  return res.data;
-};
-
-export const deleteBookSource = async (bookSourceUrl) => {
-  const res = await backendAxios.delete("/sources", { data: { bookSourceUrl } });
-  return res.data;
-};
+export const getAllEnabledSources = () =>
+  backendAxios.get("/sources/public/all");
 
 export const toggleBookSource = async (bookSourceUrl, enabled) => {
-  const res = await backendAxios.put("/sources/toggle", { bookSourceUrl, enabled });
+  const res = await backendAxios.put("/sources/toggle", {
+    bookSourceUrl,
+    enabled,
+  });
   return res.data;
 };
 
@@ -355,44 +332,16 @@ export const importBookSources = async (sources) => {
 
 // ========== Aggregated APIs (通过SpringBoot后端) ==========
 
-export const aggregatedSearchAPI = async (keyword, page = 1) => {
-  const res = await backendAxios.post("/parse/search/aggregated", {
-    keyword,
-    page,
-  }, { timeout: 30000 });
-  return res.data?.data || res.data;
-};
-
 export const unifiedBookInfoAPI = async (source, bookUrl, bookData) => {
-  const res = await backendAxios.post("/parse/book-info/unified", {
-    source,
-    bookUrl,
-    book: bookData,
-  }, { timeout: 15000 });
-  return res.data?.data || res.data;
-};
-
-export const unifiedTocAPI = async (source, tocUrl, bookData) => {
-  const res = await backendAxios.post("/parse/toc/unified", {
-    source,
-    tocUrl,
-    book: bookData,
-  }, { timeout: 15000 });
-  return res.data?.data || res.data;
-};
-
-export const unifiedContentAPI = async (source, chapterUrl, bookData, chapterData) => {
-  const res = await backendAxios.post("/parse/content/unified", {
-    source,
-    chapterUrl,
-    book: bookData,
-    chapter: chapterData,
-  }, { timeout: 15000 });
-  return res.data?.data || res.data;
-};
-
-export const healthCheckAllSourcesAPI = async () => {
-  const res = await backendAxios.post("/parse/health-check", {}, { timeout: 60000 });
+  const res = await backendAxios.post(
+    "/parse/book-info/unified",
+    {
+      source,
+      bookUrl,
+      book: bookData,
+    },
+    { timeout: 15000 },
+  );
   return res.data?.data || res.data;
 };
 

@@ -1,4 +1,4 @@
-import { proxyRequest, checkServerHealth, isServerAvailable } from './apiClient';
+import { proxyRequest } from "./apiClient";
 
 const CORS_PROXIES = [
   (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
@@ -14,7 +14,10 @@ export const fetchWithCorsProxy = async (url, options = {}) => {
   for (const makeProxy of CORS_PROXIES) {
     try {
       const proxyUrl = makeProxy(url);
-      const response = await fetch(proxyUrl, { ...options, signal: options.signal || AbortSignal.timeout(12000) });
+      const response = await fetch(proxyUrl, {
+        ...options,
+        signal: options.signal || AbortSignal.timeout(12000),
+      });
       if (response.ok) return response;
     } catch {
       continue;
@@ -22,11 +25,12 @@ export const fetchWithCorsProxy = async (url, options = {}) => {
   }
 
   try {
-    const response = await fetch(url, { ...options, signal: options.signal || AbortSignal.timeout(8000) });
+    const response = await fetch(url, {
+      ...options,
+      signal: options.signal || AbortSignal.timeout(8000),
+    });
     return response;
   } catch (e) {
     throw new Error(`请求失败：${e.message}`);
   }
 };
-
-export { checkServerHealth, isServerAvailable };

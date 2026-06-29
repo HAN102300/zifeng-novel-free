@@ -3,7 +3,9 @@ package com.zifeng.module.admin.controller;
 import com.zifeng.common.dto.ApiResponse;
 import com.zifeng.config.StpAdminUtil;
 import com.zifeng.module.admin.dto.*;
+import com.zifeng.module.admin.entity.Admin;
 import com.zifeng.module.admin.entity.VisitLog;
+import com.zifeng.module.admin.repository.AdminRepository;
 import com.zifeng.module.admin.repository.VisitLogRepository;
 import com.zifeng.module.admin.service.AdminAuthService;
 import com.zifeng.module.user.entity.BookshelfItem;
@@ -33,6 +35,7 @@ import java.util.stream.Collectors;
 public class AdminController {
 
     private final AdminAuthService adminAuthService;
+    private final AdminRepository adminRepository;
     private final BookshelfRepository bookshelfRepository;
     private final ReadingHistoryRepository readingHistoryRepository;
     private final UserRepository userRepository;
@@ -69,7 +72,7 @@ public class AdminController {
     }
 
     @GetMapping("/logs")
-    public ApiResponse<Page<VisitLog>> getLogsPaged(
+    public ApiResponse<Map<String, Object>> getLogsPaged(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String keyword,
@@ -83,7 +86,57 @@ public class AdminController {
                 keyword != null ? keyword : "",
                 userType != null ? userType : "",
                 startDate, endDate, pageable);
-        return ApiResponse.ok(result);
+
+        // Batch query usernames for users (positive userId) and admins (negative userId)
+        Set<Long> userIds = new HashSet<>();
+        Set<Long> adminIds = new HashSet<>();
+        for (VisitLog log : result.getContent()) {
+            if (log.getUserId() != null) {
+                if (log.getUserId() > 0) {
+                    userIds.add(log.getUserId());
+                } else if (log.getUserId() < 0) {
+                    adminIds.add(-log.getUserId());
+                }
+            }
+        }
+        Map<Long, String> usernameMap = userIds.isEmpty() ? Map.of()
+                : userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getUsername));
+        Map<Long, String> adminNameMap = adminIds.isEmpty() ? Map.of()
+                : adminRepository.findAllById(adminIds).stream()
+                .collect(Collectors.toMap(Admin::getId, Admin::getUsername));
+
+        List<Map<String, Object>> items = result.getContent().stream().map(log -> {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("id", log.getId());
+            map.put("ip", log.getIp());
+            map.put("ipLocation", log.getIpLocation());
+            map.put("userAgent", log.getUserAgent());
+            map.put("visitUrl", log.getVisitUrl());
+            map.put("visitDate", log.getVisitDate());
+            map.put("userId", log.getUserId());
+            map.put("createdAt", log.getCreatedAt());
+            // Resolve username and userType
+            if (log.getUserId() == null) {
+                map.put("username", null);
+                map.put("userType", "guest");
+            } else if (log.getUserId() < 0) {
+                map.put("username", adminNameMap.getOrDefault(-log.getUserId(), "管理员"));
+                map.put("userType", "admin");
+            } else {
+                map.put("username", usernameMap.getOrDefault(log.getUserId(), "未知用户"));
+                map.put("userType", "user");
+            }
+            return map;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("items", items);
+        response.put("total", result.getTotalElements());
+        response.put("page", page);
+        response.put("size", size);
+        response.put("totalPages", result.getTotalPages());
+        return ApiResponse.ok(response);
     }
 
     @DeleteMapping("/logs/batch")

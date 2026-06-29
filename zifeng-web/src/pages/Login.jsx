@@ -1,11 +1,11 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Card, Form, Input, Button, Space, Typography, message, Divider, Checkbox } from 'antd';
-import { UserOutlined, LockOutlined, MailOutlined, EyeInvisibleOutlined, EyeTwoTone } from '@ant-design/icons';
+import { Card, Form, Input, Button, Space, Typography, message, Divider, Checkbox, Spin } from 'antd';
+import { UserOutlined, LockOutlined, MailOutlined, EyeInvisibleOutlined, EyeTwoTone, SafetyOutlined } from '@ant-design/icons';
 import BackButton from '../components/BackButton';
 import { ThemeContext } from '../App';
-import { authLogin, authRegister } from '../utils/apiClient';
+import { authLogin, authRegister, getCaptcha } from '../utils/apiClient';
 import { glassCardStyle } from '../utils/glassStyle';
 import { ReactBitsErrorBoundary } from '../components/react-bits';
 
@@ -18,16 +18,39 @@ const Login = ({ setIsLoggedIn, setUserInfo }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [captchaId, setCaptchaId] = useState('');
+  const [captchaImage, setCaptchaImage] = useState('');
+  const [captchaLoading, setCaptchaLoading] = useState(false);
   
   const color = themeConfigs[currentTheme].primaryColor;
 
+  const refreshCaptcha = async () => {
+    setCaptchaLoading(true);
+    try {
+      const result = await getCaptcha();
+      if (result && result.success && result.data) {
+        setCaptchaId(result.data.captchaId);
+        setCaptchaImage(result.data.image);
+      }
+    } catch (error) {
+      console.error('刷新验证码失败:', error);
+    } finally {
+      setCaptchaLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshCaptcha();
+  }, [isLogin]);
+
   const handleSubmit = async (values) => {
+    if (loading) return; // 防抖：正在提交时忽略
     setLoading(true);
     try {
       const rememberMe = !!form.getFieldValue('remember');
 
       if (isLogin) {
-        const result = await authLogin(values.username, values.password, rememberMe);
+        const result = await authLogin(values.username, values.password, rememberMe, captchaId, values.captchaCode);
         if (!result.success) {
           message.error(result.message || '登录失败');
           return;
@@ -45,12 +68,12 @@ const Login = ({ setIsLoggedIn, setUserInfo }) => {
         const from = location.state?.from || '/';
         navigate(from, { replace: true });
       } else {
-        const result = await authRegister(values.username, values.password, values.email);
+        const result = await authRegister(values.username, values.password, values.email, captchaId, values.captchaCode);
         if (!result.success) {
           message.error(result.message || '注册失败');
           return;
         }
-        const loginResult = await authLogin(values.username, values.password, false);
+        const loginResult = await authLogin(values.username, values.password, false, captchaId, values.captchaCode);
         if (!loginResult.success) {
           message.success('注册成功，请登录');
           setIsLogin(true);
@@ -79,6 +102,7 @@ const Login = ({ setIsLoggedIn, setUserInfo }) => {
       } else {
         message.error('操作失败，请重试');
       }
+      refreshCaptcha();
     } finally {
       setLoading(false);
     }
@@ -197,6 +221,50 @@ const Login = ({ setIsLoggedIn, setUserInfo }) => {
               style={{ borderRadius: 8 }}
               iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
             />
+          </Form.Item>
+
+          <Form.Item
+            name="captchaCode"
+            label="验证码"
+            rules={[
+              { required: true, message: '请输入验证码' },
+              { len: 4, message: '验证码为4位字符' }
+            ]}
+          >
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <Input
+                prefix={<SafetyOutlined style={{ color: color }} />}
+                placeholder="请输入验证码"
+                size="large"
+                style={{ borderRadius: 8, flex: 1 }}
+                maxLength={4}
+              />
+              <div
+                onClick={refreshCaptcha}
+                style={{
+                  width: 120,
+                  height: 40,
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  border: `1px solid ${isDarkMode ? '#444' : '#d9d9d9'}`,
+                  background: isDarkMode ? '#1f1f1f' : '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+                title="点击刷新验证码"
+              >
+                {captchaLoading ? (
+                  <Spin size="small" />
+                ) : captchaImage ? (
+                  <img src={captchaImage} alt="验证码" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <Text style={{ fontSize: 12, color: '#999' }}>点击获取</Text>
+                )}
+              </div>
+            </div>
           </Form.Item>
           
           {!isLogin && (

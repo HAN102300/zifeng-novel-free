@@ -11,23 +11,37 @@ import {
 import BackButton from '../components/BackButton';
 import { ThemeContext, AuthContext } from '../App';
 import { getTocAPI, getContentAPI, saveReadingProgress as apiSaveReadingProgress, getReadingProgress as apiGetReadingProgress } from '../utils/apiClient';
-import { getBookSources, getDefaultSource as getDefaultSourceFromManager } from '../utils/bookSourceManager';
+import { getBookSources, getDefaultSource as getDefaultSourceFromManager, normalizeSource } from '../utils/bookSourceManager';
 import { loadReaderCache, simpleHash, isDefaultSource } from '../utils/novelConfig';
 import { CountUp, ReactBitsErrorBoundary } from '../components/react-bits';
+
+const MAX_CACHE_SIZE = 100;
+
+const evictOldest = (map) => {
+  if (map.size <= MAX_CACHE_SIZE) return;
+  const oldestKey = map.keys().next().value;
+  map.delete(oldestKey);
+};
 
 const cache = {
   chapters: new Map(),
   content: new Map(),
   expireTime: 24 * 60 * 60 * 1000,
   isExpired: (timestamp) => Date.now() - timestamp > cache.expireTime,
-  setChapters: (key, chapters) => { cache.chapters.set(key, { data: chapters, timestamp: Date.now() }); },
+  setChapters: (key, chapters) => {
+    evictOldest(cache.chapters);
+    cache.chapters.set(key, { data: chapters, timestamp: Date.now() });
+  },
   getChapters: (key) => {
     const cached = cache.chapters.get(key);
     if (cached && !cache.isExpired(cached.timestamp)) return cached.data;
     cache.chapters.delete(key);
     return null;
   },
-  setContent: (chapterUrl, content) => { cache.content.set(chapterUrl, { data: content, timestamp: Date.now() }); },
+  setContent: (chapterUrl, content) => {
+    evictOldest(cache.content);
+    cache.content.set(chapterUrl, { data: content, timestamp: Date.now() });
+  },
   getContent: (chapterUrl) => {
     const cached = cache.content.get(chapterUrl);
     if (cached && !cache.isExpired(cached.timestamp)) return cached.data;
@@ -191,10 +205,59 @@ const Reader = () => {
     if (sourceUrl) {
       const allSources = getBookSources();
       const found = allSources.find(s => s.bookSourceUrl === sourceUrl);
-      if (found) return found;
+      if (found) return normalizeSource(found);
     }
     return getDefaultSourceFromManager();
   }, [sourceUrl]);
+
+  /**
+   * 从 bookUrl 构造正确的 tocUrl
+   * 当 tocUrl 未传递或与 bookUrl 相同时，通过书源的 ruleBookInfo.tocUrl 模板构造
+   * 逻辑与 Shelf.jsx 中的 tocUrl 构造保持一致
+   */
+  const constructTocUrl = useCallback((source, bookUrl) => {
+    if (!source || !bookUrl) return bookUrl;
+    const tocUrlTemplate = source.ruleBookInfo?.tocUrl || '';
+    if (!tocUrlTemplate || !tocUrlTemplate.includes('{{')) return bookUrl;
+
+    // 尝试从 bookUrl 中提取 ID
+    let extractedId = bookUrl;
+    const bookUrlTemplate = source.ruleSearch?.bookUrl || '';
+    if (bookUrlTemplate && bookUrlTemplate.includes('{{')) {
+      const templatePattern = bookUrlTemplate.replace(/\{\{[^}]+\}\}/g, '([^/?#]+)');
+      const regex = new RegExp('^' + templatePattern + '$');
+      const match = bookUrl.match(regex);
+      if (match && match[1]) {
+        extractedId = match[1];
+      }
+    }
+    // 如果正则匹配失败，尝试从 URL 路径中提取最后一段作为 ID
+    if (extractedId === bookUrl) {
+      try {
+        const urlPath = new URL(bookUrl.startsWith('http') ? bookUrl : 'http://dummy' + bookUrl).pathname;
+        const segments = urlPath.split('/').filter(Boolean);
+        if (segments.length > 0) {
+          extractedId = segments[segments.length - 1];
+        }
+      } catch {}
+    }
+    return tocUrlTemplate.replace(/\{\{[^}]+\}\}/g, extractedId);
+  }, []);
+
+  /**
+   * 将相对 tocUrl 转为绝对 URL
+   * 书源模板中的 tocUrl 可能是相对路径（如 /novel/{{$.novelId}}/chapters?readNum=1）
+   * 解析器无法处理相对 URL，需要拼接 bookSourceUrl
+   */
+  const toAbsoluteUrl = useCallback((url, source) => {
+    if (url && !url.startsWith('http')) {
+      const baseUrl = source?.bookSourceUrl;
+      if (baseUrl) {
+        return url.startsWith('/') ? baseUrl + url : baseUrl + '/' + url;
+      }
+    }
+    return url;
+  }, []);
 
   useEffect(() => {
     const fetchChapters = async () => {
@@ -221,7 +284,13 @@ const Reader = () => {
           await fetchChapterContent(chapterList[idx]);
         } else {
           const source = getSource();
-          const effectiveTocUrl = tocUrl || bookUrl;
+          // 当 tocUrl 未传递或与 bookUrl 相同时，从 bookUrl 构造正确的 tocUrl
+          let effectiveTocUrl = tocUrl;
+          if (!effectiveTocUrl || effectiveTocUrl === bookUrl) {
+            effectiveTocUrl = constructTocUrl(source, bookUrl);
+          }
+          // 确保 tocUrl 是绝对 URL，解析器无法处理相对路径
+          effectiveTocUrl = toAbsoluteUrl(effectiveTocUrl, source);
           let result;
           try {
             result = await getTocAPI(source, effectiveTocUrl, bookData);
@@ -265,7 +334,7 @@ const Reader = () => {
       }
     };
     fetchChapters();
-  }, [sourceUrl, bookUrl, tocUrl, currentChapterIndex, getSource, bookData]);
+  }, [sourceUrl, bookUrl, tocUrl, currentChapterIndex, getSource, bookData, constructTocUrl]);
 
   const fetchChapterContent = useCallback(async (chapter, retryCount = 0) => {
     if (!chapter) return;

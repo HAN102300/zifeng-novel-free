@@ -1,5 +1,3 @@
-const ENABLE_ADAPTER = true;
-
 const FIELDS = {
   name: ['name', 'bookName', 'title', 'book_name'],
   author: ['author', 'authorName', 'bookAuthor', 'author_name'],
@@ -88,16 +86,55 @@ function computeCompleteness(info) {
   let s = 0;
   if (info.name) s += 15;
   if (info.author) s += 15;
-  if (info.coverUrl) s += 15;
-  if (info.intro && info.intro.length > 10) s += 10;
+  if (info.coverUrl) s += 25;        // 提高封面权重（原 15 → 25）
+  if (info.intro && info.intro.length > 10) s += 15;  // 提高简介权重（原 10 → 15）
   if (info.kind) s += 5;
-  if (info.lastChapter) s += 10;
+  if (info.lastChapter) s += 5;      // 降低最新章节权重（原 10 → 5）
   if (info.wordCount) s += 5;
   if (info.updateTime) s += 5;
-  if (info.tocUrl) s += 10;
+  if (info.tocUrl) s += 5;           // 降低目录URL权重（原 10 → 5）
   if (info.chapterCount) s += 5;
-  if (info.score) s += 5;
+  if (info.score) s += 0;            // 评分移到相关性中处理
   return s;
+}
+
+/**
+ * 计算小说与搜索关键词的相关性评分（满分 30）
+ * - 书名完全匹配：30 分
+ * - 书名包含关键词：20 分
+ * - 作者完全匹配：15 分
+ * - 作者包含关键词：10 分
+ * - 简介包含关键词：5 分
+ * 取最高的一项，不累加
+ */
+function computeRelevanceScore(info, keyword) {
+  if (!keyword || !keyword.trim()) return 0;
+  const kw = keyword.trim().toLowerCase();
+  let score = 0;
+
+  // 书名匹配
+  const name = (info.name || '').toLowerCase();
+  if (name === kw) {
+    score = Math.max(score, 30);
+  } else if (name.includes(kw)) {
+    score = Math.max(score, 20);
+  }
+
+  // 作者匹配
+  const author = (info.author || '').toLowerCase();
+  if (author === kw) {
+    score = Math.max(score, 15);
+  } else if (author.includes(kw)) {
+    score = Math.max(score, 10);
+  }
+
+  // 简介匹配
+  const intro = (info.intro || '').toLowerCase();
+  if (intro.includes(kw)) {
+    score = Math.max(score, 5);
+  }
+
+  return score;
 }
 
 function adaptAggregatedSearch(aggregatedResponse) {
@@ -177,6 +214,7 @@ function mergeBooks(existing, incoming) {
   return merged;
 }
 
+
 function adaptBookInfo(rawInfo, source = {}) {
   if (!rawInfo || typeof rawInfo !== 'object') return null;
 
@@ -214,82 +252,9 @@ function adaptBookInfo(rawInfo, source = {}) {
   };
 }
 
-function adaptChapterList(rawChapters = []) {
-  if (!Array.isArray(rawChapters)) return [];
-  return rawChapters.map((ch, idx) => {
-    if (!ch || typeof ch !== 'object') {
-      return { name: String(ch), url: '', index: idx };
-    }
-    return {
-      name: ch.name || ch.chapterName || ch.title || `第${idx + 1}章`,
-      url: ch.url || ch.chapterUrl || ch.href || '',
-      index: ch.index != null ? ch.index : idx,
-      isVip: !!ch.isVip,
-      isPay: !!ch.isPay,
-      isVolume: !!ch.isVolume,
-    };
-  }).filter(ch => ch.name);
-}
-
-function adaptContent(rawContent) {
-  if (!rawContent) return '';
-  if (typeof rawContent === 'string') return rawContent;
-  if (Array.isArray(rawContent)) return rawContent.join('\n');
-  return String(rawContent);
-}
-
-function toSearchResultFormat(unified) {
-  if (!unified) return null;
-  return {
-    id: unified.id,
-    name: unified.name,
-    author: unified.author,
-    coverUrl: unified.coverUrl,
-    cover: unified.coverUrl,
-    intro: unified.intro,
-    summary: unified.intro,
-    lastChapter: unified.lastChapter,
-    wordNum: unified.wordCount,
-    wordCount: unified.wordCount,
-    category: unified.kind,
-    kind: unified.kind,
-    _sourceUrl: unified.bookUrl,
-    bookUrl: unified.bookUrl,
-    sourceUrl: unified.sourceUrl,
-    sourceName: unified.sourceName,
-    _raw: unified._raw,
-  };
-}
-
-function toDetailFormat(unified) {
-  if (!unified) return null;
-  return {
-    name: unified.name,
-    author: unified.author,
-    coverUrl: unified.coverUrl,
-    intro: unified.intro,
-    kind: unified.kind,
-    lastChapter: unified.lastChapter,
-    wordCount: unified.wordCount,
-    updateTime: unified.updateTime,
-    tocUrl: unified.tocUrl,
-    score: unified.score,
-    chapterCount: unified.chapterCount,
-    sourceUrl: unified.sourceUrl,
-    sourceName: unified.sourceName,
-  };
-}
-
 export {
-  ENABLE_ADAPTER,
   adaptSearchResult,
   adaptBookInfo,
-  adaptChapterList,
-  adaptContent,
-  toSearchResultFormat,
-  toDetailFormat,
-  resolveUrl,
-  adaptAggregatedSearch,
-  mergeSearchResults,
   computeCompleteness,
+  computeRelevanceScore,
 };

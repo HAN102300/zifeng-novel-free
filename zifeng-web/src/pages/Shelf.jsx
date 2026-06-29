@@ -229,8 +229,10 @@ const Shelf = () => {
             return;
           }
 
-          const serverShelf = await getBookshelf();
-          const serverHistory = await getReadingHistory();
+          const [serverShelf, serverHistory] = await Promise.all([
+            getBookshelf(),
+            getReadingHistory(),
+          ]);
 
           const mappedShelf = serverShelf.map((item) => ({
             id: item.bookUrl,
