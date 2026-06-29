@@ -160,7 +160,6 @@ const CategoryDetail = () => {
   const [maxKnownPage, setMaxKnownPage] = useState(1);
 
   const fetchingRef = useRef(false);
-  const sortNum = Number(sort);
   const channelNum = Number(channel);
 
   /* —— 保留原 fetchCategoryData 逻辑 —— */
