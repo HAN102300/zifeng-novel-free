@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, Typography, Space, Empty, Button, Tag, Spin, Segmented, Select, Progress } from 'antd';
+import { Card, Typography, Space, Empty, Button, Tag, Spin, Segmented, Select, Progress, Skeleton } from 'antd';
 import { SearchOutlined, AppstoreOutlined, OrderedListOutlined, BookOutlined, LoadingOutlined, SwapOutlined, CloseCircleOutlined, SyncOutlined } from '@ant-design/icons';
 import BackButton from '../components/BackButton';
 import SummaryText from '../components/SummaryText';
@@ -569,53 +569,85 @@ const SearchResult = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: 300, gap: 16, padding: '40px 20px' }}
+              style={{ padding: '20px 20px' }}
             >
-              <Spin size="large" indicator={<LoadingOutlined style={{ fontSize: 32, color }} spin />} />
-              <div style={{ width: 200 }}>
-                <Progress
-                  percent={Math.round(searchProgress)}
-                  showInfo={false}
-                  strokeColor={color}
-                  trailColor={isDarkMode ? '#333' : '#f0f0f0'}
-                  size="small"
-                />
-              </div>
-              <Text style={{ color: isDarkMode ? '#888' : '#999' }}>
-                {searchMode === 'aggregated'
-                  ? (batchProgress
-                    ? `正在搜索书源... 已搜索 ${batchProgress.completedSources}/${batchProgress.totalSources} 个书源（${batchProgress.succeededSources} 个成功，${batchProgress.failedSources} 个失败）`
-                    : `正在准备搜索「${availableSources.length}」个书源...`)
-                  : `正在从「${activeSource?.bookSourceName || '书源'}」搜索...`}
-              </Text>
-              {searchMode === 'aggregated' && sourceDetails.length > 0 && (
-                <div style={{ maxWidth: 600, width: '100%' }}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-                    {sourceDetails.slice(-20).map((sd, i) => (
-                      <Tag
-                        key={i}
-                        color={sd.success ? (sd.resultCount > 0 ? 'green' : 'orange') : 'red'}
-                        style={{ fontSize: 11 }}
-                      >
-                        {sd.sourceName} {sd.success ? (sd.resultCount > 0 ? `(${sd.resultCount})` : '无结果') : '✗'}
-                      </Tag>
-                    ))}
-                    {sourceDetails.length > 20 && (
-                      <Tag style={{ fontSize: 11, color: isDarkMode ? '#888' : '#999' }}>
-                        ...等 {sourceDetails.length} 个书源
-                      </Tag>
+              {/* —— 骨架屏（跟随当前布局） —— */}
+              <div style={layout === 'list'
+                ? { display: 'flex', flexDirection: 'column', gap: 'var(--zf-s3)' }
+                : { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--zf-s4)' }
+              }>
+                {Array.from({ length: layout === 'grid' ? 9 : 4 }).map((_, i) => (
+                  <Card
+                    key={i}
+                    style={{ borderRadius: 'var(--zf-r-md)', overflow: 'hidden', ...glassItemStyle(glassMode, isDarkMode) }}
+                    styles={{ body: { padding: 0 } }}
+                  >
+                    {layout === 'list' ? (
+                      <div style={{ display: 'flex', gap: 'var(--zf-s4)', padding: 'var(--zf-s4)' }}>
+                        <Skeleton.Image active style={{ width: 100, height: 140, borderRadius: 'var(--zf-r-sm)' }} />
+                        <div style={{ flex: 1 }}>
+                          <Skeleton active paragraph={{ rows: 3 }} />
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <Skeleton.Image active style={{ width: '100%', height: 200 }} />
+                        <div style={{ padding: '10px 12px 12px' }}>
+                          <Skeleton active paragraph={{ rows: 1 }} title={{ width: '60%' }} />
+                        </div>
+                      </>
                     )}
-                  </div>
+                  </Card>
+                ))}
+              </div>
+
+              {/* —— 进度 / 取消 —— */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--zf-s3)', marginTop: 'var(--zf-s6)' }}>
+                <div style={{ width: 200 }}>
+                  <Progress
+                    percent={Math.round(searchProgress)}
+                    showInfo={false}
+                    strokeColor={color}
+                    trailColor={isDarkMode ? '#333' : '#f0f0f0'}
+                    size="small"
+                  />
                 </div>
-              )}
-              <Button
-                type="text"
-                icon={<CloseCircleOutlined />}
-                onClick={cancelSearch}
-                style={{ color: isDarkMode ? '#888' : '#999' }}
-              >
-                取消搜索
-              </Button>
+                <Text style={{ color: isDarkMode ? '#888' : '#999' }}>
+                  {searchMode === 'aggregated'
+                    ? (batchProgress
+                      ? `正在搜索书源... 已搜索 ${batchProgress.completedSources}/${batchProgress.totalSources} 个书源（${batchProgress.succeededSources} 个成功，${batchProgress.failedSources} 个失败）`
+                      : `正在准备搜索「${availableSources.length}」个书源...`)
+                    : `正在从「${activeSource?.bookSourceName || '书源'}」搜索...`}
+                </Text>
+                {searchMode === 'aggregated' && sourceDetails.length > 0 && (
+                  <div style={{ maxWidth: 600, width: '100%' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+                      {sourceDetails.slice(-20).map((sd, i) => (
+                        <Tag
+                          key={i}
+                          color={sd.success ? (sd.resultCount > 0 ? 'green' : 'orange') : 'red'}
+                          style={{ fontSize: 11 }}
+                        >
+                          {sd.sourceName} {sd.success ? (sd.resultCount > 0 ? `(${sd.resultCount})` : '无结果') : '✗'}
+                        </Tag>
+                      ))}
+                      {sourceDetails.length > 20 && (
+                        <Tag style={{ fontSize: 11, color: isDarkMode ? '#888' : '#999' }}>
+                          ...等 {sourceDetails.length} 个书源
+                        </Tag>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <Button
+                  type="text"
+                  icon={<CloseCircleOutlined />}
+                  onClick={cancelSearch}
+                  style={{ color: isDarkMode ? '#888' : '#999' }}
+                >
+                  取消搜索
+                </Button>
+              </div>
             </motion.div>
           ) : results.length > 0 ? (
             <motion.div
@@ -691,7 +723,7 @@ const SearchResult = () => {
                             overflow: 'hidden',
                             flexShrink: 0,
                             position: 'relative',
-                            boxShadow: `0 4px 12px ${isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.12)'}`
+                            boxShadow: 'var(--zf-shadow-sm)'
                           }}>
                             <img
                               alt={book.name}
@@ -946,9 +978,22 @@ const SearchResult = () => {
               transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
               style={{ padding: '0 20px' }}
             >
-              <Card style={{ borderRadius: 16, ...glassCardStyle(glassMode, isDarkMode) }}>
+              <Card style={{ borderRadius: 'var(--zf-r-xl)', ...glassCardStyle(glassMode, isDarkMode) }}>
                 <Empty
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  image={
+                    <div style={{
+                      width: 84,
+                      height: 84,
+                      borderRadius: '50%',
+                      display: 'grid',
+                      placeItems: 'center',
+                      margin: '0 auto 8px',
+                      background: 'linear-gradient(135deg, var(--zf-primary-600), var(--zf-primary-500))',
+                      boxShadow: 'var(--zf-glow-primary)',
+                    }}>
+                      <SearchOutlined style={{ fontSize: 34, color: '#fff' }} />
+                    </div>
+                  }
                   description={
                     <Space direction="vertical" size={4}>
                       <motion.span
@@ -967,7 +1012,12 @@ const SearchResult = () => {
                   <Button
                     type="primary"
                     icon={<SearchOutlined />}
-                    style={{ backgroundColor: color, borderColor: color, borderRadius: 8 }}
+                    style={{
+                      border: 'none',
+                      borderRadius: 'var(--zf-r-full)',
+                      backgroundImage: `linear-gradient(135deg, ${color}, ${color}cc)`,
+                      boxShadow: `0 6px 22px ${color}66, var(--zf-glow-primary)`
+                    }}
                     onClick={handleBack}
                   >
                     重新搜索

@@ -40,7 +40,7 @@ const statusMap = {
   3: { label: '已关闭', color: 'default', icon: <CloseCircleOutlined /> },
 };
 
-const MyFeedbackTab = ({ isDarkMode, color }) => {
+const MyFeedbackTab = ({ isDarkMode, color, glassMode }) => {
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -87,10 +87,11 @@ const MyFeedbackTab = ({ isDarkMode, color }) => {
         >
           <Card
             style={{
-              borderRadius: 12,
-              border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
+              borderRadius: 'var(--zf-r-md)',
+              border: '1px solid var(--zf-glass-border)',
               background: isDarkMode ? '#1e1e1e' : '#fafafa',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              boxShadow: 'var(--zf-shadow-sm)',
+              ...glassItemStyle(glassMode, isDarkMode)
             }}
             styles={{ body: { padding: '20px 24px' } }}
           >
@@ -118,13 +119,13 @@ const MyFeedbackTab = ({ isDarkMode, color }) => {
 
             {fb.adminReply && (
               <div style={{
-                marginTop: 16,
-                padding: 16,
-                borderRadius: 8,
-                background: isDarkMode ? 'rgba(24, 144, 255, 0.08)' : 'rgba(24, 144, 255, 0.04)',
-                border: `1px solid ${isDarkMode ? 'rgba(24, 144, 255, 0.2)' : 'rgba(24, 144, 255, 0.15)'}`,
+                marginTop: 'var(--zf-s4)',
+                padding: 'var(--zf-s4)',
+                borderRadius: 'var(--zf-r-sm)',
+                background: `${color}14`,
+                border: `1px solid ${color}26`,
               }}>
-                <div style={{ fontWeight: 600, marginBottom: 8, color: '#1890ff', fontSize: 13 }}>
+                <div style={{ fontWeight: 600, marginBottom: 'var(--zf-s2)', color: color, fontSize: 13 }}>
                   管理员回复
                 </div>
                 <Text style={{ color: isDarkMode ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.75)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
@@ -289,9 +290,9 @@ const UserCenter = ({ setIsLoggedIn, setUserInfo }) => {
                   size={120}
                   src={userInfo.avatar || undefined}
                   icon={<UserOutlined style={{ fontSize: 60 }} />}
-                  style={{ 
+                  style={{
                     border: `4px solid ${color}`,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                    boxShadow: '0 0 0 3px var(--zf-primary-500), var(--zf-glow-primary)'
                   }}
                 />
               </div>
@@ -332,20 +333,20 @@ const UserCenter = ({ setIsLoggedIn, setUserInfo }) => {
               <Card
                 style={{
                   ...glassCardStyle(glassMode, isDarkMode),
-                  borderRadius: 12,
-                  border: '1px solid rgba(0,0,0,0.08)',
+                  borderRadius: 'var(--zf-r-md)',
+                  border: '1px solid var(--zf-glass-border)',
                   background: isDarkMode ? '#1e1e1e' : '#f9f9f9',
-                  marginBottom: 24
+                  marginBottom: 'var(--zf-s6)'
                 }}
-                styles={{ body: { padding: 20 } }}
+                styles={{ body: { padding: 'var(--zf-s5)' } }}
               >
-                <Descriptions 
-                  column={2} 
-                  bordered 
-                  style={{ 
-                    borderRadius: 8,
+                <Descriptions
+                  column={2}
+                  bordered
+                  style={{
+                    borderRadius: 'var(--zf-r-sm)',
                     overflow: 'hidden',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                    boxShadow: 'var(--zf-shadow-sm)'
                   }}
                 >
                   <Descriptions.Item label="用户名" style={{ fontWeight: 'bold' }}>{userInfo.username}</Descriptions.Item>
@@ -364,15 +365,18 @@ const UserCenter = ({ setIsLoggedIn, setUserInfo }) => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.6 }}
               >
-                <Button 
-                  type="default" 
-                  icon={<LogoutOutlined />} 
-                  style={{ 
+                <Button
+                  type="default"
+                  icon={<LogoutOutlined />}
+                  style={{
                     padding: '0 32px',
                     fontSize: 16,
                     height: 48,
-                    borderColor: '#ff4d4f',
-                    color: '#ff4d4f'
+                    borderRadius: 'var(--zf-r-full)',
+                    border: 'none',
+                    backgroundImage: 'linear-gradient(135deg, var(--zf-accent-rose), #BE123C)',
+                    color: '#fff',
+                    boxShadow: '0 6px 22px rgba(244,63,94,.4)'
                   }}
                   onClick={handleLogout}
                 >
@@ -394,7 +398,7 @@ const UserCenter = ({ setIsLoggedIn, setUserInfo }) => {
       ),
       children: (
         <div style={{ padding: '24px' }}>
-          <MyFeedbackTab isDarkMode={isDarkMode} color={color} />
+          <MyFeedbackTab isDarkMode={isDarkMode} color={color} glassMode={glassMode} />
         </div>
       ),
     },
@@ -474,8 +478,8 @@ const UserCenter = ({ setIsLoggedIn, setUserInfo }) => {
         <Card
           style={{
             ...glassCardStyle(glassMode, isDarkMode),
-            borderRadius: 16,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+            borderRadius: 'var(--zf-r-lg)',
+            boxShadow: 'var(--zf-shadow-md)',
             overflow: 'hidden',
             background: isDarkMode ? '#141414' : '#ffffff'
           }}

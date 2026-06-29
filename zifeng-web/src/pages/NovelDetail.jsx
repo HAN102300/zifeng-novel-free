@@ -424,8 +424,8 @@ const NovelDetail = () => {
                   width: 200,
                   height: 280,
                   overflow: 'hidden',
-                  borderRadius: 12,
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+                  borderRadius: 'var(--zf-r-md)',
+                  boxShadow: 'var(--zf-shadow-md)',
                 }}>
                   <img
                     alt={novel.novelName}
@@ -478,7 +478,7 @@ const NovelDetail = () => {
                   )}
                 </Space>
 
-                <Descriptions column={2} bordered style={{ borderRadius: 8, overflow: 'hidden', marginBottom: 24 }} size="small">
+                <Descriptions column={2} bordered style={{ borderRadius: 'var(--zf-r-sm)', overflow: 'hidden', marginBottom: 'var(--zf-s6)' }} size="small">
                   <Descriptions.Item label="字数">
                     {(() => {
                       const parsed = parseNumericValue(novel.wordNum);
@@ -514,27 +514,48 @@ const NovelDetail = () => {
 
                 <Divider orientation="left" style={{ fontWeight: 'bold', color }}>简介</Divider>
                 <Card
-                  style={{ borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', background: isDarkMode ? '#1e1e1e' : '#f9f9f9', ...glassItemStyle(glassMode, isDarkMode) }}
-                  styles={{ body: { padding: 20 } }}
+                  style={{ borderRadius: 'var(--zf-r-md)', border: '1px solid var(--zf-glass-border)', background: isDarkMode ? '#1e1e1e' : '#f9f9f9', ...glassItemStyle(glassMode, isDarkMode) }}
+                  styles={{ body: { padding: 'var(--zf-s5)' } }}
                 >
                   <Paragraph style={{ lineHeight: 1.8, margin: 0 }}>
                     {novel.summary || '暂无简介'}
                   </Paragraph>
                 </Card>
 
-                <div style={{ marginTop: 24, display: 'flex', gap: 16 }}>
+                <div style={{ marginTop: 'var(--zf-s6)', display: 'flex', gap: 'var(--zf-s4)' }}>
                   <Button
                     type="primary"
                     size="large"
                     className="btn-shimmer"
-                    style={{ backgroundColor: color, borderColor: color, padding: '0 32px', fontSize: 16, height: 48, backgroundImage: `linear-gradient(110deg, ${color} 0%, ${color}dd 40%, ${color}99 50%, ${color}dd 60%, ${color} 100%)`, backgroundSize: '200% auto' }}
+                    style={{
+                      padding: '0 32px',
+                      fontSize: 16,
+                      height: 48,
+                      borderRadius: 'var(--zf-r-full)',
+                      border: 'none',
+                      backgroundImage: `linear-gradient(135deg, ${color}, ${color}cc)`,
+                      backgroundSize: '200% auto',
+                      boxShadow: `0 6px 22px ${color}66, var(--zf-glow-primary)`,
+                      transition: 'transform var(--zf-dur-fast) var(--zf-ease-out), box-shadow var(--zf-dur-fast) var(--zf-ease-out)'
+                    }}
                     onClick={handleStartReading}
                   >
                     开始阅读
                   </Button>
                   <Button
                     size="large"
-                    style={{ padding: '0 32px', fontSize: 16, height: 48 }}
+                    style={{
+                      padding: '0 32px',
+                      fontSize: 16,
+                      height: 48,
+                      borderRadius: 'var(--zf-r-full)',
+                      background: glassMode ? 'var(--zf-glass-bg-strong)' : 'transparent',
+                      border: `1px solid ${glassMode ? 'var(--zf-glass-border-strong)' : color}`,
+                      backdropFilter: glassMode ? 'var(--zf-blur-light)' : 'none',
+                      WebkitBackdropFilter: glassMode ? 'var(--zf-blur-light)' : 'none',
+                      color: glassMode ? 'var(--zf-text-primary)' : color,
+                      transition: 'all var(--zf-dur-fast) var(--zf-ease-out)'
+                    }}
                     onClick={handleAddToShelf}
                   >
                     {isInShelf ? <Space><CheckOutlined /> 已加入书架</Space> : '加入书架'}

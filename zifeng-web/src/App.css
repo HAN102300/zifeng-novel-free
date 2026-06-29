@@ -1,6 +1,9 @@
-/* Ant Design 鏍峰紡瑕嗙洊鍜岃嚜瀹氫箟 */
+/* ============================================================
+   紫枫免费小说 · Ant Design 样式覆盖与自定义全局样式
+   主题系统: [data-theme="dark"] / [data-theme="light"]
+   设计令牌参考: index.css (--zf-* 变量)
+   ============================================================ */
 
-/* 鍏ㄥ眬鏍峰紡 */
 * {
   margin: 0;
   padding: 0;
@@ -8,17 +11,24 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--zf-font-ui);
   line-height: 1.6;
 }
 
-/* 瀵艰埅鏍忔牱寮?*/
+/* ===== 导航栏 ===== */
 .app-layout .ant-layout-header {
-  background: #fff;
+  background: var(--zf-glass-bg-strong);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* 鑿滃崟鏍峰紡 */
+[data-theme="dark"] .app-layout {
+  background: #000;
+}
+
+[data-theme="dark"] .ant-layout-content {
+  background: #000;
+}
+
 .app-layout .ant-menu-horizontal {
   border-bottom: none;
   background: transparent;
@@ -28,32 +38,50 @@ body {
   font-size: 16px;
 }
 
-/* 鎼滅储妗嗘牱寮?*/
+/* ===== 搜索框 ===== */
 .app-layout .ant-input-search {
   border-radius: 20px;
 }
 
-/* 鍗＄墖鏍峰紡浼樺寲 */
+/* ===== 卡片样式 ===== */
 .ant-card {
   transition: all 0.3s ease;
 }
 
 .ant-card-hoverAble:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--zf-shadow-md);
 }
 
-/* 鍖哄煙鏍囬鏍峰紡 */
+[data-theme="dark"] .ant-card {
+  background: #141414;
+  border-color: #303030;
+}
+
+[data-theme="dark"] .ant-card-head {
+  background: #141414;
+  border-color: #303030;
+}
+
+[data-theme="dark"] .ant-typography {
+  color: var(--zf-text-primary);
+}
+
+[data-theme="dark"] .ant-typography-secondary {
+  color: var(--zf-text-secondary);
+}
+
+/* ===== 区域标题 ===== */
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-radius: 12px;
-  margin-bottom: 20px;
+  padding: var(--zf-s4) var(--zf-s5);
+  border-radius: var(--zf-r-md);
+  margin-bottom: var(--zf-s5);
 }
 
-/* 闃呰鏇村閾炬帴鏍峰紡 */
+/* ===== 阅读更多链接 ===== */
 .read-more-link {
   display: flex;
   align-items: center;
@@ -66,45 +94,18 @@ body {
   opacity: 0.8;
 }
 
-/* 娣辫壊妯″紡鏍峰紡 */
-.dark-mode .app-layout {
-  background: #000;
-}
-
-.dark-mode .ant-layout-content {
-  background: #000;
-}
-
-.dark-mode .ant-card {
-  background: #141414;
-  border-color: #303030;
-}
-
-.dark-mode .ant-card-head {
-  background: #141414;
-  border-color: #303030;
-}
-
-.dark-mode .ant-typography {
-  color: #fff;
-}
-
-.dark-mode .ant-typography-secondary {
-  color: #aaa;
-}
-
-/* 鍝嶅簲寮忓竷灞€ */
+/* ===== 响应式布局 ===== */
 @media (max-width: 767px) {
   .app-layout .ant-layout-header {
     padding: 0 20px;
   }
-  
+
   .app-layout .ant-layout-content {
-    padding: 16px 20px !important;
+    padding: var(--zf-s4) var(--zf-s5) !important;
   }
 }
 
-/* 鍔ㄧ敾鏁堟灉 */
+/* ===== 动画效果 ===== */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -120,8 +121,8 @@ body {
   animation: fadeIn 0.5s ease;
 }
 
-/* ===== 棣栭〉灏忚鍖哄煙鍝嶅簲寮忓竷灞€ ===== */
-/* 鏂偣涓嶢nt Design瀵归綈: sm=576, md=768, lg=992, xl=1200, xxl=1600 */
+/* ===== 首页小说区域响应式布局 ===== */
+/* 断点与 Ant Design 对齐: sm=576, md=768, lg=992, xl=1200, xxl=1600 */
 
 .novel-section-content {
   position: relative;
@@ -145,9 +146,12 @@ body {
   min-width: 0;
 }
 
-/* 
- * 澶у睆骞?(鈮?92px) - 涓嶢nt Design lg鏂偣瀵归綈
- * 蹇呰鐑棬鎺ㄨ崘: 鍏ㄥ瀹瑰櫒 鈫?6鍒? * 娼滃姏姒?瀹屾湰姒? 鍗婂瀹瑰櫒(lg=12) 鈫?3鍒? * 鏇存柊姒?鎼滅储姒?璇勮姒? 1/3瀹藉鍣?lg=8) 鈫?2鍒? */
+/*
+ * 大屏幕 (≥992px) — 与 Ant Design lg 断点对齐
+ * 必读/热门推荐: 全宽容器 → 6列
+ * 潜力榜/完本榜: 半宽容器(lg=12) → 3列
+ * 更新榜/搜索榜/好评榜: 1/3宽容器(lg=8) → 2列
+ */
 .novel-grid-main {
   grid-template-columns: repeat(6, 1fr);
 }
@@ -160,9 +164,12 @@ body {
   grid-template-columns: repeat(2, 1fr);
 }
 
-/* 
- * 涓瓑灞忓箷 (768px - 991px) - 涓嶢nt Design md鏂偣瀵归綈
- * 蹇呰鐑棬鎺ㄨ崘: 鍏ㄥ瀹瑰櫒 鈫?5鍒? * 娼滃姏姒?瀹屾湰姒? 鍏ㄥ瀹瑰櫒(xs=24) 鈫?4鍒? * 鏇存柊姒?鎼滅储姒?璇勮姒? 鍗婂瀹瑰櫒(md=12) 鈫?2鍒? */
+/*
+ * 中等屏幕 (768px - 991px) — 与 Ant Design md 断点对齐
+ * 必读/热门推荐: 全宽容器 → 5列
+ * 潜力榜/完本榜: 全宽容器(xs=24) → 4列
+ * 更新榜/搜索榜/好评榜: 半宽容器(md=12) → 2列
+ */
 @media (min-width: 768px) and (max-width: 991px) {
   .novel-grid-main {
     grid-template-columns: repeat(5, 1fr);
@@ -177,8 +184,8 @@ body {
   }
 }
 
-/* 
- * 灏忓睆骞?(鈮?67px) - 妯悜婊氬姩
+/*
+ * 小屏幕 (≤767px) — 横向滚动
  */
 @media (max-width: 767px) {
   .novel-section-content {
@@ -212,39 +219,7 @@ body {
   }
 }
 
-/* 婊氬姩鏉℃牱寮?*/
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
-
-/* 娣辫壊妯″紡婊氬姩鏉?*/
-.dark-mode ::-webkit-scrollbar-track {
-  background: #2c2c2c;
-}
-
-.dark-mode ::-webkit-scrollbar-thumb {
-  background: #555;
-}
-
-.dark-mode ::-webkit-scrollbar-thumb:hover {
-  background: #666;
-}
-
+/* ===== 紫枫紫背景光晕动画 ===== */
 @keyframes glassFloat1 {
   0%, 100% { transform: translate(0, 0); }
   50% { transform: translate(-30px, 20px); }
@@ -278,4 +253,61 @@ body {
 .btn-shimmer {
   background-size: 200% auto;
   animation: shimmer 3s linear infinite;
+}
+
+/* ===== 紫枫紫玻璃磁吸导航 ===== */
+.zf-navbar { transition: all var(--zf-dur-normal) var(--zf-ease-out); }
+.zf-navbar.scrolled { padding-top: 8px !important; padding-bottom: 8px !important; box-shadow: var(--zf-shadow-lg) !important; }
+.zf-search-input:focus, .zf-search-input:focus-within { box-shadow: 0 0 0 4px rgba(139,92,246,.18) !important; border-color: var(--zf-primary-500) !important; }
+.zf-nav-btn:focus-visible { outline: 2px solid var(--zf-primary-500); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .zf-navbar, .zf-nav-btn { transition: none !important; } }
+
+/* ===== 响应式与无障碍收尾 ===== */
+
+/* 全局焦点可见样式 */
+*:focus-visible {
+  outline: 2px solid var(--zf-primary-500);
+  outline-offset: 3px;
+  border-radius: var(--zf-r-sm);
+}
+
+/* 触达区最小尺寸 */
+.zf-nav-btn, .ant-btn, .ant-avatar, .ant-switch {
+  min-height: 38px;
+}
+
+/* 响应式断点辅助 */
+@media (max-width: 880px) {
+  .zf-hide-mobile { display: none !important; }
+}
+@media (min-width: 881px) {
+  .zf-hide-desktop { display: none !important; }
+}
+
+/* 文本对比度 */
+body {
+  color: var(--zf-text-primary);
+}
+
+/* 玻璃卡片统一过渡 */
+.glass-card, [class*="glass"] {
+  transition: all var(--zf-dur-normal) var(--zf-ease-out);
+}
+
+/* 滚动条美化（紫色主题 — 统一使用设计令牌，自动适配深浅色） */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--zf-glass-bg); }
+::-webkit-scrollbar-thumb { background: var(--zf-primary-400); border-radius: var(--zf-r-sm); }
+::-webkit-scrollbar-thumb:hover { background: var(--zf-primary-500); }
+
+/* 选中文本高亮 */
+::selection { background: rgba(139,92,246,0.3); color: var(--zf-text-primary); }
+
+/* ===== 减少动效偏好 ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -99,14 +99,23 @@ const Setting = () => {
     return '07:00';
   });
 
-  // 主题选项
+  // 主题选项 —— 色块颜色对齐 themeConfigs.primaryColor，确保色块与实际主题色一致
   const themeOptions = [
-    { key: 'default', name: '经典蓝', color: '#1890ff' },
-    { key: 'green', name: '清新绿', color: '#52c41a' },
-    { key: 'purple', name: '优雅紫', color: '#722ed1' },
-    { key: 'orange', name: '活力橙', color: '#fa8c16' },
-    { key: 'red', name: '热情红', color: '#f5222d' },
+    { key: 'default', name: '经典蓝', color: themeConfigs.default.primaryColor },
+    { key: 'green', name: '清新绿', color: themeConfigs.green.primaryColor },
+    { key: 'purple', name: '优雅紫', color: themeConfigs.purple.primaryColor },
+    { key: 'orange', name: '活力橙', color: themeConfigs.orange.primaryColor },
+    { key: 'red', name: '热情红', color: themeConfigs.red.primaryColor },
   ];
+
+  // 主题切换映射：将 --zf-primary-500 令牌同步到当前主题主色，使令牌驱动的组件也跟随主题
+  // （默认主题为紫枫紫 #8B5CF6，与 index.css 既有值一致，默认态无副作用）
+  useEffect(() => {
+    const pc = themeConfigs[currentTheme]?.primaryColor;
+    if (pc) {
+      document.documentElement.style.setProperty('--zf-primary-500', pc);
+    }
+  }, [currentTheme, themeConfigs]);
 
   // 夜间模式自动切换开关
   const handleAutoNightToggle = (checked) => {
@@ -230,8 +239,8 @@ const Setting = () => {
               </Space>
             }
             style={{
-              borderRadius: 16,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+              borderRadius: 'var(--zf-r-lg)',
+              boxShadow: 'var(--zf-shadow-md)',
               ...glassCardStyle(glassMode, isDarkMode)
             }}
           >
@@ -244,7 +253,7 @@ const Setting = () => {
                       hoverable
                       onClick={() => setCurrentTheme(theme.key)}
                       style={{
-                        borderRadius: 12,
+                        borderRadius: 'var(--zf-r-md)',
                         border: currentTheme === theme.key ? `2px solid ${theme.color}` : `1px solid ${isDarkMode ? '#333' : '#e8e8e8'}`,
                         backgroundColor: currentTheme === theme.key
                           ? (isDarkMode ? `${theme.color}20` : `${theme.color}10`)
@@ -291,8 +300,8 @@ const Setting = () => {
               </Space>
             }
             style={{
-              borderRadius: 16,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+              borderRadius: 'var(--zf-r-lg)',
+              boxShadow: 'var(--zf-shadow-md)',
               ...glassCardStyle(glassMode, isDarkMode)
             }}
           >
@@ -300,7 +309,7 @@ const Setting = () => {
               <Text type="secondary">切换浅色或深色模式</Text>
               <Card
                 style={{
-                  borderRadius: 12,
+                  borderRadius: 'var(--zf-r-md)',
                   backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
                   border: `2px solid ${themeConfigs[currentTheme].primaryColor}`,
                   boxShadow: `0 4px 16px ${themeConfigs[currentTheme].primaryColor}15`
@@ -335,7 +344,7 @@ const Setting = () => {
               </Card>
               <Card
                 style={{
-                  borderRadius: 12,
+                  borderRadius: 'var(--zf-r-md)',
                   backgroundColor: glassMode
                     ? (isDarkMode ? 'rgba(30,30,30,0.6)' : 'rgba(240,240,240,0.6)')
                     : (isDarkMode ? '#1a1a1a' : '#f5f5f5'),
@@ -387,8 +396,8 @@ const Setting = () => {
               </Space>
             }
             style={{
-              borderRadius: 16,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+              borderRadius: 'var(--zf-r-lg)',
+              boxShadow: 'var(--zf-shadow-md)',
               ...glassCardStyle(glassMode, isDarkMode)
             }}
           >
@@ -428,8 +437,8 @@ const Setting = () => {
         <Col xs={24}>
           <Card
             style={{
-              borderRadius: 16,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+              borderRadius: 'var(--zf-r-lg)',
+              boxShadow: 'var(--zf-shadow-md)',
               textAlign: 'center',
               ...glassCardStyle(glassMode, isDarkMode)
             }}

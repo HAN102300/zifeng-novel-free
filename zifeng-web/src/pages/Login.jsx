@@ -109,15 +109,44 @@ const Login = ({ setIsLoggedIn, setUserInfo }) => {
         style={{
           width: '100%',
           maxWidth: 400,
-          borderRadius: 16,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          borderRadius: 'var(--zf-r-lg)',
+          boxShadow: 'var(--zf-shadow-lg)',
           overflow: 'hidden',
           ...glassCardStyle(glassMode, isDarkMode)
         }}
       >
-        <BackButton onClick={() => navigate(-1)} text="返回" style={{ marginBottom: 20 }} />
-        
-        <div style={{ textAlign: 'center', marginBottom: 30 }}>
+        <BackButton onClick={() => navigate(-1)} text="返回" style={{ marginBottom: 'var(--zf-s5)' }} />
+
+        <div style={{ textAlign: 'center', marginBottom: 'var(--zf-s8)' }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+            style={{
+              width: 56,
+              height: 56,
+              margin: '0 auto var(--zf-s4)',
+              borderRadius: 'var(--zf-r-md)',
+              background: 'linear-gradient(135deg, var(--zf-primary-500), var(--zf-accent-magenta))',
+              display: 'grid',
+              placeItems: 'center',
+              color: '#fff',
+              fontFamily: 'var(--zf-font-serif)',
+              fontWeight: 900,
+              fontSize: 28,
+              boxShadow: 'var(--zf-glow-primary)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+          >
+            枫
+            <span style={{
+              position: 'absolute', inset: 0,
+              background: 'linear-gradient(110deg, transparent 30%, rgba(255,255,255,.5) 50%, transparent 70%)',
+              animation: 'logoShine 4s ease-in-out infinite',
+              transform: 'translateX(-120%)'
+            }} />
+          </motion.div>
           <Title level={3} style={{ margin: 0, color: color }}>
             <motion.span
               initial={{ opacity: 0, filter: 'blur(8px)' }}
@@ -200,17 +229,18 @@ const Login = ({ setIsLoggedIn, setUserInfo }) => {
           )}
           
           <Form.Item>
-            <Button 
-              type="primary" 
-              htmlType="submit" 
-              size="large" 
+            <Button
+              type="primary"
+              htmlType="submit"
+              size="large"
               loading={loading}
-              style={{ 
-                width: '100%', 
-                height: 48, 
-                borderRadius: 8,
-                backgroundColor: color,
-                borderColor: color
+              style={{
+                width: '100%',
+                height: 48,
+                borderRadius: 'var(--zf-r-full)',
+                border: 'none',
+                backgroundImage: `linear-gradient(135deg, ${color}, ${color}cc)`,
+                boxShadow: `0 6px 22px ${color}66, var(--zf-glow-primary)`
               }}
             >
               {isLogin ? '登录' : '注册'}

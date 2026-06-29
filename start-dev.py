@@ -42,13 +42,17 @@ def find_nginx_dir():
     candidates = []
     if SYSTEM == "Windows":
         program_files = os.environ.get("ProgramFiles", "C:\\Program Files")
-        candidates = [
+        # 优先从环境变量 NGINX_HOME 获取
+        nginx_home = os.environ.get("NGINX_HOME", "")
+        candidates = []
+        if nginx_home:
+            candidates.append(nginx_home)
+        candidates.extend([
             os.path.join(program_files, "nginx"),
             os.path.join(program_files.replace(" (x86)", ""), "nginx"),
             "C:\\nginx",
             "C:\\tools\\nginx",
-            "D:\\Java_software\\nginx-1.30.0",
-        ]
+        ])
     elif SYSTEM == "Linux":
         candidates = [
             "/usr/sbin",
@@ -172,20 +176,56 @@ def generate_nginx_conf(nginx_dir):
         conf_content = f.read()
 
     project_root_posix = PROJECT_ROOT.replace("\\", "/")
-    conf_content = conf_content.replace(
-        "D:/FrontEnd_Project/Repo/zifeng-novel-free2",
-        project_root_posix,
-    )
-    conf_content = conf_content.replace(
-        "D:/FrontEnd_Project/Repo/zifeng-novel-free/",
-        project_root_posix[:project_root_posix.rfind("/") + 1],
-    )
+    # 使用 __PROJECT_ROOT__ 占位符替换，避免硬编码个人路径
+    conf_content = conf_content.replace("__PROJECT_ROOT__", project_root_posix)
 
+    # 将配置文件复制到 nginx/conf/ 目录
+    # Nginx on Windows expects ASCII-compatible encoding (no BOM)
+    # Remove Chinese comments to avoid encoding issues
+    import re
+    conf_content_ascii = re.sub(r'[^\x00-\x7F\n\r\t]', '', conf_content)
     dst_conf = os.path.join(nginx_dir, "conf", "zifeng-local.conf")
-    with open(dst_conf, "w", encoding="utf-8") as f:
-        f.write(conf_content)
+    with open(dst_conf, "w", encoding="ascii", errors="ignore") as f:
+        f.write(conf_content_ascii)
 
     print(f"  -> 配置文件已更新: {dst_conf}")
+
+    # 修改 nginx.conf 使其 include zifeng-local.conf
+    nginx_conf_path = os.path.join(nginx_dir, "conf", "nginx.conf")
+    if os.path.isfile(nginx_conf_path):
+        with open(nginx_conf_path, "r", encoding="utf-8") as f:
+            nginx_conf = f.read()
+
+        include_line = "include zifeng-local.conf;"
+        if include_line not in nginx_conf:
+            # 将 include 指令插入到 http {} 块的最后一个 } 之前
+            # 找到 http { 的位置，然后找到其对应的闭合 }
+            http_start = nginx_conf.find("http")
+            if http_start == -1:
+                print(f"  [WARN] nginx.conf 中未找到 http 块，跳过 include")
+            else:
+                # 从 http { 之后开始，逐层匹配大括号找到闭合位置
+                brace_pos = nginx_conf.find("{", http_start)
+                depth = 1
+                i = brace_pos + 1
+                while i < len(nginx_conf) and depth > 0:
+                    if nginx_conf[i] == "{":
+                        depth += 1
+                    elif nginx_conf[i] == "}":
+                        depth -= 1
+                    i += 1
+                # i-1 就是 http {} 的闭合 } 位置
+                close_pos = i - 1
+                insert_text = f"\n    # 紫枫小说本地开发配置\n    {include_line}\n"
+                nginx_conf = nginx_conf[:close_pos] + insert_text + nginx_conf[close_pos:]
+                with open(nginx_conf_path, "w", encoding="utf-8") as f:
+                    f.write(nginx_conf)
+                print(f"  -> 已在 nginx.conf 的 http 块中添加 include 指令")
+        else:
+            print(f"  -> nginx.conf 已包含 include 指令，跳过")
+    else:
+        print(f"  [WARN] nginx.conf 不存在: {nginx_conf_path}")
+
     return dst_conf
 
 

@@ -1,0 +1,112 @@
+/* ============================================================
+   紫枫免费小说 · 统一动画系统 (16 组 keyframes)
+   来源：design/zifeng-ui-redesign.html (v1.0)
+   分类：
+     页面级 —— meshShift / float1 / float2 / float3 / cardEnter / reveal
+     组件级 —— logoShine / shimmer / gradFlow / progressShine /
+              livePulse / pulseGold / skel
+     交互级 —— btnShine / floatDemo / glowPulse
+   说明：reveal 与 btnShine 在原型中以过渡形式存在
+        (.reveal 类、.btn-primary::before)，此处封装为可复用 keyframe
+   ============================================================ */
+
+/* ============== 页面级 ============== */
+
+/* 背景网格缓慢漂移（18s 循环） */
+@keyframes meshShift {
+  0% { transform: translate3d(0,0,0) scale(1); }
+  100% { transform: translate3d(-2%,2%,0) scale(1.06); }
+}
+
+/* 浮动光球（三组不同位移轨迹） */
+@keyframes float1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(40px,60px); } }
+@keyframes float2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-50px,-40px); } }
+@keyframes float3 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(30px,-50px); } }
+
+/* 卡片错峰入场 */
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 滚动揭示（源自原型 .reveal 过渡，封装为可复用 keyframe） */
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============== 组件级 ============== */
+
+/* Logo 扫光 */
+@keyframes logoShine {
+  0%,40% { transform: translateX(-120%); }
+  60%,100% { transform: translateX(120%); }
+}
+
+/* 骨架屏微光 */
+@keyframes skel {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* 渐变流光文字 */
+@keyframes gradFlow {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+/* 微光扫过（标题 / 装饰） */
+@keyframes shimmer {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+/* 进度条扫光 */
+@keyframes progressShine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* 在读 / 在线脉冲 */
+@keyframes livePulse {
+  0% { box-shadow: 0 0 0 0 rgba(16,185,129,.6); }
+  70% { box-shadow: 0 0 0 8px rgba(16,185,129,0); }
+  100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+}
+
+/* 排行榜火焰金光 */
+@keyframes pulseGold {
+  0%,100% { box-shadow: 0 0 18px rgba(245,158,11,.7); }
+  50% { box-shadow: 0 0 28px rgba(245,158,11,1); }
+}
+
+/* ============== 交互级 ============== */
+
+/* 按钮扫光（源自原型 .btn-primary::before 过渡，封装为可复用 keyframe） */
+@keyframes btnShine {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+
+/* 演示用浮动 */
+@keyframes floatDemo {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* 演示用光晕脉冲 */
+@keyframes glowPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(139,92,246,.6); }
+  50% { box-shadow: 0 0 0 16px rgba(139,92,246,0); }
+}
+
+/* ============================================================
+   无障碍：尊重用户的减少动效偏好
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

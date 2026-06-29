@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>紫枫免费小说 · 页面布局深化方案 v2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&family=Noto+Serif+SC:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+/* ============= 设计令牌（沿用 v1.0）============= */
+:root{
+  --zf-primary-50:#F5F3FF;--zf-primary-100:#EDE9FE;--zf-primary-300:#C4B5FD;
+  --zf-primary-400:#A78BFA;--zf-primary-500:#8B5CF6;--zf-primary-600:#7C3AED;
+  --zf-primary-700:#6D28D9;--zf-primary-900:#4C1D95;
+  --zf-accent-magenta:#EC4899;--zf-accent-cyan:#06B6D4;--zf-accent-amber:#F59E0B;
+  --zf-accent-emerald:#10B981;--zf-accent-rose:#F43F5E;
+  --zf-bg-base:#0B0814;--zf-bg-elevated:#131022;
+  --zf-glass-bg:rgba(255,255,255,0.06);--zf-glass-bg-strong:rgba(255,255,255,0.10);
+  --zf-glass-border:rgba(255,255,255,0.12);--zf-glass-border-strong:rgba(255,255,255,0.20);
+  --zf-glass-highlight:rgba(255,255,255,0.16);
+  --zf-text-primary:#F8FAFC;--zf-text-secondary:#CBD5E1;--zf-text-muted:#94A3B8;--zf-text-faint:#64748B;
+  --zf-font-ui:'Inter','Noto Sans SC',system-ui,sans-serif;
+  --zf-font-serif:'Noto Serif SC','Inter',serif;
+  --zf-fs-xs:12px;--zf-fs-sm:13px;--zf-fs-base:14px;--zf-fs-md:15px;
+  --zf-fs-lg:18px;--zf-fs-xl:22px;--zf-fs-2xl:28px;--zf-fs-3xl:38px;
+  --zf-s1:4px;--zf-s2:8px;--zf-s3:12px;--zf-s4:16px;--zf-s5:20px;
+  --zf-s6:24px;--zf-s8:32px;--zf-s10:40px;--zf-s12:48px;--zf-s16:64px;
+  --zf-r-sm:8px;--zf-r-md:12px;--zf-r-lg:16px;--zf-r-xl:22px;--zf-r-full:999px;
+  --zf-shadow-sm:0 1px 2px rgba(0,0,0,.3);--zf-shadow-md:0 8px 24px rgba(0,0,0,.35);--zf-shadow-lg:0 20px 50px rgba(0,0,0,.45);
+  --zf-glow-primary:0 0 24px rgba(139,92,246,.45);--zf-glow-magenta:0 0 24px rgba(236,72,153,.40);
+  --zf-ease-out:cubic-bezier(.16,1,.3,1);--zf-ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --zf-dur-fast:.18s;--zf-dur-normal:.32s;--zf-dur-slow:.6s;
+  --zf-blur-glass:blur(18px) saturate(160%);--zf-blur-light:blur(8px);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:var(--zf-font-ui);background:var(--zf-bg-base);color:var(--zf-text-primary);line-height:1.6;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(60% 50% at 12% 8%,rgba(139,92,246,.22),transparent 60%),radial-gradient(55% 45% at 88% 18%,rgba(236,72,153,.16),transparent 60%),radial-gradient(50% 50% at 78% 88%,rgba(6,182,212,.14),transparent 60%);animation:meshShift 18s var(--zf-ease-out) infinite alternate}
+@keyframes meshShift{0%{transform:translate3d(0,0,0) scale(1)}100%{transform:translate3d(-2%,2%,0) scale(1.06)}}
+.orb{position:fixed;border-radius:50%;filter:blur(60px);opacity:.4;z-index:0;pointer-events:none}
+.orb-1{width:340px;height:340px;background:var(--zf-primary-500);top:-80px;left:-60px;animation:float1 16s ease-in-out infinite}
+.orb-2{width:280px;height:280px;background:var(--zf-accent-magenta);top:30%;right:-80px;animation:float2 20s ease-in-out infinite}
+@keyframes float1{0%,100%{transform:translate(0,0)}50%{transform:translate(40px,60px)}}
+@keyframes float2{0%,100%{transform:translate(0,0)}50%{transform:translate(-50px,-40px)}}
+
+/* ============= 顶部目录导航 ============= */
+.page-nav{position:sticky;top:0;z-index:100;background:var(--zf-glass-bg-strong);backdrop-filter:var(--zf-blur-glass);border-bottom:1px solid var(--zf-glass-border);padding:14px 24px}
+.page-nav-inner{max-width:1320px;margin:0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.page-nav-title{font-family:var(--zf-font-serif);font-weight:700;font-size:18px;color:var(--zf-text-primary);margin-right:auto}
+.page-nav-title em{font-style:normal;color:var(--zf-primary-400)}
+.page-nav a{padding:7px 14px;border-radius:var(--zf-r-full);font-size:13px;font-weight:500;color:var(--zf-text-secondary);text-decoration:none;transition:all var(--zf-dur-fast) var(--zf-ease-out);border:1px solid transparent}
+.page-nav a:hover{color:var(--zf-text-primary);background:var(--zf-glass-bg);border-color:var(--zf-glass-border)}
+.page-nav a.active{color:#fff;background:linear-gradient(135deg,var(--zf-primary-600),var(--zf-primary-500));box-shadow:var(--zf-glow-primary)}
+
+.app{position:relative;z-index:1;max-width:1320px;margin:0 auto;padding:var(--zf-s8) var(--zf-s6) var(--zf-s16)}
+
+/* ============= 通用区块 ============= */
+.page-section{margin-bottom:var(--zf-s16);scroll-margin-top:80px}
+.page-header{margin-bottom:var(--zf-s8)}
+.eyebrow{display:inline-block;font-size:var(--zf-fs-xs);font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--zf-primary-400);margin-bottom:8px}
+.page-title{font-family:var(--zf-font-serif);font-size:var(--zf-fs-3xl);font-weight:900;color:var(--zf-text-primary);display:flex;align-items:center;gap:14px;line-height:1.1}
+.page-title .num{font-size:20px;font-weight:700;color:var(--zf-primary-400);background:var(--zf-glass-bg-strong);border:1px solid var(--zf-glass-border-strong);width:48px;height:48px;border-radius:14px;display:grid;place-items:center;font-family:var(--zf-font-serif)}
+.page-sub{color:var(--zf-text-muted);font-size:var(--zf-fs-md);margin-top:8px;max-width:680px}
+.page-divider{height:1px;background:linear-gradient(90deg,transparent,var(--zf-glass-border-strong),transparent);margin:var(--zf-s8) 0}
+
+/* ============= 玻璃卡 / 通用组件 ============= */
+.glass{background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);backdrop-filter:var(--zf-blur-light);border-radius:var(--zf-r-lg)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;font-weight:600;font-size:var(--zf-fs-base);cursor:pointer;border:none;border-radius:var(--zf-r-full);padding:11px 22px;transition:all var(--zf-dur-fast) var(--zf-ease-out);position:relative;overflow:hidden}
+.btn-primary{background:linear-gradient(135deg,var(--zf-primary-600),var(--zf-primary-500));color:#fff;box-shadow:0 4px 14px rgba(139,92,246,.4)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(139,92,246,.55)}
+.btn-glass{background:var(--zf-glass-bg-strong);color:var(--zf-text-primary);border:1px solid var(--zf-glass-border-strong)}
+.btn-glass:hover{background:var(--zf-glass-highlight);transform:translateY(-2px)}
+.btn-ghost{background:transparent;color:var(--zf-primary-400);border:1px solid var(--zf-primary-500)}
+.btn-ghost:hover{background:rgba(139,92,246,.12)}
+.btn-sm{padding:7px 14px;font-size:var(--zf-fs-sm)}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:var(--zf-r-full);font-size:var(--zf-fs-xs);font-weight:600;border:1px solid var(--zf-glass-border);background:var(--zf-glass-bg);color:var(--zf-text-secondary)}
+.tag-primary{background:rgba(139,92,246,.15);color:var(--zf-primary-400);border-color:rgba(139,92,246,.3)}
+.tag-magenta{background:rgba(236,72,153,.15);color:var(--zf-accent-magenta);border-color:rgba(236,72,153,.3)}
+.tag-cyan{background:rgba(6,182,212,.15);color:var(--zf-accent-cyan);border-color:rgba(6,182,212,.3)}
+.tag-emerald{background:rgba(16,185,129,.15);color:var(--zf-accent-emerald);border-color:rgba(16,185,129,.3)}
+.tag-amber{background:rgba(245,158,11,.15);color:var(--zf-accent-amber);border-color:rgba(245,158,11,.3)}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.dot-live{background:var(--zf-accent-emerald);box-shadow:0 0 0 0 rgba(16,185,129,.6);animation:livePulse 1.8s infinite}
+@keyframes livePulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.6)}70%{box-shadow:0 0 0 8px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}
+
+/* ============= 标注框 ============= */
+.annot{position:relative;padding:18px 20px 18px 56px;border-radius:var(--zf-r-md);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);margin-top:var(--zf-s4);font-size:var(--zf-fs-sm);color:var(--zf-text-secondary)}
+.annot::before{content:"💡";position:absolute;left:18px;top:18px;font-size:18px}
+.annot strong{color:var(--zf-primary-400)}
+.annot ul{list-style:none;padding-left:0;margin-top:6px}
+.annot li{padding:3px 0 3px 16px;position:relative}
+.annot li::before{content:"";position:absolute;left:0;top:11px;width:5px;height:5px;border-radius:50%;background:var(--zf-primary-500)}
+
+/* ============= 布局栅格示意 ============= */
+.grid-hint{display:grid;gap:var(--zf-s3);margin-top:var(--zf-s4)}
+.grid-cell{padding:14px;border-radius:var(--zf-r-sm);background:var(--zf-glass-bg);border:1px dashed var(--zf-glass-border-strong);font-size:12px;color:var(--zf-text-muted);text-align:center;font-family:monospace}
+
+/* ============================== 1. 首页六大榜单 ============================== */
+.home-hero{padding:var(--zf-s12);border-radius:var(--zf-r-xl);background:linear-gradient(135deg,rgba(124,58,237,.25),rgba(236,72,153,.15));border:1px solid var(--zf-glass-border-strong);backdrop-filter:var(--zf-blur-glass);margin-bottom:var(--zf-s8);position:relative;overflow:hidden}
+.home-hero h2{font-family:var(--zf-font-serif);font-size:var(--zf-fs-3xl);font-weight:900;line-height:1.1;margin-bottom:12px}
+.home-hero h2 .grad{background:linear-gradient(120deg,var(--zf-primary-400),var(--zf-accent-magenta),var(--zf-accent-cyan));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;background-size:200% auto;animation:gradFlow 4s linear infinite}
+@keyframes gradFlow{0%{background-position:0% center}100%{background-position:200% center}}
+.home-hero p{color:var(--zf-text-secondary);max-width:560px;margin-bottom:var(--zf-s5)}
+
+/* 榜单分区 - 6大榜单布局 */
+.rank-section{margin-bottom:var(--zf-s10)}
+.rank-section-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-radius:var(--zf-r-lg);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);backdrop-filter:var(--zf-blur-light);margin-bottom:var(--zf-s5)}
+.rank-section-left{display:flex;align-items:center;gap:14px}
+.rank-icon{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;color:#fff;flex-shrink:0;font-size:18px}
+.rank-icon.fire{background:linear-gradient(135deg,var(--zf-accent-magenta),#BE123C);box-shadow:var(--zf-glow-magenta)}
+.rank-icon.trophy{background:linear-gradient(135deg,#F59E0B,#B45309)}
+.rank-icon.rise{background:linear-gradient(135deg,var(--zf-accent-cyan),#0E7490)}
+.rank-icon.check{background:linear-gradient(135deg,var(--zf-accent-emerald),#047857)}
+.rank-icon.clock{background:linear-gradient(135deg,#3B82F6,#1E40AF)}
+.rank-icon.comment{background:linear-gradient(135deg,#A855F7,#6D28D9)}
+.rank-section-title{font-family:var(--zf-font-serif);font-size:var(--zf-fs-lg);font-weight:700;color:var(--zf-text-primary)}
+.rank-section-sub{font-size:var(--zf-fs-xs);color:var(--zf-text-muted);margin-top:1px}
+.rank-more{display:inline-flex;align-items:center;gap:4px;color:var(--zf-primary-400);font-size:var(--zf-fs-sm);font-weight:600;cursor:pointer;transition:gap var(--zf-dur-fast)}
+.rank-more:hover{gap:8px}
+
+/* 首页榜单布局：左大图 + 右4列 */
+.rank-layout{display:grid;grid-template-columns:280px 1fr;gap:var(--zf-s5)}
+.rank-feature{position:relative;border-radius:var(--zf-r-lg);overflow:hidden;height:380px;cursor:pointer;transition:transform var(--zf-dur-normal) var(--zf-ease-spring)}
+.rank-feature:hover{transform:translateY(-4px)}
+.rank-feature img{width:100%;height:100%;object-fit:cover}
+.rank-feature-overlay{position:absolute;inset:0;background:linear-gradient(180deg,transparent 30%,rgba(11,8,20,.95));padding:20px;display:flex;flex-direction:column;justify-content:flex-end}
+.rank-feature-badge{position:absolute;top:16px;left:16px;width:44px;height:52px;border-radius:8px;background:linear-gradient(135deg,#F59E0B,#F97316);display:grid;place-items:center;font-family:var(--zf-font-serif);font-weight:900;font-size:24px;color:#fff;box-shadow:0 0 24px rgba(245,158,11,.8);animation:pulseGold 2s ease-in-out infinite}
+@keyframes pulseGold{0%,100%{box-shadow:0 0 18px rgba(245,158,11,.7)}50%{box-shadow:0 0 32px rgba(245,158,11,1)}}
+.rank-feature-title{font-family:var(--zf-font-serif);font-size:var(--zf-fs-xl);font-weight:700;color:#fff;margin-bottom:6px}
+.rank-feature-desc{font-size:var(--zf-fs-sm);color:rgba(255,255,255,.8);margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rank-feature-meta{display:flex;gap:10px;flex-wrap:wrap}
+
+.rank-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--zf-s4)}
+.novel-card{position:relative;cursor:pointer;border-radius:var(--zf-r-md);overflow:hidden;background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);transition:all var(--zf-dur-normal) var(--zf-ease-spring);animation:cardEnter .6s var(--zf-ease-out) backwards}
+.novel-card:hover{transform:translateY(-6px) scale(1.02);box-shadow:var(--zf-shadow-lg);border-color:var(--zf-primary-400)}
+@keyframes cardEnter{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.novel-cover{position:relative;height:180px;overflow:hidden;background:linear-gradient(135deg,var(--zf-primary-700),var(--zf-primary-500))}
+.novel-cover img{width:100%;height:100%;object-fit:cover;transition:transform .5s var(--zf-ease-out)}
+.novel-card:hover .novel-cover img{transform:scale(1.12)}
+.rank-badge-sm{position:absolute;top:8px;left:8px;width:24px;height:30px;border-radius:5px;display:grid;place-items:center;font-family:var(--zf-font-serif);font-weight:900;font-size:14px;color:#fff;background:linear-gradient(135deg,var(--zf-primary-600),var(--zf-primary-500))}
+.rank-badge-sm.b2{background:linear-gradient(135deg,#94A3B8,#64748B)}
+.rank-badge-sm.b3{background:linear-gradient(135deg,#B45309,#92400E)}
+.novel-body{padding:10px 12px 12px}
+.novel-title{font-family:var(--zf-font-serif);font-size:var(--zf-fs-base);font-weight:700;color:var(--zf-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
+.novel-author{font-size:11px;color:var(--zf-text-muted);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.novel-meta{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--zf-text-secondary);justify-content:space-between}
+.novel-cat{padding:1px 7px;border-radius:5px;font-size:10px;font-weight:600;background:rgba(139,92,246,.15);color:var(--zf-primary-400)}
+
+/* ============================== 2. 榜单详情页 ============================== */
+.rank-detail-head{padding:var(--zf-s8);border-radius:var(--zf-r-xl);background:linear-gradient(135deg,rgba(245,158,11,.18),rgba(236,72,153,.10));border:1px solid var(--zf-glass-border-strong);backdrop-filter:var(--zf-blur-glass);margin-bottom:var(--zf-s6);display:flex;align-items:center;gap:var(--zf-s6)}
+.rank-detail-icon{width:72px;height:72px;border-radius:18px;display:grid;place-items:center;font-size:32px;color:#fff;background:linear-gradient(135deg,#F59E0B,#B45309);box-shadow:0 8px 24px rgba(245,158,11,.4);flex-shrink:0}
+.rank-detail-meta{display:flex;gap:24px;margin-top:8px}
+.rank-detail-meta div{font-size:13px;color:var(--zf-text-muted)}
+.rank-detail-meta strong{color:var(--zf-text-primary);font-family:var(--zf-font-serif);font-size:18px;font-weight:700;display:block}
+
+.rank-detail-layout{display:grid;grid-template-columns:200px 1fr;gap:var(--zf-s6)}
+/* 侧栏筛选 */
+.rank-sidebar{padding:var(--zf-s4);border-radius:var(--zf-r-lg);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);backdrop-filter:var(--zf-blur-light);height:fit-content;position:sticky;top:88px}
+.rank-sidebar h4{font-family:var(--zf-font-serif);font-size:14px;color:var(--zf-text-muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;padding-left:8px}
+.rank-sidebar-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:var(--zf-r-md);cursor:pointer;font-size:14px;color:var(--zf-text-secondary);transition:all var(--zf-dur-fast) var(--zf-ease-out);margin-bottom:2px}
+.rank-sidebar-item:hover{background:var(--zf-glass-bg-strong);color:var(--zf-text-primary)}
+.rank-sidebar-item.active{background:linear-gradient(135deg,var(--zf-primary-600),var(--zf-primary-500));color:#fff;box-shadow:0 4px 12px rgba(139,92,246,.4)}
+.rank-sidebar-item .count{font-size:11px;opacity:.7}
+
+/* 榜单详情主区 - 排行榜列表 */
+.rank-detail-list{display:flex;flex-direction:column;gap:var(--zf-s2)}
+.rank-detail-item{display:flex;align-items:center;gap:var(--zf-s4);padding:14px 18px;border-radius:var(--zf-r-md);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);cursor:pointer;transition:all var(--zf-dur-fast) var(--zf-ease-out)}
+.rank-detail-item:hover{background:var(--zf-glass-bg-strong);border-color:var(--zf-primary-400);transform:translateX(6px)}
+.rank-detail-num{width:36px;text-align:center;font-family:var(--zf-font-serif);font-weight:900;font-size:24px;color:var(--zf-text-muted);flex-shrink:0}
+.rank-detail-item:nth-child(1) .rank-detail-num{color:var(--zf-accent-amber);text-shadow:0 0 16px rgba(245,158,11,.7)}
+.rank-detail-item:nth-child(2) .rank-detail-num{color:#CBD5E1}
+.rank-detail-item:nth-child(3) .rank-detail-num{color:#B45309}
+.rank-detail-cover{width:54px;height:72px;border-radius:7px;object-fit:cover;flex-shrink:0;border:1px solid var(--zf-glass-border)}
+.rank-detail-info{flex:1;min-width:0}
+.rank-detail-name{font-family:var(--zf-font-serif);font-weight:700;font-size:var(--zf-fs-md);color:var(--zf-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:8px}
+.rank-detail-desc{font-size:12px;color:var(--zf-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
+.rank-detail-tags{display:flex;gap:5px;margin-top:6px}
+.rank-detail-stat{display:flex;gap:14px;font-size:12px;color:var(--zf-text-secondary);flex-shrink:0;text-align:right}
+.rank-detail-stat div strong{display:block;color:var(--zf-text-primary);font-size:15px;font-family:var(--zf-font-serif)}
+
+/* 分页 */
+.pagination{display:flex;justify-content:center;gap:6px;margin-top:var(--zf-s6)}
+.page-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--zf-glass-border);background:var(--zf-glass-bg);color:var(--zf-text-secondary);cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;transition:all var(--zf-dur-fast)}
+.page-btn:hover{border-color:var(--zf-primary-400);color:var(--zf-primary-400)}
+.page-btn.active{background:linear-gradient(135deg,var(--zf-primary-600),var(--zf-primary-500));color:#fff;border-color:transparent;box-shadow:var(--zf-glow-primary)}
+
+/* ============================== 3. 分类页（男女生） ============================== */
+.cat-tabs{display:flex;gap:6px;margin-bottom:var(--zf-s6);padding:6px;border-radius:var(--zf-r-full);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);width:fit-content}
+.cat-tab{padding:10px 28px;border:none;background:none;color:var(--zf-text-muted);font-family:inherit;font-size:14px;font-weight:600;border-radius:var(--zf-r-full);cursor:pointer;transition:all var(--zf-dur-fast) var(--zf-ease-out);display:flex;align-items:center;gap:8px}
+.cat-tab.active.male{background:linear-gradient(135deg,#3B82F6,#1E40AF);color:#fff;box-shadow:0 4px 12px rgba(59,130,246,.4)}
+.cat-tab.active.female{background:linear-gradient(135deg,var(--zf-accent-magenta),#BE123C);color:#fff;box-shadow:var(--zf-glow-magenta)}
+
+.cat-banner{padding:var(--zf-s8) var(--zf-s10);border-radius:var(--zf-r-xl);margin-bottom:var(--zf-s8);position:relative;overflow:hidden;display:flex;align-items:center;gap:var(--zf-s8)}
+.cat-banner.male{background:linear-gradient(135deg,rgba(59,130,246,.25),rgba(139,92,246,.15));border:1px solid rgba(59,130,246,.3)}
+.cat-banner.female{background:linear-gradient(135deg,rgba(236,72,153,.22),rgba(245,158,11,.12));border:1px solid rgba(236,72,153,.3)}
+.cat-banner-icon{width:84px;height:84px;border-radius:24px;display:grid;place-items:center;font-size:40px;flex-shrink:0;background:var(--zf-glass-bg-strong);border:1px solid var(--zf-glass-border-strong);backdrop-filter:var(--zf-blur-light)}
+.cat-banner h3{font-family:var(--zf-font-serif);font-size:var(--zf-fs-2xl);font-weight:900;color:var(--zf-text-primary);margin-bottom:4px}
+.cat-banner p{color:var(--zf-text-secondary);font-size:var(--zf-fs-md)}
+
+/* 分类网格 */
+.cat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--zf-s4)}
+.cat-card{padding:var(--zf-s5);border-radius:var(--zf-r-lg);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);cursor:pointer;transition:all var(--zf-dur-normal) var(--zf-ease-spring);position:relative;overflow:hidden;animation:cardEnter .5s var(--zf-ease-out) backwards}
+.cat-card:hover{transform:translateY(-6px);border-color:var(--card-color);box-shadow:0 12px 30px rgba(0,0,0,.3)}
+.cat-card::before{content:"";position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:var(--card-color);opacity:.08;transition:transform var(--zf-dur-slow) var(--zf-ease-out)}
+.cat-card:hover::before{transform:scale(1.4)}
+.cat-card-icon{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;font-size:22px;color:#fff;background:var(--card-color);margin-bottom:var(--zf-s3);box-shadow:0 6px 16px var(--card-shadow)}
+.cat-card-name{font-family:var(--zf-font-serif);font-size:var(--zf-fs-md);font-weight:700;color:var(--zf-text-primary);margin-bottom:4px}
+.cat-card-desc{font-size:12px;color:var(--zf-text-muted);margin-bottom:10px}
+.cat-card-count{font-size:11px;color:var(--card-color);font-weight:600;display:flex;align-items:center;gap:4px}
+
+/* ============================== 4. 分类详情页 ============================== */
+.cat-detail-layout{display:grid;grid-template-columns:220px 1fr;gap:var(--zf-s6)}
+.cat-detail-side{padding:var(--zf-s5);border-radius:var(--zf-r-lg);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);backdrop-filter:var(--zf-blur-light);height:fit-content;position:sticky;top:88px}
+.cat-detail-side h4{font-family:var(--zf-font-serif);font-size:18px;font-weight:700;color:var(--zf-text-primary);margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.cat-detail-side .sub{font-size:12px;color:var(--zf-text-muted);margin-bottom:var(--zf-s4);padding-bottom:var(--zf-s4);border-bottom:1px solid var(--zf-glass-border)}
+.filter-group{margin-bottom:var(--zf-s4)}
+.filter-label{font-size:11px;color:var(--zf-text-muted);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:8px}
+.filter-chips{display:flex;flex-wrap:wrap;gap:6px}
+.filter-chip{padding:5px 11px;border-radius:var(--zf-r-full);font-size:12px;font-weight:500;color:var(--zf-text-secondary);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);cursor:pointer;transition:all var(--zf-dur-fast)}
+.filter-chip:hover{color:var(--zf-text-primary);border-color:var(--zf-primary-400)}
+.filter-chip.active{background:linear-gradient(135deg,var(--zf-primary-600),var(--zf-primary-500));color:#fff;border-color:transparent}
+
+.cat-detail-main{min-width:0}
+.cat-detail-toolbar{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-radius:var(--zf-r-lg);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);margin-bottom:var(--zf-s5)}
+.cat-detail-count{font-size:13px;color:var(--zf-text-muted)}
+.cat-detail-count strong{color:var(--zf-text-primary);font-family:var(--zf-font-serif)}
+.sort-tabs{display:flex;gap:4px}
+.sort-tab{padding:6px 14px;border-radius:var(--zf-r-full);font-size:12px;font-weight:600;color:var(--zf-text-muted);cursor:pointer;transition:all var(--zf-dur-fast)}
+.sort-tab.active{color:#fff;background:var(--zf-glass-bg-strong);border:1px solid var(--zf-primary-400)}
+
+/* 分类详情 - 网格 */
+.cat-detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--zf-s4)}
+
+/* ============================== 5. 书架（收藏+历史） ============================== */
+.shelf-layout{display:grid;grid-template-columns:1fr;gap:var(--zf-s8)}
+.shelf-section{padding:var(--zf-s6);border-radius:var(--zf-r-xl);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);backdrop-filter:var(--zf-blur-light)}
+.shelf-section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--zf-s5);padding-bottom:var(--zf-s4);border-bottom:1px solid var(--zf-glass-border)}
+.shelf-section-title{font-family:var(--zf-font-serif);font-size:var(--zf-fs-xl);font-weight:700;color:var(--zf-text-primary);display:flex;align-items:center;gap:10px}
+.shelf-section-title .count{font-size:13px;color:var(--zf-text-muted);font-weight:500;font-family:var(--zf-font-ui)}
+.shelf-actions{display:flex;gap:6px}
+
+/* 阅读历史 - 横向时间轴 */
+.history-timeline{position:relative;padding-left:32px}
+.history-timeline::before{content:"";position:absolute;left:10px;top:8px;bottom:8px;width:2px;background:linear-gradient(180deg,var(--zf-primary-500),var(--zf-accent-magenta),transparent)}
+.history-item{position:relative;padding:14px 18px;margin-bottom:var(--zf-s3);border-radius:var(--zf-r-md);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);cursor:pointer;transition:all var(--zf-dur-fast) var(--zf-ease-out);display:flex;align-items:center;gap:14px}
+.history-item:hover{border-color:var(--zf-primary-400);transform:translateX(6px)}
+.history-item::before{content:"";position:absolute;left:-29px;top:50%;transform:translateY(-50%);width:14px;height:14px;border-radius:50%;background:var(--zf-primary-500);border:3px solid var(--zf-bg-base);box-shadow:0 0 12px var(--zf-primary-500)}
+.history-item-time{font-size:11px;color:var(--zf-text-muted);font-family:monospace;flex-shrink:0;width:90px;text-align:right}
+.history-cover{width:40px;height:54px;border-radius:5px;object-fit:cover;flex-shrink:0}
+.history-info{flex:1;min-width:0}
+.history-name{font-weight:600;font-size:14px;color:var(--zf-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.history-chap{font-size:12px;color:var(--zf-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.history-progress{width:120px;flex-shrink:0}
+.progress{height:5px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;position:relative}
+.progress-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--zf-primary-500),var(--zf-accent-magenta));box-shadow:0 0 8px rgba(139,92,246,.6);transition:width .8s var(--zf-ease-out);position:relative}
+.progress-fill::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);animation:progressShine 2s linear infinite}
+@keyframes progressShine{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.progress-label{font-size:11px;color:var(--zf-text-secondary);margin-top:3px;display:flex;justify-content:space-between}
+
+/* 收藏 - 网格 */
+.shelf-fav-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--zf-s4)}
+.shelf-fav-card{padding:var(--zf-s4);border-radius:var(--zf-r-md);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);cursor:pointer;transition:all var(--zf-dur-normal);display:flex;gap:12px}
+.shelf-fav-card:hover{transform:translateY(-4px);border-color:var(--zf-primary-400);box-shadow:var(--zf-shadow-md)}
+.shelf-fav-cover{width:64px;height:86px;border-radius:7px;object-fit:cover;flex-shrink:0;box-shadow:var(--zf-shadow-sm)}
+.shelf-fav-body{flex:1;min-width:0;display:flex;flex-direction:column}
+.shelf-fav-title{font-family:var(--zf-font-serif);font-weight:700;font-size:14px;color:var(--zf-text-primary);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shelf-fav-author{font-size:11px;color:var(--zf-text-muted);margin-bottom:auto}
+.shelf-fav-meta{font-size:11px;color:var(--zf-text-secondary);margin-top:6px;display:flex;gap:8px;align-items:center}
+
+/* ============================== 6. 阅读页 ============================== */
+.reader-mock{background:#F5F1E8;border-radius:var(--zf-r-xl);overflow:hidden;border:1px solid var(--zf-glass-border);box-shadow:var(--zf-shadow-lg)}
+.reader-topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(255,255,255,.5);backdrop-filter:var(--zf-blur-light);border-bottom:1px solid rgba(0,0,0,.06);color:#3A2E1F}
+.reader-topbar-left,.reader-topbar-right{display:flex;align-items:center;gap:10px}
+.reader-chap-title{font-family:var(--zf-font-serif);font-size:14px;font-weight:600;color:#3A2E1F}
+.reader-icon-btn{width:34px;height:34px;border-radius:50%;border:none;background:transparent;color:#3A2E1F;cursor:pointer;display:grid;place-items:center;transition:all var(--zf-dur-fast)}
+.reader-icon-btn:hover{background:rgba(139,92,246,.1);color:var(--zf-primary-600)}
+
+.reader-content{padding:36px 48px 24px;max-width:720px;margin:0 auto;color:#3A2E1F;font-family:var(--zf-font-serif)}
+.reader-chap-name{text-align:center;font-family:var(--zf-font-serif);font-size:22px;font-weight:700;color:#3A2E1F;margin-bottom:24px;letter-spacing:1px}
+.reader-content p{text-indent:2em;font-size:17px;line-height:1.85;margin-bottom:14px;color:#3A2E1F}
+.reader-content p:first-letter{font-size:1.2em;font-weight:700}
+
+.reader-footer{padding:16px 20px;background:rgba(255,255,255,.5);backdrop-filter:var(--zf-blur-light);border-top:1px solid rgba(0,0,0,.06);display:flex;align-items:center;justify-content:space-between}
+.reader-nav{display:flex;gap:10px}
+.reader-nav .btn{padding:9px 18px;font-size:13px}
+
+/* 阅读设置抽屉示意 */
+.reader-settings{position:absolute;right:0;top:0;bottom:0;width:280px;background:var(--zf-bg-elevated);border-left:1px solid var(--zf-glass-border);padding:var(--zf-s6);transform:translateX(100%);transition:transform var(--zf-dur-normal) var(--zf-ease-out);display:none}
+.reader-settings.open{display:block;animation:slideIn .4s var(--zf-ease-out)}
+@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+.reader-settings h4{font-family:var(--zf-font-serif);font-size:16px;font-weight:700;color:var(--zf-text-primary);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--zf-glass-border)}
+.setting-row{margin-bottom:18px}
+.setting-label{font-size:12px;color:var(--zf-text-muted);margin-bottom:8px;display:flex;justify-content:space-between}
+.setting-value{color:var(--zf-primary-400);font-weight:600}
+.font-slider{width:100%;height:4px;background:var(--zf-glass-bg-strong);border-radius:2px;position:relative}
+.font-slider-fill{height:100%;background:linear-gradient(90deg,var(--zf-primary-500),var(--zf-accent-magenta));border-radius:2px;width:50%}
+.font-slider-thumb{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid var(--zf-primary-500);box-shadow:var(--zf-glow-primary)}
+.bg-presets{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.bg-preset{aspect-ratio:1;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all var(--zf-dur-fast)}
+.bg-preset.active{border-color:var(--zf-primary-500);box-shadow:var(--zf-glow-primary)}
+
+.reader-wrap{position:relative;display:grid;grid-template-columns:1fr}
+
+/* 阅读进度条 */
+.reader-progress{position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(0,0,0,.1)}
+.reader-progress-fill{height:100%;background:linear-gradient(90deg,var(--zf-primary-500),var(--zf-accent-magenta));width:42%;box-shadow:0 0 8px rgba(139,92,246,.6)}
+
+/* ============================== 7. 书源列表 ============================== */
+.source-toolbar{display:flex;gap:var(--zf-s3);margin-bottom:var(--zf-s6);flex-wrap:wrap}
+.source-search{flex:1;min-width:240px;position:relative}
+.source-search input{width:100%;padding:11px 16px 11px 42px;font-family:inherit;font-size:14px;color:var(--zf-text-primary);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);border-radius:var(--zf-r-full);outline:none;transition:all var(--zf-dur-fast)}
+.source-search input:focus{border-color:var(--zf-primary-500);box-shadow:0 0 0 4px rgba(139,92,246,.18)}
+.source-search svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--zf-text-muted)}
+
+.source-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--zf-s4);margin-bottom:var(--zf-s6)}
+.source-stat{padding:var(--zf-s5);border-radius:var(--zf-r-lg);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);backdrop-filter:var(--zf-blur-light);position:relative;overflow:hidden}
+.source-stat-icon{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-size:18px;color:#fff;margin-bottom:10px}
+.source-stat-num{font-family:var(--zf-font-serif);font-size:28px;font-weight:900;color:var(--zf-text-primary)}
+.source-stat-label{font-size:12px;color:var(--zf-text-muted);margin-top:2px}
+
+.source-list{display:flex;flex-direction:column;gap:var(--zf-s2)}
+.source-item{display:flex;align-items:center;gap:var(--zf-s4);padding:14px 18px;border-radius:var(--zf-r-md);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);transition:all var(--zf-dur-fast) var(--zf-ease-out)}
+.source-item:hover{background:var(--zf-glass-bg-strong);border-color:var(--zf-primary-400)}
+.source-item.active{border-color:var(--zf-accent-emerald);background:rgba(16,185,129,.06)}
+.source-logo{width:44px;height:44px;border-radius:10px;flex-shrink:0;display:grid;place-items:center;font-family:var(--zf-font-serif);font-weight:900;font-size:18px;color:#fff}
+.source-info{flex:1;min-width:0}
+.source-name{font-family:var(--zf-font-serif);font-weight:700;font-size:15px;color:var(--zf-text-primary);display:flex;align-items:center;gap:8px}
+.source-url{font-size:12px;color:var(--zf-text-muted);font-family:monospace;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.source-meta{display:flex;gap:14px;font-size:11px;color:var(--zf-text-secondary);margin-top:6px;align-items:center}
+.source-meta-item{display:flex;align-items:center;gap:4px}
+.source-toggle{width:42px;height:24px;border-radius:12px;background:var(--zf-glass-bg-strong);border:1px solid var(--zf-glass-border);position:relative;cursor:pointer;transition:all var(--zf-dur-fast);flex-shrink:0}
+.source-toggle.on{background:linear-gradient(135deg,var(--zf-accent-emerald),#047857);border-color:transparent}
+.source-toggle::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform var(--zf-dur-fast) var(--zf-ease-spring);box-shadow:0 2px 4px rgba(0,0,0,.2)}
+.source-toggle.on::after{transform:translateX(18px)}
+
+/* ============================== 8. 设置页 ============================== */
+.settings-layout{display:grid;grid-template-columns:240px 1fr;gap:var(--zf-s6)}
+.settings-side{padding:var(--zf-s4);border-radius:var(--zf-r-lg);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);height:fit-content;position:sticky;top:88px}
+.settings-side-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:var(--zf-r-md);cursor:pointer;color:var(--zf-text-secondary);font-size:14px;font-weight:500;transition:all var(--zf-dur-fast);margin-bottom:2px}
+.settings-side-item:hover{background:var(--zf-glass-bg-strong);color:var(--zf-text-primary)}
+.settings-side-item.active{background:linear-gradient(135deg,var(--zf-primary-600),var(--zf-primary-500));color:#fff;box-shadow:0 4px 12px rgba(139,92,246,.4)}
+.settings-side-item .ico{width:20px;text-align:center}
+
+.settings-panel{padding:var(--zf-s6);border-radius:var(--zf-r-lg);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);backdrop-filter:var(--zf-blur-light)}
+.settings-panel h3{font-family:var(--zf-font-serif);font-size:var(--zf-fs-lg);font-weight:700;color:var(--zf-text-primary);margin-bottom:var(--zf-s5);padding-bottom:var(--zf-s4);border-bottom:1px solid var(--zf-glass-border)}
+.setting-block{padding:var(--zf-s4) 0;border-bottom:1px solid var(--zf-glass-border)}
+.setting-block:last-child{border-bottom:none}
+.setting-block-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.setting-block-title{font-size:14px;font-weight:600;color:var(--zf-text-primary)}
+.setting-block-desc{font-size:12px;color:var(--zf-text-muted);margin-top:2px}
+
+/* 主题色选择 */
+.theme-swatches{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+.theme-swatch{width:44px;height:44px;border-radius:12px;cursor:pointer;border:2px solid transparent;transition:all var(--zf-dur-fast) var(--zf-ease-spring);position:relative}
+.theme-swatch:hover{transform:scale(1.1)}
+.theme-swatch.active{border-color:#fff;box-shadow:0 0 0 2px var(--zf-primary-500),var(--zf-glow-primary)}
+.theme-swatch.active::after{content:"✓";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:18px;font-weight:700}
+
+/* 滑块 */
+.range-wrap{margin-top:10px}
+.range-track{height:6px;border-radius:3px;background:var(--zf-glass-bg-strong);position:relative;margin:8px 0}
+.range-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--zf-primary-500),var(--zf-accent-magenta));box-shadow:0 0 8px rgba(139,92,246,.4)}
+.range-thumb{position:absolute;top:50%;transform:translate(-50%,-50%);width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid var(--zf-primary-500);box-shadow:var(--zf-glow-primary);cursor:pointer}
+.range-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--zf-text-muted)}
+
+/* ============================== 9. 小说详情页 ============================== */
+.detail-hero{display:grid;grid-template-columns:200px 1fr;gap:var(--zf-s6);padding:var(--zf-s8);border-radius:var(--zf-r-xl);background:linear-gradient(135deg,rgba(124,58,237,.22),rgba(236,72,153,.12));border:1px solid var(--zf-glass-border-strong);backdrop-filter:var(--zf-blur-glass);margin-bottom:var(--zf-s6);position:relative;overflow:hidden}
+.detail-cover{width:200px;height:268px;border-radius:var(--zf-r-md);object-fit:cover;box-shadow:0 12px 32px rgba(0,0,0,.4);border:1px solid var(--zf-glass-border-strong)}
+.detail-info h2{font-family:var(--zf-font-serif);font-size:var(--zf-fs-2xl);font-weight:900;color:var(--zf-text-primary);margin-bottom:8px}
+.detail-author{font-size:15px;color:var(--zf-text-secondary);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.detail-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.detail-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--zf-s3);margin-bottom:var(--zf-s5);padding:var(--zf-s4);border-radius:var(--zf-r-md);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border)}
+.detail-stat-num{font-family:var(--zf-font-serif);font-size:22px;font-weight:900;color:var(--zf-primary-400)}
+.detail-stat-label{font-size:11px;color:var(--zf-text-muted);margin-top:2px}
+.detail-actions{display:flex;gap:10px;flex-wrap:wrap}
+
+.detail-body{display:grid;grid-template-columns:1fr 280px;gap:var(--zf-s6)}
+.detail-main{min-width:0}
+.detail-section{padding:var(--zf-s5);border-radius:var(--zf-r-lg);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);margin-bottom:var(--zf-s4)}
+.detail-section h3{font-family:var(--zf-font-serif);font-size:var(--zf-fs-lg);font-weight:700;color:var(--zf-text-primary);margin-bottom:var(--zf-s3);display:flex;align-items:center;gap:8px}
+.detail-intro{font-size:14px;color:var(--zf-text-secondary);line-height:1.8;text-indent:2em}
+
+/* 章节列表 */
+.chapter-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--zf-s3)}
+.chapter-search{padding:7px 12px 7px 32px;font-size:13px;background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);border-radius:var(--zf-r-full);color:var(--zf-text-primary);outline:none;width:180px;font-family:inherit}
+.chapter-list{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-height:340px;overflow-y:auto;padding-right:6px}
+.chapter-item{padding:9px 14px;border-radius:var(--zf-r-sm);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);font-size:13px;color:var(--zf-text-secondary);cursor:pointer;transition:all var(--zf-dur-fast);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chapter-item:hover{background:var(--zf-glass-bg-strong);color:var(--zf-primary-400);border-color:var(--zf-primary-400)}
+.chapter-item.read{color:var(--zf-text-faint)}
+.chapter-item.current{background:linear-gradient(135deg,var(--zf-primary-600),var(--zf-primary-500));color:#fff;border-color:transparent}
+
+/* 详情侧栏 */
+.detail-side{display:flex;flex-direction:column;gap:var(--zf-s4)}
+.side-card{padding:var(--zf-s5);border-radius:var(--zf-r-lg);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border)}
+.side-card h4{font-family:var(--zf-font-serif);font-size:15px;font-weight:700;color:var(--zf-text-primary);margin-bottom:var(--zf-s3);padding-bottom:8px;border-bottom:1px solid var(--zf-glass-border)}
+.side-stat-row{display:flex;justify-content:space-between;padding:7px 0;font-size:13px}
+.side-stat-row span:first-child{color:var(--zf-text-muted)}
+.side-stat-row span:last-child{color:var(--zf-text-primary);font-weight:600}
+
+/* 响应式 */
+@media(max-width:1100px){.rank-layout{grid-template-columns:1fr}.rank-grid{grid-template-columns:repeat(3,1fr)}.cat-grid{grid-template-columns:repeat(3,1fr)}.cat-detail-grid{grid-template-columns:repeat(3,1fr)}.shelf-fav-grid{grid-template-columns:repeat(3,1fr)}.source-stats{grid-template-columns:repeat(2,1fr)}.detail-body{grid-template-columns:1fr}.chapter-list{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:780px){.rank-detail-layout,.cat-detail-layout,.settings-layout{grid-template-columns:1fr}.rank-sidebar,.cat-detail-side,.settings-side{position:static}.rank-grid,.cat-grid,.cat-detail-grid,.shelf-fav-grid{grid-template-columns:repeat(2,1fr)}.detail-hero{grid-template-columns:1fr;text-align:center}.detail-cover{margin:0 auto}.detail-stats{grid-template-columns:repeat(2,1fr)}.chapter-list{grid-template-columns:1fr}.reader-content{padding:24px 20px}}
+
+.reveal{opacity:0;transform:translateY(30px);transition:opacity .7s var(--zf-ease-out),transform .7s var(--zf-ease-out)}
+.reveal.in{opacity:1;transform:translateY(0)}
+
+/* 工具栏 */
+.toolbar{position:fixed;bottom:24px;right:24px;z-index:200;display:flex;flex-direction:column;gap:10px}
+.tool-btn{width:46px;height:46px;border-radius:50%;border:1px solid var(--zf-glass-border-strong);background:var(--zf-glass-bg-strong);backdrop-filter:var(--zf-blur-glass);color:var(--zf-text-primary);cursor:pointer;display:grid;place-items:center;transition:all var(--zf-dur-fast);box-shadow:var(--zf-shadow-md)}
+.tool-btn:hover{transform:translateY(-3px) scale(1.05);color:var(--zf-primary-400);border-color:var(--zf-primary-500)}
+</style>
+</head>
+<body>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<!-- 顶部目录导航 -->
+<nav class="page-nav">
+  <div class="page-nav-inner">
+    <div class="page-nav-title">紫枫<em>小说</em> · 页面深化 v2.0</div>
+    <a href="#p1" class="active">首页榜单</a>
+    <a href="#p2">榜单详情</a>
+    <a href="#p3">分类页</a>
+    <a href="#p4">分类详情</a>
+    <a href="#p5">书架</a>
+    <a href="#p6">阅读页</a>
+    <a href="#p7">书源</a>
+    <a href="#p8">设置</a>
+    <a href="#p9">小说详情</a>
+  </div>
+</nav>
+
+<main class="app">
+
+<!-- ============= 1. 首页六大榜单 ============= -->
+<section class="page-section reveal" id="p1">
+  <div class="page-header">
+    <span class="eyebrow">Page 01 · Home</span>
+    <h1 class="page-title"><span class="num">01</span>首页 · 六大榜单布局</h1>
+    <p class="page-sub">Hero 横幅 + 六大榜单分区（必读/潜力/完结/更新/搜索/评论）。每区采用「左大图 Top1 + 右 4 列卡片」复合布局，强化头部作品的视觉权重，移动端降级为纯 2 列网格。</p>
+  </div>
+
+  <div class="home-hero">
+    <span class="eyebrow">紫枫免费小说</span>
+    <h2>沉浸阅读 · <span class="grad">始于紫枫</span></h2>
+    <p>百万册精品小说，全本免费阅读。玻璃拟态界面 + 流光动效，让每一次翻阅都精致而流畅。</p>
+    <div style="display:flex;gap:12px">
+      <button class="btn btn-primary">立即开始阅读</button>
+      <button class="btn btn-glass">浏览书库</button>
+    </div>
+  </div>
+
+  <!-- 必读热门榜 -->
+  <div class="rank-section">
+    <div class="rank-section-head">
+      <div class="rank-section-left">
+        <div class="rank-icon fire">🔥</div>
+        <div>
+          <div class="rank-section-title">必读热门</div>
+          <div class="rank-section-sub">编辑精选 · 本月最热</div>
+        </div>
+      </div>
+      <a class="rank-more">查看全部 →</a>
+    </div>
+    <div class="rank-layout">
+      <div class="rank-feature">
+        <img src="https://placehold.co/400x520/7C3AED/fff?text=剑来" alt="">
+        <div class="rank-feature-badge">1</div>
+        <div class="rank-feature-overlay">
+          <div class="rank-feature-title">剑来</div>
+          <div class="rank-feature-desc">烽火戏诸侯 · 天地生剑气，少年自微末起。大千世界，谁主沉浮。</div>
+          <div class="rank-feature-meta">
+            <span class="tag tag-magenta">玄幻</span>
+            <span class="tag"><span class="dot dot-live"></span>连载中</span>
+            <span class="tag">⭐ 9.4</span>
+          </div>
+        </div>
+      </div>
+      <div class="rank-grid">
+        <div class="novel-card" style="animation-delay:0s"><div class="novel-cover"><img src="https://placehold.co/200x280/06B6D4/fff?text=诡秘之主" alt=""><span class="rank-badge-sm b2">2</span></div><div class="novel-body"><div class="novel-title">诡秘之主</div><div class="novel-author">爱潜水的乌贼</div><div class="novel-meta"><span class="novel-cat">奇幻</span><span>👁 9800万</span></div></div></div>
+        <div class="novel-card" style="animation-delay:.06s"><div class="novel-cover"><img src="https://placehold.co/200x280/EC4899/fff?text=大奉打更人" alt=""><span class="rank-badge-sm b3">3</span></div><div class="novel-body"><div class="novel-title">大奉打更人</div><div class="novel-author">卖报小郎君</div><div class="novel-meta"><span class="novel-cat">仙侠</span><span>👁 8200万</span></div></div></div>
+        <div class="novel-card" style="animation-delay:.12s"><div class="novel-cover"><img src="https://placehold.co/200x280/10B981/fff?text=赘婿" alt=""><span class="rank-badge-sm">4</span></div><div class="novel-body"><div class="novel-title">赘婿</div><div class="novel-author">愤怒的香蕉</div><div class="novel-meta"><span class="novel-cat">历史</span><span>👁 7100万</span></div></div></div>
+        <div class="novel-card" style="animation-delay:.18s"><div class="novel-cover"><img src="https://placehold.co/200x280/F59E0B/fff?text=凡人修仙传" alt=""><span class="rank-badge-sm">5</span></div><div class="novel-body"><div class="novel-title">凡人修仙传</div><div class="novel-author">忘语</div><div class="novel-meta"><span class="novel-cat">仙侠</span><span>👁 6800万</span></div></div></div>
+        <div class="novel-card" style="animation-delay:.24s"><div class="novel-cover"><img src="https://placehold.co/200x280/8B5CF6/fff?text=道诡异仙" alt=""><span class="rank-badge-sm">6</span></div><div class="novel-body"><div class="novel-title">道诡异仙</div><div class="novel-author">狐尾的笔</div><div class="novel-meta"><span class="novel-cat">悬疑</span><span>👁 5500万</span></div></div></div>
+        <div class="novel-card" style="animation-delay:.3s"><div class="novel-cover"><img src="https://placehold.co/200x280/3B82F6/fff?text=雪中悍刀行" alt=""><span class="rank-badge-sm">7</span></div><div class="novel-body"><div class="novel-title">雪中悍刀行</div><div class="novel-author">烽火戏诸侯</div><div class="novel-meta"><span class="novel-cat">玄幻</span><span>👁 5200万</span></div></div></div>
+        <div class="novel-card" style="animation-delay:.36s"><div class="novel-cover"><img src="https://placehold.co/200x280/A855F7/fff?text=将夜" alt=""><span class="rank-badge-sm">8</span></div><div class="novel-body"><div class="novel-title">将夜</div><div class="novel-author">猫腻</div><div class="novel-meta"><span class="novel-cat">玄幻</span><span>👁 4900万</span></div></div></div>
+        <div class="novel-card" style="animation-delay:.42s"><div class="novel-cover"><img src="https://placehold.co/200x280/06B6D4/fff?text=庆余年" alt=""><span class="rank-badge-sm">9</span></div><div class="novel-body"><div class="novel-title">庆余年</div><div class="novel-author">猫腻</div><div class="novel-meta"><span class="novel-cat">历史</span><span>👁 4600万</span></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 潜力飙升榜（紧凑列表式） -->
+  <div class="rank-section">
+    <div class="rank-section-head">
+      <div class="rank-section-left">
+        <div class="rank-icon rise">📈</div>
+        <div>
+          <div class="rank-section-title">潜力飙升</div>
+          <div class="rank-section-sub">本周上升最快 · 值得追更</div>
+        </div>
+      </div>
+      <a class="rank-more">查看全部 →</a>
+    </div>
+    <div class="rank-grid">
+      <div class="novel-card" style="animation-delay:0s"><div class="novel-cover"><img src="https://placehold.co/200x280/7C3AED/fff?text=道诡异仙" alt=""><span class="tag tag-cyan" style="position:absolute;top:8px;right:8px">新书</span></div><div class="novel-body"><div class="novel-title">道诡异仙</div><div class="novel-author">狐尾的笔</div><div class="novel-meta"><span class="novel-cat">悬疑</span><span>↑ 320%</span></div></div></div>
+      <div class="novel-card" style="animation-delay:.06s"><div class="novel-cover"><img src="https://placehold.co/200x280/EC4899/fff?text=深海余烬" alt=""><span class="tag tag-cyan" style="position:absolute;top:8px;right:8px">新书</span></div><div class="novel-body"><div class="novel-title">深海余烬</div><div class="novel-author">远瞳</div><div class="novel-meta"><span class="novel-cat">奇幻</span><span>↑ 280%</span></div></div></div>
+      <div class="novel-card" style="animation-delay:.12s"><div class="novel-cover"><img src="https://placehold.co/200x280/06B6D4/fff?text=黎明之剑" alt=""></div><div class="novel-body"><div class="novel-title">黎明之剑</div><div class="novel-author">远瞳</div><div class="novel-meta"><span class="novel-cat">奇幻</span><span>↑ 245%</span></div></div></div>
+      <div class="novel-card" style="animation-delay:.18s"><div class="novel-cover"><img src="https://placehold.co/200x280/8B5CF6/fff?text=异常生物见闻录" alt=""></div><div class="novel-body"><div class="novel-title">异常生物见闻录</div><div class="novel-author">远瞳</div><div class="novel-meta"><span class="novel-cat">科幻</span><span>↑ 210%</span></div></div></div>
+    </div>
+  </div>
+
+  <div class="annot">
+    <strong>六大榜单布局规则：</strong>
+    <ul>
+      <li>必读/搜索/评论三大主榜 → 采用「左大图 Top1 + 右 4×2 网格」复合布局，突出头部</li>
+      <li>潜力/更新/完结三大小榜 → 采用纯 4 列网格，信息密度更高</li>
+      <li>每个榜单复用 <code>rank-section-head</code> + <code>rank-icon</code>（6 色编码：火/奖/升/对/钟/论）</li>
+      <li>Top1 大卡：金/紫渐变排名徽章脉冲光晕 + 暗角渐显 + 封面缩放</li>
+      <li>移动端：所有榜单降级为 2 列纯网格，大图置顶</li>
+    </ul>
+  </div>
+</section>
+
+<div class="page-divider"></div>
+
+<!-- ============= 2. 榜单详情页 ============= -->
+<section class="page-section reveal" id="p2">
+  <div class="page-header">
+    <span class="eyebrow">Page 02 · Rank Detail</span>
+    <h1 class="page-title"><span class="num">02</span>榜单详情页 · 排行榜</h1>
+    <p class="page-sub">顶部榜单头（图标+标题+总量+更新时间）+ 左侧栏榜单切换 + 右侧主区排行榜列表（前3名特殊着色）+ 底部分页。</p>
+  </div>
+
+  <div class="rank-detail-head">
+    <div class="rank-detail-icon">🏆</div>
+    <div style="flex:1">
+      <div style="font-size:13px;color:var(--zf-text-muted);letter-spacing:1.5px;text-transform:uppercase">必读热门榜</div>
+      <h2 style="font-family:var(--zf-font-serif);font-size:32px;font-weight:900;color:var(--zf-text-primary);margin:4px 0 10px">必读热门推荐</h2>
+      <div class="rank-detail-meta">
+        <div><strong>1,284</strong>册小说</div>
+        <div><strong>2.3亿</strong>总阅读</div>
+        <div><strong>10分钟前</strong>更新</div>
+      </div>
+    </div>
+    <button class="btn btn-glass btn-sm">⤓ 导出</button>
+  </div>
+
+  <div class="rank-detail-layout">
+    <!-- 侧栏 -->
+    <aside class="rank-sidebar">
+      <h4>榜单切换</h4>
+      <div class="rank-sidebar-item active">🔥 必读热门 <span class="count">1284</span></div>
+      <div class="rank-sidebar-item">📈 潜力飙升 <span class="count">856</span></div>
+      <div class="rank-sidebar-item">✅ 完结好评 <span class="count">432</span></div>
+      <div class="rank-sidebar-item">⏰ 更新榜 <span class="count">2104</span></div>
+      <div class="rank-sidebar-item">👁 搜索榜 <span class="count">678</span></div>
+      <div class="rank-sidebar-item">💬 评论榜 <span class="count">392</span></div>
+      <div style="height:1px;background:var(--zf-glass-border);margin:12px 0"></div>
+      <h4>排序方式</h4>
+      <div class="rank-sidebar-item">按热度</div>
+      <div class="rank-sidebar-item">按评分</div>
+      <div class="rank-sidebar-item">按字数</div>
+    </aside>
+
+    <!-- 主区排行榜 -->
+    <div>
+      <div class="rank-detail-list">
+        <div class="rank-detail-item">
+          <div class="rank-detail-num">1</div>
+          <img class="rank-detail-cover" src="https://placehold.co/100x140/7C3AED/fff?text=剑来" alt="">
+          <div class="rank-detail-info">
+            <div class="rank-detail-name">剑来 <span class="tag tag-magenta">热销</span> <span class="tag tag-emerald"><span class="dot dot-live"></span>连载</span></div>
+            <div class="rank-detail-desc">烽火戏诸侯 · 天地生剑气，少年自微末起。大千世界，谁主沉浮。</div>
+            <div class="rank-detail-tags"><span class="tag tag-primary">玄幻</span><span class="tag">1.2亿字</span></div>
+          </div>
+          <div class="rank-detail-stat">
+            <div><strong>9.4</strong>评分</div>
+            <div><strong>128万</strong>在读</div>
+            <div><strong>1.2亿</strong>阅读</div>
+          </div>
+        </div>
+        <div class="rank-detail-item">
+          <div class="rank-detail-num">2</div>
+          <img class="rank-detail-cover" src="https://placehold.co/100x140/06B6D4/fff?text=诡秘之主" alt="">
+          <div class="rank-detail-info">
+            <div class="rank-detail-name">诡秘之主 <span class="tag tag-emerald"><span class="dot dot-live"></span>连载</span></div>
+            <div class="rank-detail-desc">爱潜水的乌贼 · 维多利亚时代的克苏鲁神话</div>
+            <div class="rank-detail-tags"><span class="tag tag-primary">奇幻</span><span class="tag">8600万字</span></div>
+          </div>
+          <div class="rank-detail-stat"><div><strong>9.5</strong>评分</div><div><strong>96万</strong>在读</div><div><strong>9800万</strong>阅读</div></div>
+        </div>
+        <div class="rank-detail-item">
+          <div class="rank-detail-num">3</div>
+          <img class="rank-detail-cover" src="https://placehold.co/100x140/EC4899/fff?text=大奉打更人" alt="">
+          <div class="rank-detail-info">
+            <div class="rank-detail-name">大奉打更人 <span class="tag tag-amber">完结</span></div>
+            <div class="rank-detail-desc">卖报小郎君 · 钟声敲响，妖魔现形</div>
+            <div class="rank-detail-tags"><span class="tag tag-primary">仙侠</span><span class="tag">7200万字</span></div>
+          </div>
+          <div class="rank-detail-stat"><div><strong>9.2</strong>评分</div><div><strong>82万</strong>在读</div><div><strong>8200万</strong>阅读</div></div>
+        </div>
+        <div class="rank-detail-item"><div class="rank-detail-num">4</div><img class="rank-detail-cover" src="https://placehold.co/100x140/10B981/fff?text=赘婿" alt=""><div class="rank-detail-info"><div class="rank-detail-name">赘婿</div><div class="rank-detail-desc">愤怒的香蕉 · 商战权谋，宁毅的逆袭</div><div class="rank-detail-tags"><span class="tag tag-primary">历史</span></div></div><div class="rank-detail-stat"><div><strong>9.0</strong>评分</div><div><strong>71万</strong>在读</div></div></div>
+        <div class="rank-detail-item"><div class="rank-detail-num">5</div><img class="rank-detail-cover" src="https://placehold.co/100x140/F59E0B/fff?text=凡人修仙传" alt=""><div class="rank-detail-info"><div class="rank-detail-name">凡人修仙传</div><div class="rank-detail-desc">忘语 · 凡人逆天改命的修仙长卷</div><div class="rank-detail-tags"><span class="tag tag-primary">仙侠</span></div></div><div class="rank-detail-stat"><div><strong>9.1</strong>评分</div><div><strong>68万</strong>在读</div></div></div>
+        <div class="rank-detail-item"><div class="rank-detail-num">6</div><img class="rank-detail-cover" src="https://placehold.co/100x140/8B5CF6/fff?text=道诡异仙" alt=""><div class="rank-detail-info"><div class="rank-detail-name">道诡异仙</div><div class="rank-detail-desc">狐尾的笔 · 异端审判下的诡秘修仙</div><div class="rank-detail-tags"><span class="tag tag-primary">悬疑</span></div></div><div class="rank-detail-stat"><div><strong>8.9</strong>评分</div><div><strong>55万</strong>在读</div></div></div>
+        <div class="rank-detail-item"><div class="rank-detail-num">7</div><img class="rank-detail-cover" src="https://placehold.co/100x140/3B82F6/fff?text=雪中悍刀行" alt=""><div class="rank-detail-info"><div class="rank-detail-name">雪中悍刀行</div><div class="rank-detail-desc">烽火戏诸侯 · 北凉世子的江湖路</div><div class="rank-detail-tags"><span class="tag tag-primary">玄幻</span></div></div><div class="rank-detail-stat"><div><strong>9.3</strong>评分</div><div><strong>52万</strong>在读</div></div></div>
+        <div class="rank-detail-item"><div class="rank-detail-num">8</div><img class="rank-detail-cover" src="https://placehold.co/100x140/A855F7/fff?text=将夜" alt=""><div class="rank-detail-info"><div class="rank-detail-name">将夜</div><div class="rank-detail-desc">猫腻 · 永夜将至，少年执刀</div><div class="rank-detail-tags"><span class="tag tag-primary">玄幻</span></div></div><div class="rank-detail-stat"><div><strong>9.0</strong>评分</div><div><strong>49万</strong>在读</div></div></div>
+      </div>
+
+      <div class="pagination">
+        <button class="page-btn">‹</button>
+        <button class="page-btn active">1</button>
+        <button class="page-btn">2</button>
+        <button class="page-btn">3</button>
+        <button class="page-btn">4</button>
+        <button class="page-btn">…</button>
+        <button class="page-btn">128</button>
+        <button class="page-btn">›</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="annot">
+    <strong>榜单详情页要点：</strong>
+    <ul>
+      <li>顶部 <code>rank-detail-head</code> 玻璃横幅：图标 + 榜单名 + 三项核心指标 + 导出按钮</li>
+      <li>左侧 <code>rank-sidebar</code> 粘性侧栏：六大榜单切换 + 排序方式，与当前榜单高亮联动</li>
+      <li>主区 <code>rank-detail-item</code> 列表行：序号（前3金/银/铜）+ 封面 + 标题/简介/标签 + 三列统计</li>
+      <li>hover 整行右滑 6px + 边框高亮；分页按钮统一磁吸光晕</li>
+    </ul>
+  </div>
+</section>
+
+<div class="page-divider"></div>
+
+<!-- ============= 3. 分类页 ============= -->
+<section class="page-section reveal" id="p3">
+  <div class="page-header">
+    <span class="eyebrow">Page 03 · Category</span>
+    <h1 class="page-title"><span class="num">03</span>分类页 · 男生/女生频道</h1>
+    <p class="page-sub">顶部频道切换（男生蓝/女生粉主题色）+ 频道 Banner + 3×3 分类网格。每张分类卡用专属配色 + 装饰光斑，hover 整卡上浮 + 光斑放大。</p>
+  </div>
+
+  <div class="cat-tabs">
+    <button class="cat-tab active male">👦 男生频道</button>
+    <button class="cat-tab female">👧 女生频道</button>
+  </div>
+
+  <div class="cat-banner male">
+    <div class="cat-banner-icon">⚔️</div>
+    <div>
+      <h3>男生频道</h3>
+      <p>玄幻武侠 · 都市仙侠 · 科幻游戏 · 9 大分类，万册好书等你来</p>
+    </div>
+  </div>
+
+  <div class="cat-grid">
+    <div class="cat-card" style="--card-color:#ff4d4f;--card-shadow:rgba(255,77,79,.4);animation-delay:0s"><div class="cat-card-icon">🔥</div><div class="cat-card-name">玄幻</div><div class="cat-card-desc">修仙悟道，逆天改命</div><div class="cat-card-count">📚 12,486 册</div></div>
+    <div class="cat-card" style="--card-color:#fa8c16;--card-shadow:rgba(250,140,22,.4);animation-delay:.05s"><div class="cat-card-icon">⚡</div><div class="cat-card-name">武侠</div><div class="cat-card-desc">快意恩仇，仗剑天涯</div><div class="cat-card-count">📚 5,672 册</div></div>
+    <div class="cat-card" style="--card-color:#1890ff;--card-shadow:rgba(24,144,255,.4);animation-delay:.1s"><div class="cat-card-icon">🏦</div><div class="cat-card-name">都市</div><div class="cat-card-desc">都市风云，纵横捭阖</div><div class="cat-card-count">📚 9,134 册</div></div>
+    <div class="cat-card" style="--card-color:#722ed1;--card-shadow:rgba(114,46,209,.4);animation-delay:.15s"><div class="cat-card-icon">☁️</div><div class="cat-card-name">仙侠</div><div class="cat-card-desc">仙道飘渺，御剑飞行</div><div class="cat-card-count">📚 7,890 册</div></div>
+    <div class="cat-card" style="--card-color:#52c41a;--card-shadow:rgba(82,196,26,.4);animation-delay:.2s"><div class="cat-card-icon">🎯</div><div class="cat-card-name">军事</div><div class="cat-card-desc">铁血军魂，保家卫国</div><div class="cat-card-count">📚 2,341 册</div></div>
+    <div class="cat-card" style="--card-color:#eb2f96;--card-shadow:rgba(235,47,150,.4);animation-delay:.25s"><div class="cat-card-icon">📜</div><div class="cat-card-name">历史</div><div class="cat-card-desc">穿越古今，纵横天下</div><div class="cat-card-count">📚 4,567 册</div></div>
+    <div class="cat-card" style="--card-color:#13c2c2;--card-shadow:rgba(19,194,194,.4);animation-delay:.3s"><div class="cat-card-icon">🎮</div><div class="cat-card-name">游戏</div><div class="cat-card-desc">虚拟世界，无限可能</div><div class="cat-card-count">📚 3,210 册</div></div>
+    <div class="cat-card" style="--card-color:#2f54eb;--card-shadow:rgba(47,84,235,.4);animation-delay:.35s"><div class="cat-card-icon">🚀</div><div class="cat-card-name">科幻</div><div class="cat-card-desc">星辰大海，未来可期</div><div class="cat-card-count">📚 2,890 册</div></div>
+    <div class="cat-card" style="--card-color:#faad14;--card-shadow:rgba(250,173,20,.4);animation-delay:.4s"><div class="cat-card-icon">📖</div><div class="cat-card-name">轻小说</div><div class="cat-card-desc">轻松阅读，趣味横生</div><div class="cat-card-count">📚 1,567 册</div></div>
+  </div>
+
+  <div class="annot">
+    <strong>男女生频道差异化：</strong>
+    <ul>
+      <li>男生频道：蓝色调 Banner + 9 大分类（玄幻/武侠/都市/仙侠/军事/历史/游戏/科幻/轻小说）</li>
+      <li>女生频道：粉色调 Banner + 6 大分类（现代言情/古代言情/幻想言情/青春校园/唯美纯爱/同人衍生）</li>
+      <li>切换频道时整体主题色（按钮/Banner/强调）联动变化，<code>framer-motion AnimatePresence</code> 做淡入淡出</li>
+      <li>分类卡每张专属配色，<code>--card-color</code> CSS 变量驱动，hover 触发右上角光斑放大</li>
+    </ul>
+  </div>
+</section>
+
+<div class="page-divider"></div>
+
+<!-- ============= 4. 分类详情页 ============= -->
+<section class="page-section reveal" id="p4">
+  <div class="page-header">
+    <span class="eyebrow">Page 04 · Category Detail</span>
+    <h1 class="page-title"><span class="num">04</span>分类详情页 · 玄幻</h1>
+    <p class="page-sub">左侧筛选栏（进度/字数/标签）+ 右侧工具栏（数量+排序）+ 4 列小说网格。筛选与排序联动，支持实时筛选。</p>
+  </div>
+
+  <div class="cat-detail-layout">
+    <aside class="cat-detail-side">
+      <h4>🔥 玄幻</h4>
+      <div class="sub">修仙悟道，逆天改命</div>
+
+      <div class="filter-group">
+        <div class="filter-label">进度</div>
+        <div class="filter-chips">
+          <span class="filter-chip active">全部</span>
+          <span class="filter-chip">连载</span>
+          <span class="filter-chip">完结</span>
+        </div>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">字数</div>
+        <div class="filter-chips">
+          <span class="filter-chip">30万以下</span>
+          <span class="filter-chip">30-100万</span>
+          <span class="filter-chip active">100-300万</span>
+          <span class="filter-chip">300万以上</span>
+        </div>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">标签</div>
+        <div class="filter-chips">
+          <span class="filter-chip">修真</span>
+          <span class="filter-chip active">东方玄幻</span>
+          <span class="filter-chip">异世大陆</span>
+          <span class="filter-chip">王朝争霸</span>
+          <span class="filter-chip">高武世界</span>
+        </div>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">评分</div>
+        <div class="filter-chips">
+          <span class="filter-chip">≥ 9.0</span>
+          <span class="filter-chip active">≥ 8.0</span>
+          <span class="filter-chip">≥ 7.0</span>
+        </div>
+      </div>
+    </aside>
+
+    <div class="cat-detail-main">
+      <div class="cat-detail-toolbar">
+        <div class="cat-detail-count">共 <strong>12,486</strong> 册 · 当前显示 <strong>24</strong> 册</div>
+        <div class="sort-tabs">
+          <span class="sort-tab active">最热</span>
+          <span class="sort-tab">最新</span>
+          <span class="sort-tab">评分</span>
+          <span class="sort-tab">字数</span>
+        </div>
+      </div>
+
+      <div class="cat-detail-grid">
+        <div class="novel-card" style="animation-delay:0s"><div class="novel-cover"><img src="https://placehold.co/200x280/7C3AED/fff?text=剑来" alt=""></div><div class="novel-body"><div class="novel-title">剑来</div><div class="novel-author">烽火戏诸侯</div><div class="novel-meta"><span class="novel-cat">玄幻</span><span>⭐9.4</span></div></div></div>
+        <div class="novel-card" style="animation-delay:.05s"><div class="novel-cover"><img src="https://placehold.co/200x280/3B82F6/fff?text=雪中悍刀行" alt=""></div><div class="novel-body"><div class="novel-title">雪中悍刀行</div><div class="novel-author">烽火戏诸侯</div><div class="novel-meta"><span class="novel-cat">玄幻</span><span>⭐9.3</span></div></div></div>
+        <div class="novel-card" style="animation-delay:.1s"><div class="novel-cover"><img src="https://placehold.co/200x280/A855F7/fff?text=将夜" alt=""></div><div class="novel-body"><div class="novel-title">将夜</div><div class="novel-author">猫腻</div><div class="novel-meta"><span class="novel-cat">玄幻</span><span>⭐9.0</span></div></div></div>
+        <div class="novel-card" style="animation-delay:.15s"><div class="novel-cover"><img src="https://placehold.co/200x280/8B5CF6/fff?text=牧神记" alt=""></div><div class="novel-body"><div class="novel-title">牧神记</div><div class="novel-author">宅猪</div><div class="novel-meta"><span class="novel-cat">玄幻</span><span>⭐8.8</span></div></div></div>
+        <div class="novel-card" style="animation-delay:.2s"><div class="novel-cover"><img src="https://placehold.co/200x280/10B981/fff?text=择天记" alt=""></div><div class="novel-body"><div class="novel-title">择天记</div><div class="novel-author">猫腻</div><div class="novel-meta"><span class="novel-cat">玄幻</span><span>⭐8.7</span></div></div></div>
+        <div class="novel-card" style="animation-delay:.25s"><div class="novel-cover"><img src="https://placehold.co/200x280/F59E0B/fff?text=间客" alt=""></div><div class="novel-body"><div class="novel-title">间客</div><div class="novel-author">猫腻</div><div class="novel-meta"><span class="novel-cat">玄幻</span><span>⭐8.9</span></div></div></div>
+        <div class="novel-card" style="animation-delay:.3s"><div class="novel-cover"><img src="https://placehold.co/200x280/EC4899/fff?text=大奉打更人" alt=""></div><div class="novel-body"><div class="novel-title">大奉打更人</div><div class="novel-author">卖报小郎君</div><div class="novel-meta"><span class="novel-cat">玄幻</span><span>⭐9.2</span></div></div></div>
+        <div class="novel-card" style="animation-delay:.35s"><div class="novel-cover"><img src="https://placehold.co/200x280/06B6D4/fff?text=庆余年" alt=""></div><div class="novel-body"><div class="novel-title">庆余年</div><div class="novel-author">猫腻</div><div class="novel-meta"><span class="novel-cat">玄幻</span><span>⭐9.1</span></div></div></div>
+      </div>
+
+      <div class="pagination">
+        <button class="page-btn">‹</button>
+        <button class="page-btn active">1</button>
+        <button class="page-btn">2</button>
+        <button class="page-btn">3</button>
+        <button class="page-btn">…</button>
+        <button class="page-btn">521</button>
+        <button class="page-btn">›</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="annot">
+    <strong>分类详情页要点：</strong>
+    <ul>
+      <li>左侧 <code>cat-detail-side</code> 粘性筛选：进度/字数/标签/评分四组筛选 chips，多选联动</li>
+      <li>右侧工具栏：实时显示「共 N 册 · 当前显示 M 册」+ 四种排序切换</li>
+      <li>4 列小说网格，hover 上浮缩放 + 封面放大；筛选变化时用 <code>AnimatePresence</code> 做退场动画</li>
+      <li>移动端：筛选栏折叠为顶部「筛选 ⚙」按钮 + 抽屉</li>
+    </ul>
+  </div>
+</section>
+
+<div class="page-divider"></div>
+
+<!-- ============= 5. 书架 ============= -->
+<section class="page-section reveal" id="p5">
+  <div class="page-header">
+    <span class="eyebrow">Page 05 · Shelf</span>
+    <h1 class="page-title"><span class="num">05</span>书架 · 收藏 + 阅读历史</h1>
+    <p class="page-sub">两大分区：上方「阅读历史」横向时间轴（按时间倒序），下方「我的收藏」5 列网格。每项带阅读进度条 + 最近章节。</p>
+  </div>
+
+  <div class="shelf-layout">
+    <!-- 阅读历史 -->
+    <div class="shelf-section">
+      <div class="shelf-section-head">
+        <div class="shelf-section-title">⏱ 阅读历史 <span class="count">最近 7 天 · 12 本</span></div>
+        <div class="shelf-actions">
+          <button class="btn btn-glass btn-sm">清空历史</button>
+          <button class="btn btn-ghost btn-sm">查看全部</button>
+        </div>
+      </div>
+      <div class="history-timeline">
+        <div class="history-item">
+          <div class="history-item-time">刚刚</div>
+          <img class="history-cover" src="https://placehold.co/100x140/7C3AED/fff?text=剑来" alt="">
+          <div class="history-info">
+            <div class="history-name">剑来</div>
+            <div class="history-chap">第 1024 章 · 山崖书院的新规矩</div>
+          </div>
+          <div class="history-progress">
+            <div class="progress"><div class="progress-fill" style="width:67%"></div></div>
+            <div class="progress-label"><span>67.5%</span><span>1024/1516</span></div>
+          </div>
+          <button class="btn btn-primary btn-sm">继续阅读</button>
+        </div>
+        <div class="history-item">
+          <div class="history-item-time">2 小时前</div>
+          <img class="history-cover" src="https://placehold.co/100x140/06B6D4/fff?text=诡秘之主" alt="">
+          <div class="history-info">
+            <div class="history-name">诡秘之主</div>
+            <div class="history-chap">第 892 章 · 愚者的舞会</div>
+          </div>
+          <div class="history-progress">
+            <div class="progress"><div class="progress-fill" style="width:43%"></div></div>
+            <div class="progress-label"><span>43.2%</span><span>892/2064</span></div>
+          </div>
+          <button class="btn btn-primary btn-sm">继续阅读</button>
+        </div>
+        <div class="history-item">
+          <div class="history-item-time">昨天</div>
+          <img class="history-cover" src="https://placehold.co/100x140/EC4899/fff?text=大奉打更人" alt="">
+          <div class="history-info">
+            <div class="history-name">大奉打更人</div>
+            <div class="history-chap">第 1156 章 · 钟声再起</div>
+          </div>
+          <div class="history-progress">
+            <div class="progress"><div class="progress-fill" style="width:88%"></div></div>
+            <div class="progress-label"><span>88.1%</span><span>1156/1312</span></div>
+          </div>
+          <button class="btn btn-primary btn-sm">继续阅读</button>
+        </div>
+        <div class="history-item">
+          <div class="history-item-time">3 天前</div>
+          <img class="history-cover" src="https://placehold.co/100x140/10B981/fff?text=赘婿" alt="">
+          <div class="history-info">
+            <div class="history-name">赘婿</div>
+            <div class="history-chap">第 768 章 · 商战再启</div>
+          </div>
+          <div class="history-progress">
+            <div class="progress"><div class="progress-fill" style="width:21%"></div></div>
+            <div class="progress-label"><span>21.7%</span><span>768/3540</span></div>
+          </div>
+          <button class="btn btn-glass btn-sm">继续阅读</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 我的收藏 -->
+    <div class="shelf-section">
+      <div class="shelf-section-head">
+        <div class="shelf-section-title">❤️ 我的收藏 <span class="count">共 28 本</span></div>
+        <div class="shelf-actions">
+          <button class="btn btn-glass btn-sm">管理</button>
+        </div>
+      </div>
+      <div class="shelf-fav-grid">
+        <div class="shelf-fav-card"><img class="shelf-fav-cover" src="https://placehold.co/100x140/7C3AED/fff?text=剑来" alt=""><div class="shelf-fav-body"><div class="shelf-fav-title">剑来</div><div class="shelf-fav-author">烽火戏诸侯</div><div class="shelf-fav-meta"><span class="tag tag-emerald" style="padding:1px 6px;font-size:10px">连载</span><span>⭐9.4</span></div></div></div>
+        <div class="shelf-fav-card"><img class="shelf-fav-cover" src="https://placehold.co/100x140/06B6D4/fff?text=诡秘之主" alt=""><div class="shelf-fav-body"><div class="shelf-fav-title">诡秘之主</div><div class="shelf-fav-author">爱潜水的乌贼</div><div class="shelf-fav-meta"><span class="tag tag-emerald" style="padding:1px 6px;font-size:10px">连载</span><span>⭐9.5</span></div></div></div>
+        <div class="shelf-fav-card"><img class="shelf-fav-cover" src="https://placehold.co/100x140/EC4899/fff?text=大奉打更人" alt=""><div class="shelf-fav-body"><div class="shelf-fav-title">大奉打更人</div><div class="shelf-fav-author">卖报小郎君</div><div class="shelf-fav-meta"><span class="tag tag-amber" style="padding:1px 6px;font-size:10px">完结</span><span>⭐9.2</span></div></div></div>
+        <div class="shelf-fav-card"><img class="shelf-fav-cover" src="https://placehold.co/100x140/10B981/fff?text=赘婿" alt=""><div class="shelf-fav-body"><div class="shelf-fav-title">赘婿</div><div class="shelf-fav-author">愤怒的香蕉</div><div class="shelf-fav-meta"><span class="tag tag-amber" style="padding:1px 6px;font-size:10px">完结</span><span>⭐9.0</span></div></div></div>
+        <div class="shelf-fav-card"><img class="shelf-fav-cover" src="https://placehold.co/100x140/F59E0B/fff?text=凡人修仙传" alt=""><div class="shelf-fav-body"><div class="shelf-fav-title">凡人修仙传</div><div class="shelf-fav-author">忘语</div><div class="shelf-fav-meta"><span class="tag tag-amber" style="padding:1px 6px;font-size:10px">完结</span><span>⭐9.1</span></div></div></div>
+        <div class="shelf-fav-card"><img class="shelf-fav-cover" src="https://placehold.co/100x140/8B5CF6/fff?text=道诡异仙" alt=""><div class="shelf-fav-body"><div class="shelf-fav-title">道诡异仙</div><div class="shelf-fav-author">狐尾的笔</div><div class="shelf-fav-meta"><span class="tag tag-emerald" style="padding:1px 6px;font-size:10px">连载</span><span>⭐8.9</span></div></div></div>
+        <div class="shelf-fav-card"><img class="shelf-fav-cover" src="https://placehold.co/100x140/3B82F6/fff?text=雪中悍刀行" alt=""><div class="shelf-fav-body"><div class="shelf-fav-title">雪中悍刀行</div><div class="shelf-fav-author">烽火戏诸侯</div><div class="shelf-fav-meta"><span class="tag tag-amber" style="padding:1px 6px;font-size:10px">完结</span><span>⭐9.3</span></div></div></div>
+        <div class="shelf-fav-card"><img class="shelf-fav-cover" src="https://placehold.co/100x140/A855F7/fff?text=将夜" alt=""><div class="shelf-fav-body"><div class="shelf-fav-title">将夜</div><div class="shelf-fav-author">猫腻</div><div class="shelf-fav-meta"><span class="tag tag-amber" style="padding:1px 6px;font-size:10px">完结</span><span>⭐9.0</span></div></div></div>
+        <div class="shelf-fav-card"><img class="shelf-fav-cover" src="https://placehold.co/100x140/06B6D4/fff?text=庆余年" alt=""><div class="shelf-fav-body"><div class="shelf-fav-title">庆余年</div><div class="shelf-fav-author">猫腻</div><div class="shelf-fav-meta"><span class="tag tag-amber" style="padding:1px 6px;font-size:10px">完结</span><span>⭐9.1</span></div></div></div>
+        <div class="shelf-fav-card"><img class="shelf-fav-cover" src="https://placehold.co/100x140/13C2C2/fff?text=修真聊天群" alt=""><div class="shelf-fav-body"><div class="shelf-fav-title">修真聊天群</div><div class="shelf-fav-author">圣骑士的传说</div><div class="shelf-fav-meta"><span class="tag tag-amber" style="padding:1px 6px;font-size:10px">完结</span><span>⭐8.8</span></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annot">
+    <strong>书架页布局：</strong>
+    <ul>
+      <li>顶部「阅读历史」：<code>history-timeline</code> 横向时间轴，左侧渐变线 + 节点圆点，按时间倒序</li>
+      <li>每条历史项：时间戳 + 封面 + 书名/章节 + 流光进度条 + 「继续阅读」CTA</li>
+      <li>底部「我的收藏」：5 列紧凑网格（封面 + 书名 + 作者 + 状态标签 + 评分）</li>
+      <li>「继续阅读」按钮根据进度智能显示：>20% 显示主按钮，否则显示玻璃按钮</li>
+    </ul>
+  </div>
+</section>
+
+<div class="page-divider"></div>
+
+<!-- ============= 6. 阅读页 ============= -->
+<section class="page-section reveal" id="p6">
+  <div class="page-header">
+    <span class="eyebrow">Page 06 · Reader</span>
+    <h1 class="page-title"><span class="num">06</span>阅读页 · 沉浸阅读</h1>
+    <p class="page-sub">羊皮纸护眼底色 + 衬线正文 + 顶/底工具栏 + 右侧设置抽屉（字号/行距/背景/字体）。点击屏幕中央唤出工具栏，底部章节导航。</p>
+  </div>
+
+  <div class="reader-mock">
+    <!-- 顶栏 -->
+    <div class="reader-topbar">
+      <div class="reader-topbar-left">
+        <button class="reader-icon-btn">‹</button>
+        <span style="font-size:13px;color:#6B5A40">书架</span>
+      </div>
+      <div class="reader-chap-title">第 1024 章 · 山崖书院的新规矩</div>
+      <div class="reader-topbar-right">
+        <button class="reader-icon-btn">☰</button>
+        <button class="reader-icon-btn">⚙</button>
+      </div>
+    </div>
+
+    <!-- 正文 -->
+    <div class="reader-content">
+      <h3 class="reader-chap-name">第 1024 章 · 山崖书院的新规矩</h3>
+      <p>山崖书院的新规矩，其实也不算新，只是将一些老规矩重新拾起，再添了几条新的。陈平安站在书院门口，看着那块新挂上去的匾额，上头写着「山崖书院」四个大字，笔力遒劲，据说是山主亲笔所书。</p>
+      <p>书院门口站着两个青衣小童，一左一右，看见陈平安，齐齐鞠躬，喊了声「先生」。陈平安点点头，跨过门槛。书院内桂花香气浓郁，秋天了，桂花开了满院，金色的小花落了一地，像铺了层碎金。</p>
+      <p>裴钱正在院子里扫地，看见陈平安，眼睛一亮，扔下扫帚就跑过来：「师父！你回来啦！」陈平安笑骂道：「扫帚别扔，扫完再说。」裴钱吐吐舌头，捡起扫帚，三两下扫完，跑到陈平安身边。</p>
+      <p>「师父，山下有什么好玩的事吗？」裴钱眼睛亮晶晶的。陈平安想了想，说：「有个老酒鬼，喝醉了在桥头睡觉，结果被风吹进了河里，扑腾半天爬上来，又接着睡。」裴钱哈哈大笑：「这老酒鬼真有意思！」</p>
+      <p>陈平安走进书房，桌上摆着一摞书，是山崖书院新印的教材。他随手翻开一本，是讲拳理的，写得不错，深入浅出。他又翻了几本，有讲剑术的，有讲读书的，还有一本讲规矩的，开篇第一句便是「规矩者，方圆也」。</p>
+    </div>
+
+    <!-- 底栏 -->
+    <div class="reader-footer">
+      <div style="font-size:12px;color:#6B5A40">42% · 第 1024/1516 章</div>
+      <div class="reader-nav">
+        <button class="btn btn-glass btn-sm">‹ 上一章</button>
+        <button class="btn btn-primary btn-sm">目录</button>
+        <button class="btn btn-glass btn-sm">下一章 ›</button>
+      </div>
+    </div>
+
+    <!-- 阅读进度条 -->
+    <div class="reader-progress"><div class="reader-progress-fill"></div></div>
+  </div>
+
+  <!-- 阅读设置抽屉示意 -->
+  <div style="display:grid;grid-template-columns:1fr 280px;gap:var(--zf-s4);margin-top:var(--zf-s4)">
+    <div class="annot" style="margin:0">
+      <strong>阅读页核心交互：</strong>
+      <ul>
+        <li>顶/底栏默认隐藏，点击屏幕中央区域唤出，3 秒无操作自动收起</li>
+        <li>底部进度条实时反映章节进度，可拖拽跳转</li>
+        <li>「上一章 / 目录 / 下一章」三按钮，目录用全屏抽屉</li>
+        <li>正文 8 套背景预设：白/护眼绿/护眼黄/灰/暗夜/深黑/羊皮纸/淡蓝</li>
+      </ul>
+    </div>
+    <div class="glass" style="padding:var(--zf-s5)">
+      <h4 style="font-family:var(--zf-font-serif);font-size:15px;font-weight:700;color:var(--zf-text-primary);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--zf-glass-border)">⚙ 阅读设置</h4>
+      <div class="setting-row">
+        <div class="setting-label"><span>字号</span><span class="setting-value">17 px</span></div>
+        <div class="font-slider"><div class="font-slider-fill"></div><div class="font-slider-thumb"></div></div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label"><span>行距</span><span class="setting-value">1.85</span></div>
+        <div class="font-slider"><div class="font-slider-fill" style="width:60%"></div><div class="font-slider-thumb" style="left:60%"></div></div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label"><span>背景</span><span class="setting-value">羊皮纸</span></div>
+        <div class="bg-presets">
+          <div class="bg-preset" style="background:#ffffff"></div>
+          <div class="bg-preset" style="background:#c7edcc"></div>
+          <div class="bg-preset" style="background:#f5f5dc"></div>
+          <div class="bg-preset active" style="background:#f1e7d0"></div>
+          <div class="bg-preset" style="background:#1a1a2e"></div>
+          <div class="bg-preset" style="background:#0d0d0d"></div>
+          <div class="bg-preset" style="background:#d6eaf8"></div>
+          <div class="bg-preset" style="background:#e8e8e8"></div>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label"><span>字体</span><span class="setting-value">衬线</span></div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="btn btn-glass btn-sm" style="flex:1">衬线</button>
+          <button class="btn btn-ghost btn-sm" style="flex:1">无衬线</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="page-divider"></div>
+
+<!-- ============= 7. 书源列表 ============= -->
+<section class="page-section reveal" id="p7">
+  <div class="page-header">
+    <span class="eyebrow">Page 07 · Book Sources</span>
+    <h1 class="page-title"><span class="num">07</span>书源列表页</h1>
+    <p class="page-sub">顶部统计卡（总数/启用/默认/同步状态）+ 搜索/导入/筛选工具栏 + 书源列表（图标+名称+URL+元信息+开关）。</p>
+  </div>
+
+  <div class="source-stats">
+    <div class="source-stat"><div class="source-stat-icon" style="background:linear-gradient(135deg,var(--zf-primary-600),var(--zf-primary-500))">📚</div><div class="source-stat-num">48</div><div class="source-stat-label">书源总数</div></div>
+    <div class="source-stat"><div class="source-stat-icon" style="background:linear-gradient(135deg,var(--zf-accent-emerald),#047857)">✓</div><div class="source-stat-num">32</div><div class="source-stat-label">已启用</div></div>
+    <div class="source-stat"><div class="source-stat-icon" style="background:linear-gradient(135deg,#F59E0B,#B45309)">★</div><div class="source-stat-num">1</div><div class="source-stat-label">默认书源</div></div>
+    <div class="source-stat"><div class="source-stat-icon" style="background:linear-gradient(135deg,var(--zf-accent-cyan),#0E7490)">⇅</div><div class="source-stat-num">5 分钟前</div><div class="source-stat-label">最近同步</div></div>
+  </div>
+
+  <div class="source-toolbar">
+    <div class="source-search">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" placeholder="搜索书源名称、URL…" />
+    </div>
+    <button class="btn btn-primary">⤓ 导入书源</button>
+    <button class="btn btn-glass">⇅ 同步全部</button>
+    <button class="btn btn-ghost">⚙ 批量管理</button>
+  </div>
+
+  <div class="source-list">
+    <div class="source-item active">
+      <div class="source-logo" style="background:linear-gradient(135deg,var(--zf-primary-600),var(--zf-primary-500))">笔</div>
+      <div class="source-info">
+        <div class="source-name">笔趣阁 <span class="tag tag-amber">★ 默认</span> <span class="tag tag-emerald"><span class="dot dot-live"></span>在线</span></div>
+        <div class="source-url">https://www.biquge.com</div>
+        <div class="source-meta">
+          <span class="source-meta-item">📚 12.4万 册</span>
+          <span class="source-meta-item">⚡ 响应 86ms</span>
+          <span class="source-meta-item">🕐 更新 5分钟前</span>
+          <span class="source-meta-item">⭐ 9.2 分</span>
+        </div>
+      </div>
+      <div class="source-toggle on"></div>
+    </div>
+    <div class="source-item">
+      <div class="source-logo" style="background:linear-gradient(135deg,#06B6D4,#0E7490)">起</div>
+      <div class="source-info">
+        <div class="source-name">起点中文网 <span class="tag tag-emerald"><span class="dot dot-live"></span>在线</span></div>
+        <div class="source-url">https://www.qidian.com</div>
+        <div class="source-meta">
+          <span class="source-meta-item">📚 28.6万 册</span>
+          <span class="source-meta-item">⚡ 响应 124ms</span>
+          <span class="source-meta-item">🕐 更新 1小时前</span>
+          <span class="source-meta-item">⭐ 9.5 分</span>
+        </div>
+      </div>
+      <div class="source-toggle on"></div>
+    </div>
+    <div class="source-item">
+      <div class="source-logo" style="background:linear-gradient(135deg,#EC4899,#BE123C)">番</div>
+      <div class="source-info">
+        <div class="source-name">番茄小说 <span class="tag tag-emerald"><span class="dot dot-live"></span>在线</span></div>
+        <div class="source-url">https://fanqienovel.com</div>
+        <div class="source-meta">
+          <span class="source-meta-item">📚 18.2万 册</span>
+          <span class="source-meta-item">⚡ 响应 95ms</span>
+          <span class="source-meta-item">🕐 更新 30分钟前</span>
+          <span class="source-meta-item">⭐ 8.8 分</span>
+        </div>
+      </div>
+      <div class="source-toggle on"></div>
+    </div>
+    <div class="source-item">
+      <div class="source-logo" style="background:linear-gradient(135deg,#F59E0B,#B45309)">七</div>
+      <div class="source-info">
+        <div class="source-name">七一中文 <span class="tag">离线</span></div>
+        <div class="source-url">https://www.71zw.com</div>
+        <div class="source-meta">
+          <span class="source-meta-item">📚 4.8万 册</span>
+          <span class="source-meta-item">⚡ 响应 320ms</span>
+          <span class="source-meta-item">🕐 更新 2天前</span>
+          <span class="source-meta-item">⭐ 7.6 分</span>
+        </div>
+      </div>
+      <div class="source-toggle"></div>
+    </div>
+    <div class="source-item">
+      <div class="source-logo" style="background:linear-gradient(135deg,#10B981,#047857)">纵</div>
+      <div class="source-info">
+        <div class="source-name">纵横中文网 <span class="tag tag-emerald"><span class="dot dot-live"></span>在线</span></div>
+        <div class="source-url">https://www.zongheng.com</div>
+        <div class="source-meta">
+          <span class="source-meta-item">📚 9.6万 册</span>
+          <span class="source-meta-item">⚡ 响应 110ms</span>
+          <span class="source-meta-item">🕐 更新 15分钟前</span>
+          <span class="source-meta-item">⭐ 8.5 分</span>
+        </div>
+      </div>
+      <div class="source-toggle on"></div>
+    </div>
+  </div>
+
+  <div class="annot">
+    <strong>书源列表页要点：</strong>
+    <ul>
+      <li>顶部 4 张统计卡：总数 / 启用 / 默认 / 同步时间，配色区分语义</li>
+      <li>工具栏：搜索（聚焦紫色光晕）+ 导入（主按钮）+ 同步全部 + 批量管理</li>
+      <li>列表项：图标首字母 + 名称（默认★/在线绿点/离线灰标）+ URL + 四项元信息 + 开关</li>
+      <li>开关：玻璃态 → 翠绿渐变，<code>ease-spring</code> 弹性切换</li>
+      <li>当前默认书源用 <code>.active</code> 翠绿边框高亮，长按设默认</li>
+    </ul>
+  </div>
+</section>
+
+<div class="page-divider"></div>
+
+<!-- ============= 8. 设置页 ============= -->
+<section class="page-section reveal" id="p8">
+  <div class="page-header">
+    <span class="eyebrow">Page 08 · Settings</span>
+    <h1 class="page-title"><span class="num">08</span>设置页</h1>
+    <p class="page-sub">左侧分类导航 + 右侧设置面板。分类：外观/阅读/通知/书源/账号/关于。每项设置带标题 + 描述 + 控件（开关/滑块/选择器）。</p>
+  </div>
+
+  <div class="settings-layout">
+    <aside class="settings-side">
+      <div class="settings-side-item active"><span class="ico">🎨</span> 外观</div>
+      <div class="settings-side-item"><span class="ico">📖</span> 阅读</div>
+      <div class="settings-side-item"><span class="ico">🔔</span> 通知</div>
+      <div class="settings-side-item"><span class="ico">📚</span> 书源</div>
+      <div class="settings-side-item"><span class="ico">👤</span> 账号</div>
+      <div class="settings-side-item"><span class="ico">ℹ️</span> 关于</div>
+    </aside>
+
+    <div class="settings-panel">
+      <h3>🎨 外观设置</h3>
+
+      <div class="setting-block">
+        <div class="setting-block-head">
+          <div>
+            <div class="setting-block-title">主题色</div>
+            <div class="setting-block-desc">选择应用主色调，影响按钮、链接、强调元素</div>
+          </div>
+        </div>
+        <div class="theme-swatches">
+          <div class="theme-swatch active" style="background:linear-gradient(135deg,#8B5CF6,#7C3AED)" title="紫枫紫"></div>
+          <div class="theme-swatch" style="background:linear-gradient(135deg,#3B82F6,#1E40AF)" title="靛蓝"></div>
+          <div class="theme-swatch" style="background:linear-gradient(135deg,#EC4899,#BE123C)" title="玫瑰"></div>
+          <div class="theme-swatch" style="background:linear-gradient(135deg,#10B981,#047857)" title="翠绿"></div>
+          <div class="theme-swatch" style="background:linear-gradient(135deg,#F59E0B,#B45309)" title="琥珀"></div>
+          <div class="theme-swatch" style="background:linear-gradient(135deg,#F43F5E,#9F1239)" title="玫红"></div>
+        </div>
+      </div>
+
+      <div class="setting-block">
+        <div class="setting-block-head">
+          <div>
+            <div class="setting-block-title">深色模式</div>
+            <div class="setting-block-desc">夜间自动切换至深色，护眼省电</div>
+          </div>
+          <div class="source-toggle on"></div>
+        </div>
+      </div>
+
+      <div class="setting-block">
+        <div class="setting-block-head">
+          <div>
+            <div class="setting-block-title">玻璃拟态效果</div>
+            <div class="setting-block-desc">磨砂半透背景效果，关闭可提升性能</div>
+          </div>
+          <div class="source-toggle on"></div>
+        </div>
+      </div>
+
+      <div class="setting-block">
+        <div class="setting-block-head">
+          <div>
+            <div class="setting-block-title">动画效果</div>
+            <div class="setting-block-desc">页面过渡与微交互动效，关闭可降低视觉负担</div>
+          </div>
+          <div class="source-toggle on"></div>
+        </div>
+      </div>
+
+      <div class="setting-block">
+        <div class="setting-block-head">
+          <div>
+            <div class="setting-block-title">界面字号</div>
+            <div class="setting-block-desc">全局 UI 字号缩放（不影响阅读页）</div>
+          </div>
+          <span class="setting-value" style="font-weight:600">14 px</span>
+        </div>
+        <div class="range-wrap">
+          <div class="range-track"><div class="range-fill" style="width:40%"></div><div class="range-thumb" style="left:40%"></div></div>
+          <div class="range-labels"><span>12px</span><span>13px</span><span>14px</span><span>15px</span><span>16px</span><span>18px</span></div>
+        </div>
+      </div>
+
+      <div class="setting-block">
+        <div class="setting-block-head">
+          <div>
+            <div class="setting-block-title">导航栏样式</div>
+            <div class="setting-block-desc">玻璃磨砂 / 实色填充</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="btn btn-primary btn-sm" style="flex:1">玻璃磨砂</button>
+          <button class="btn btn-ghost btn-sm" style="flex:1">实色填充</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annot">
+    <strong>设置页布局规则：</strong>
+    <ul>
+      <li>左侧 6 类导航：外观/阅读/通知/书源/账号/关于，激活态紫色渐变</li>
+      <li>每项 <code>setting-block</code> 包含标题 + 描述 + 控件，控件右对齐</li>
+      <li>主题色 6 套预设，激活态白色描边 + 紫色光晕 + ✓ 角标</li>
+      <li>滑块用渐变填充 + 光晕 thumb，标签显示当前值</li>
+      <li>移动端：导航栏折叠为顶部 Tab，面板全宽</li>
+    </ul>
+  </div>
+</section>
+
+<div class="page-divider"></div>
+
+<!-- ============= 9. 小说详情页 ============= -->
+<section class="page-section reveal" id="p9">
+  <div class="page-header">
+    <span class="eyebrow">Page 09 · Novel Detail</span>
+    <h1 class="page-title"><span class="num">09</span>小说详情页</h1>
+    <p class="page-sub">顶部 Hero（封面+书名+作者+标签+统计+操作按钮）+ 双栏布局：左侧（简介+章节列表）/ 右侧（数据卡+相似推荐）。</p>
+  </div>
+
+  <!-- Hero -->
+  <div class="detail-hero">
+    <img class="detail-cover" src="https://placehold.co/200x280/7C3AED/fff?text=剑来" alt="">
+    <div class="detail-info">
+      <h2>剑来</h2>
+      <div class="detail-author">✍️ 烽火戏诸侯 · 著</div>
+      <div class="detail-tags">
+        <span class="tag tag-primary">玄幻</span>
+        <span class="tag tag-magenta">东方玄幻</span>
+        <span class="tag tag-emerald"><span class="dot dot-live"></span>连载中</span>
+        <span class="tag tag-amber">⭐ 9.4</span>
+        <span class="tag">1.2亿字</span>
+      </div>
+      <div class="detail-stats">
+        <div><div class="detail-stat-num">1.2亿</div><div class="detail-stat-label">总阅读</div></div>
+        <div><div class="detail-stat-num">128万</div><div class="detail-stat-label">在读</div></div>
+        <div><div class="detail-stat-num">9.4</div><div class="detail-stat-label">评分</div></div>
+        <div><div class="detail-stat-num">1516</div><div class="detail-stat-label">章节</div></div>
+      </div>
+      <div class="detail-actions">
+        <button class="btn btn-primary btn-lg">📖 开始阅读</button>
+        <button class="btn btn-glass btn-lg">❤️ 加入书架</button>
+        <button class="btn btn-ghost btn-lg">⤴ 分享</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 双栏主体 -->
+  <div class="detail-body">
+    <div class="detail-main">
+      <div class="detail-section">
+        <h3>📝 内容简介</h3>
+        <p class="detail-intro">大千世界，无奇不有。我陈平安，唯有一剑，可搬山，倒海，降妖，镇魔，敕神，摘星，断江，摧城，开天！……这是一部少年的成长史，也是一座江湖。从落魄的山野少年，到执剑天下的剑客，陈平安走过的每一步，都是规矩，也是道理。江湖路远，剑在手中，心在远方。</p>
+      </div>
+
+      <div class="detail-section">
+        <div class="chapter-toolbar">
+          <h3 style="margin:0">📑 章节目录 <span style="font-size:13px;color:var(--zf-text-muted);font-weight:400">共 1516 章</span></h3>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="chapter-search" placeholder="搜索章节…" style="position:relative;padding-left:32px">
+            <button class="btn btn-ghost btn-sm">正序</button>
+            <button class="btn btn-glass btn-sm">倒序</button>
+          </div>
+        </div>
+        <div class="chapter-list">
+          <div class="chapter-item current">第 1024 章 · 山崖书院的新规矩</div>
+          <div class="chapter-item">第 1023 章 · 老酒鬼的旧事</div>
+          <div class="chapter-item read">第 1022 章 · 桂花落满院</div>
+          <div class="chapter-item read">第 1021 章 · 山主亲笔</div>
+          <div class="chapter-item read">第 1020 章 · 书院新规</div>
+          <div class="chapter-item read">第 1019 章 · 裴钱的扫帚</div>
+          <div class="chapter-item read">第 1018 章 · 桥头风波</div>
+          <div class="chapter-item read">第 1017 章 · 江湖路远</div>
+          <div class="chapter-item read">第 1016 章 · 剑出鞘时</div>
+          <div class="chapter-item read">第 1015 章 · 北凉旧梦</div>
+          <div class="chapter-item read">第 1014 章 · 山下行人</div>
+          <div class="chapter-item read">第 1013 章 · 风雪夜归</div>
+        </div>
+        <div style="text-align:center;margin-top:14px"><button class="btn btn-glass btn-sm">查看全部章节 →</button></div>
+      </div>
+    </div>
+
+    <!-- 侧栏 -->
+    <div class="detail-side">
+      <div class="side-card">
+        <h4>📊 详细数据</h4>
+        <div class="side-stat-row"><span>总字数</span><span>1.2亿</span></div>
+        <div class="side-stat-row"><span>章节数</span><span>1,516</span></div>
+        <div class="side-stat-row"><span>均章字数</span><span>7,915</span></div>
+        <div class="side-stat-row"><span>收藏数</span><span>128.4万</span></div>
+        <div class="side-stat-row"><span>评论数</span><span>23.6万</span></div>
+        <div class="side-stat-row"><span>推荐数</span><span>486万</span></div>
+        <div class="side-stat-row"><span>最近更新</span><span>2 小时前</span></div>
+        <div class="side-stat-row"><span>上架时间</span><span>2019-06-12</span></div>
+      </div>
+      <div class="side-card">
+        <h4>🏷️ 标签</h4>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span class="tag tag-primary">东方玄幻</span>
+          <span class="tag">修真</span>
+          <span class="tag">剑客</span>
+          <span class="tag">少年</span>
+          <span class="tag">江湖</span>
+          <span class="tag">规矩</span>
+          <span class="tag tag-magenta">热血</span>
+        </div>
+      </div>
+      <div class="side-card">
+        <h4>📖 相似推荐</h4>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;gap:8px;align-items:center;cursor:pointer;padding:6px;border-radius:8px;transition:background var(--zf-dur-fast)" onmouseover="this.style.background='var(--zf-glass-bg-strong)'" onmouseout="this.style.background='transparent'"><img src="https://placehold.co/60x80/3B82F6/fff?text=雪" style="width:36px;height:48px;border-radius:5px;object-fit:cover"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--zf-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">雪中悍刀行</div><div style="font-size:11px;color:var(--zf-text-muted)">烽火戏诸侯 · ⭐9.3</div></div></div>
+          <div style="display:flex;gap:8px;align-items:center;cursor:pointer;padding:6px;border-radius:8px;transition:background var(--zf-dur-fast)" onmouseover="this.style.background='var(--zf-glass-bg-strong)'" onmouseout="this.style.background='transparent'"><img src="https://placehold.co/60x80/A855F7/fff?text=将" style="width:36px;height:48px;border-radius:5px;object-fit:cover"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--zf-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">将夜</div><div style="font-size:11px;color:var(--zf-text-muted)">猫腻 · ⭐9.0</div></div></div>
+          <div style="display:flex;gap:8px;align-items:center;cursor:pointer;padding:6px;border-radius:8px;transition:background var(--zf-dur-fast)" onmouseover="this.style.background='var(--zf-glass-bg-strong)'" onmouseout="this.style.background='transparent'"><img src="https://placehold.co/60x80/06B6D4/fff?text=庆" style="width:36px;height:48px;border-radius:5px;object-fit:cover"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--zf-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">庆余年</div><div style="font-size:11px;color:var(--zf-text-muted)">猫腻 · ⭐9.1</div></div></div>
+          <div style="display:flex;gap:8px;align-items:center;cursor:pointer;padding:6px;border-radius:8px;transition:background var(--zf-dur-fast)" onmouseover="this.style.background='var(--zf-glass-bg-strong)'" onmouseout="this.style.background='transparent'"><img src="https://placehold.co/60x80/8B5CF6/fff?text=牧" style="width:36px;height:48px;border-radius:5px;object-fit:cover"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--zf-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">牧神记</div><div style="font-size:11px;color:var(--zf-text-muted)">宅猪 · ⭐8.8</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annot">
+    <strong>小说详情页布局：</strong>
+    <ul>
+      <li>Hero 区：200×268 封面 + 书名/作者/标签/4 项统计/3 个 CTA，玻璃磨砂背景</li>
+      <li>「开始阅读」主按钮智能显示：未读过显示「开始阅读」，有进度显示「继续阅读 第 N 章」</li>
+      <li>左侧主体：简介（衬线正文，首行缩进）+ 章节目录（3 列网格，当前章高亮、已读灰显）</li>
+      <li>右侧侧栏：详细数据卡 / 标签云 / 相似推荐（4 本，hover 高亮）</li>
+      <li>章节搜索：聚焦时紫色光晕，正/倒序切换</li>
+      <li>移动端：Hero 改为单列居中，侧栏移至底部</li>
+    </ul>
+  </div>
+</section>
+
+<footer style="text-align:center;padding:var(--zf-s12) 0;color:var(--zf-text-muted);font-size:13px">
+  紫枫免费小说 · 页面布局深化方案 v2.0 · 9 大核心页面<br>
+  <span style="color:var(--zf-text-faint);font-size:11px">基于 v1.0 设计令牌 · 玻璃拟态 + 品牌紫 + 复杂动画</span>
+</footer>
+</main>
+
+<div class="toolbar">
+  <button class="tool-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="回到顶部">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg>
+  </button>
+</div>
+
+<script>
+// 顶部导航高亮
+const navLinks=[...document.querySelectorAll('.page-nav a')];
+const sections=[...document.querySelectorAll('.page-section')];
+function setActive(id){navLinks.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+id))}
+const navIO=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting)setActive(e.target.id)}),{rootMargin:'-80px 0px -70% 0px'});
+sections.forEach(s=>navIO.observe(s));
+
+// 滚动揭示
+const revealIO=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');revealIO.unobserve(e.target)}}),{threshold:.08});
+document.querySelectorAll('.reveal').forEach(el=>revealIO.observe(el));
+
+// 频道切换演示
+document.querySelectorAll('.cat-tab').forEach(t=>t.addEventListener('click',function(){
+  document.querySelectorAll('.cat-tab').forEach(x=>x.classList.remove('active','male','female'));
+  const isMale=this.textContent.includes('男生');
+  this.classList.add('active',isMale?'male':'female');
+}));
+
+// 筛选 chips 切换
+document.querySelectorAll('.filter-chips').forEach(group=>{group.querySelectorAll('.filter-chip').forEach(c=>c.addEventListener('click',()=>{group.querySelectorAll('.filter-chip').forEach(x=>x.classList.remove('active'));c.classList.add('active')}))});
+document.querySelectorAll('.sort-tabs').forEach(group=>{group.querySelectorAll('.sort-tab').forEach(c=>c.addEventListener('click',()=>{group.querySelectorAll('.sort-tab').forEach(x=>x.classList.remove('active'));c.classList.add('active')}))});
+
+// 侧栏切换
+document.querySelectorAll('.rank-sidebar-item, .settings-side-item, .cat-tab').forEach(item=>{if(item.classList.contains('rank-sidebar-item')||item.classList.contains('settings-side-item')){item.addEventListener('click',function(){const sibs=this.parentNode.querySelectorAll(this.classList.contains('rank-sidebar-item')?'.rank-sidebar-item':'.settings-side-item');sibs.forEach(s=>s.classList.remove('active'));this.classList.add('active')})}});
+
+// 主题色选择
+document.querySelectorAll('.theme-swatch').forEach(s=>s.addEventListener('click',function(){document.querySelectorAll('.theme-swatch').forEach(x=>x.classList.remove('active'));this.classList.add('active')}));
+
+// 背景预设
+document.querySelectorAll('.bg-preset').forEach(s=>s.addEventListener('click',function(){document.querySelectorAll('.bg-preset').forEach(x=>x.classList.remove('active'));this.classList.add('active')}));
+
+// 开关切换
+document.querySelectorAll('.source-toggle').forEach(t=>t.addEventListener('click',()=>t.classList.toggle('on')));
+
+// 平滑滚动
+navLinks.forEach(a=>a.addEventListener('click',function(e){e.preventDefault();const target=document.querySelector(this.getAttribute('href'));if(target)target.scrollIntoView({behavior:'smooth'})}));
+</script>
+</body>
+</html>

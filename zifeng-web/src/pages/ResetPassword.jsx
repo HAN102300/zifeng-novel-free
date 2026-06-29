@@ -88,8 +88,8 @@ const ResetPassword = () => {
         style={{
           width: '100%',
           maxWidth: 400,
-          borderRadius: 16,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          borderRadius: 'var(--zf-r-lg)',
+          boxShadow: 'var(--zf-shadow-lg)',
           overflow: 'hidden',
           ...glassCardStyle(glassMode, isDarkMode)
         }}
@@ -158,9 +158,10 @@ const ResetPassword = () => {
                   style={{
                     width: '100%',
                     height: 48,
-                    borderRadius: 8,
-                    backgroundColor: color,
-                    borderColor: color
+                    borderRadius: 'var(--zf-r-full)',
+                    border: 'none',
+                    backgroundImage: `linear-gradient(135deg, ${color}, ${color}cc)`,
+                    boxShadow: `0 6px 22px ${color}66, var(--zf-glow-primary)`
                   }}
                 >
                   验证邮箱
@@ -247,9 +248,10 @@ const ResetPassword = () => {
                     style={{
                       width: '100%',
                       height: 48,
-                      borderRadius: 8,
-                      backgroundColor: color,
-                      borderColor: color
+                      borderRadius: 'var(--zf-r-full)',
+                      border: 'none',
+                      backgroundImage: `linear-gradient(135deg, ${color}, ${color}cc)`,
+                      boxShadow: `0 6px 22px ${color}66, var(--zf-glow-primary)`
                     }}
                   >
                     重置密码
@@ -259,7 +261,12 @@ const ResetPassword = () => {
                     style={{
                       width: '100%',
                       height: 48,
-                      borderRadius: 8
+                      borderRadius: 'var(--zf-r-full)',
+                      background: glassMode ? 'var(--zf-glass-bg-strong)' : 'transparent',
+                      border: `1px solid ${glassMode ? 'var(--zf-glass-border-strong)' : color}`,
+                      backdropFilter: glassMode ? 'var(--zf-blur-light)' : 'none',
+                      WebkitBackdropFilter: glassMode ? 'var(--zf-blur-light)' : 'none',
+                      color: glassMode ? 'var(--zf-text-primary)' : color
                     }}
                     onClick={() => {
                       setCurrentStep(0);

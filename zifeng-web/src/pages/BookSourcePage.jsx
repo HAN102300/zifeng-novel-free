@@ -32,10 +32,10 @@ import { CountUp, ShinyText, ReactBitsErrorBoundary } from '../components/react-
 const { Title, Text } = Typography;
 
 const sourceTypeConfig = {
-  0: { label: 'API', color: '#1890ff', icon: <ApiOutlined /> },
-  1: { label: '网页', color: '#52c41a', icon: <GlobalOutlined /> },
-  2: { label: '漫画', color: '#faad14', icon: <ReadOutlined /> },
-  3: { label: '音频', color: '#722ed1', icon: <SoundOutlined /> },
+  0: { label: 'API', color: 'var(--zf-accent-cyan)', icon: <ApiOutlined /> },
+  1: { label: '网页', color: 'var(--zf-accent-emerald)', icon: <GlobalOutlined /> },
+  2: { label: '漫画', color: 'var(--zf-accent-amber)', icon: <ReadOutlined /> },
+  3: { label: '音频', color: 'var(--zf-primary-500)', icon: <SoundOutlined /> },
 };
 
 const BookSourcePage = () => {
@@ -240,11 +240,12 @@ const BookSourcePage = () => {
       {isLoggedIn && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card style={{
-            borderRadius: 16,
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            borderRadius: 'var(--zf-r-lg)',
+            background: 'linear-gradient(135deg, var(--zf-primary-600), var(--zf-primary-500))',
             border: 'none',
             color: '#fff',
-            marginBottom: 20,
+            marginBottom: 'var(--zf-s5)',
+            boxShadow: 'var(--zf-glow-primary)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
               <div>
@@ -275,17 +276,17 @@ const BookSourcePage = () => {
       <div ref={statsRef} style={{
         display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap'
       }}>
-        <Card size="small" style={{ borderRadius: 12, flex: 1, minWidth: 100, ...glassCardStyle(glassMode, isDarkMode) }} styles={{ body: { padding: '12px 16px', textAlign: 'center' } }}>
+        <Card size="small" style={{ borderRadius: 'var(--zf-r-md)', flex: 1, minWidth: 100, ...glassCardStyle(glassMode, isDarkMode) }} styles={{ body: { padding: '12px 16px', textAlign: 'center' } }}>
           <Text type="secondary" style={{ fontSize: 12 }}>总书源</Text>
           <div style={{ fontSize: 24, fontWeight: 'bold', color }}><ReactBitsErrorBoundary fallback={sources.length}><CountUp to={sources.length} from={0} duration={1} /></ReactBitsErrorBoundary></div>
         </Card>
-        <Card size="small" style={{ borderRadius: 12, flex: 1, minWidth: 100, ...glassCardStyle(glassMode, isDarkMode) }} styles={{ body: { padding: '12px 16px', textAlign: 'center' } }}>
+        <Card size="small" style={{ borderRadius: 'var(--zf-r-md)', flex: 1, minWidth: 100, ...glassCardStyle(glassMode, isDarkMode) }} styles={{ body: { padding: '12px 16px', textAlign: 'center' } }}>
           <Text type="secondary" style={{ fontSize: 12 }}>已启用</Text>
-          <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}><ReactBitsErrorBoundary fallback={enabledCount}><CountUp to={enabledCount} from={0} duration={1} /></ReactBitsErrorBoundary></div>
+          <div style={{ fontSize: 24, fontWeight: 'bold', color: 'var(--zf-accent-emerald)' }}><ReactBitsErrorBoundary fallback={enabledCount}><CountUp to={enabledCount} from={0} duration={1} /></ReactBitsErrorBoundary></div>
         </Card>
-        <Card size="small" style={{ borderRadius: 12, flex: 1, minWidth: 100, ...glassCardStyle(glassMode, isDarkMode) }} styles={{ body: { padding: '12px 16px', textAlign: 'center' } }}>
+        <Card size="small" style={{ borderRadius: 'var(--zf-r-md)', flex: 1, minWidth: 100, ...glassCardStyle(glassMode, isDarkMode) }} styles={{ body: { padding: '12px 16px', textAlign: 'center' } }}>
           <Text type="secondary" style={{ fontSize: 12 }}>已禁用</Text>
-          <div style={{ fontSize: 24, fontWeight: 'bold', color: isDarkMode ? '#666' : '#bbb' }}><ReactBitsErrorBoundary fallback={sources.length - enabledCount}><CountUp to={sources.length - enabledCount} from={0} duration={1} /></ReactBitsErrorBoundary></div>
+          <div style={{ fontSize: 24, fontWeight: 'bold', color: 'var(--zf-accent-rose)' }}><ReactBitsErrorBoundary fallback={sources.length - enabledCount}><CountUp to={sources.length - enabledCount} from={0} duration={1} /></ReactBitsErrorBoundary></div>
         </Card>
       </div>
 
@@ -352,7 +353,7 @@ const BookSourcePage = () => {
                             />
                             <Text style={{
                               fontSize: 11,
-                              color: source.enabled ? '#52c41a' : (isDarkMode ? '#555' : '#bbb'),
+                              color: source.enabled ? 'var(--zf-accent-emerald)' : 'var(--zf-accent-rose)',
                               whiteSpace: 'nowrap'
                             }}>
                               {source.enabled ? '启用' : '禁用'}

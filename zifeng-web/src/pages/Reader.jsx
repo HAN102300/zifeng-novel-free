@@ -500,8 +500,10 @@ const Reader = () => {
         justifyContent: 'space-between',
         padding: '12px 20px',
         backgroundColor: readerSettings.bgColor || '#fff',
-        borderBottom: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
-        opacity: 0.95
+        borderBottom: '1px solid var(--zf-glass-border)',
+        backdropFilter: 'var(--zf-blur-glass)',
+        WebkitBackdropFilter: 'var(--zf-blur-glass)',
+        opacity: 0.92
       }}>
         <BackButton
           onClick={handleBack}
@@ -570,7 +572,7 @@ const Reader = () => {
             onClick={() => switchChapter(currentChapterIndex - 1)}
             disabled={currentChapterIndex === 0}
             type="text"
-            style={{ color: 'var(--reader-text-color)', flexShrink: 0 }}
+            style={{ color: 'var(--reader-text-color)', flexShrink: 0, background: 'var(--zf-glass-bg-strong)', border: '1px solid var(--zf-glass-border-strong)', backdropFilter: 'var(--zf-blur-light)', WebkitBackdropFilter: 'var(--zf-blur-light)', borderRadius: 'var(--zf-r-full)' }}
           >
             上一章
           </Button>
@@ -602,7 +604,7 @@ const Reader = () => {
             onClick={() => switchChapter(currentChapterIndex + 1)}
             disabled={currentChapterIndex === chapters.length - 1}
             type="text"
-            style={{ color: 'var(--reader-text-color)', flexShrink: 0 }}
+            style={{ color: 'var(--reader-text-color)', flexShrink: 0, background: 'var(--zf-glass-bg-strong)', border: '1px solid var(--zf-glass-border-strong)', backdropFilter: 'var(--zf-blur-light)', WebkitBackdropFilter: 'var(--zf-blur-light)', borderRadius: 'var(--zf-r-full)' }}
           >
             下一章
           </Button>
@@ -617,7 +619,8 @@ const Reader = () => {
                 fontWeight: readerSettings.fontWeight,
                 lineHeight: readerSettings.lineHeight,
                 textIndent: `${readerSettings.indent}em`,
-                letterSpacing: `${readerSettings.letterSpacing}px`
+                letterSpacing: `${readerSettings.letterSpacing}px`,
+                fontFamily: 'var(--zf-font-ui)'
               }}>
                 {paragraph}
               </p>
@@ -649,7 +652,7 @@ const Reader = () => {
             onClick={() => switchChapter(currentChapterIndex - 1)}
             disabled={currentChapterIndex === 0}
             type="text"
-            style={{ color: 'var(--reader-text-color)', flexShrink: 0 }}
+            style={{ color: 'var(--reader-text-color)', flexShrink: 0, background: 'var(--zf-glass-bg-strong)', border: '1px solid var(--zf-glass-border-strong)', backdropFilter: 'var(--zf-blur-light)', WebkitBackdropFilter: 'var(--zf-blur-light)', borderRadius: 'var(--zf-r-full)' }}
           >
             上一章
           </Button>
@@ -673,7 +676,7 @@ const Reader = () => {
             onClick={() => switchChapter(currentChapterIndex + 1)}
             disabled={currentChapterIndex === chapters.length - 1}
             type="text"
-            style={{ color: 'var(--reader-text-color)', flexShrink: 0 }}
+            style={{ color: 'var(--reader-text-color)', flexShrink: 0, background: 'var(--zf-glass-bg-strong)', border: '1px solid var(--zf-glass-border-strong)', backdropFilter: 'var(--zf-blur-light)', WebkitBackdropFilter: 'var(--zf-blur-light)', borderRadius: 'var(--zf-r-full)' }}
           >
             下一章
           </Button>
@@ -703,7 +706,7 @@ const Reader = () => {
             whileTap={{ scale: 0.95 }}
             style={{
               width: 48, height: 48, borderRadius: '50%', border: 'none',
-              backgroundColor: color, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              backgroundColor: color, boxShadow: '0 8px 24px rgba(0,0,0,0.2), var(--zf-glow-primary)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
             }}
           >
@@ -715,7 +718,7 @@ const Reader = () => {
             whileTap={{ scale: 0.95 }}
             style={{
               width: 48, height: 48, borderRadius: '50%', border: 'none',
-              backgroundColor: color, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              backgroundColor: color, boxShadow: '0 8px 24px rgba(0,0,0,0.2), var(--zf-glow-primary)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
             }}
           >
@@ -899,7 +902,7 @@ const Reader = () => {
                       alignItems: 'center',
                       padding: '0 16px',
                       cursor: 'pointer',
-                      backgroundColor: idx === currentChapterIndex ? (isDarkMode ? 'rgba(24,144,255,0.2)' : 'rgba(24,144,255,0.1)') : 'transparent',
+                      backgroundColor: idx === currentChapterIndex ? (isDarkMode ? `${color}33` : `${color}1a`) : 'transparent',
                       color: idx === currentChapterIndex ? color : (isDarkMode ? '#e0e0e0' : '#333333'),
                       fontWeight: idx === currentChapterIndex ? 600 : 400,
                       fontSize: 14,

@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>紫枫免费小说 - 创意产物展示</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --primary: #8B5CF6;
+            --primary-light: #A78BFA;
+            --secondary: #EC4899;
+            --accent: #3B82F6;
+            --dark: #0F0F1A;
+            --dark-card: #1a1a2e;
+            --text: #E5E7EB;
+            --text-muted: #94A3B8;
+            --glass-bg: rgba(255,255,255,0.08);
+            --glass-border: rgba(255,255,255,0.15);
+            --success: #22C55E;
+            --warning: #F59E0B;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', 'PingFang SC', sans-serif;
+            background: var(--dark);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* Animated gradient orbs */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            pointer-events: none;
+            z-index: 0;
+            animation: floatOrb 20s ease-in-out infinite;
+        }
+        .orb-1 {
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(139,92,246,0.3) 0%, transparent 70%);
+            top: -10%; left: -5%;
+            animation-delay: 0s;
+        }
+        .orb-2 {
+            width: 400px; height: 400px;
+            background: radial-gradient(circle, rgba(236,72,153,0.25) 0%, transparent 70%);
+            bottom: -5%; right: -5%;
+            animation-delay: 5s;
+        }
+        .orb-3 {
+            width: 300px; height: 300px;
+            background: radial-gradient(circle, rgba(59,130,246,0.2) 0%, transparent 70%);
+            top: 40%; left: 50%;
+            animation-delay: 10s;
+        }
+
+        @keyframes floatOrb {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(30px, -20px) scale(1.05); }
+            50% { transform: translate(-20px, 30px) scale(0.95); }
+            75% { transform: translate(20px, 10px) scale(1.02); }
+        }
+
+        /* Particles */
+        .particles {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden;
+        }
+        .particle {
+            position: absolute;
+            width: 4px; height: 4px;
+            background: var(--primary-light);
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: particleFloat linear infinite;
+        }
+        @keyframes particleFloat {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.4; }
+            90% { opacity: 0.4; }
+            100% { transform: translateY(-10vh) rotate(720deg); opacity: 0; }
+        }
+
+        .container {
+            position: relative;
+            z-index: 2;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            padding: 60px 0 30px;
+            position: relative;
+        }
+        .logo {
+            font-size: 3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #8B5CF6, #EC4899, #3B82F6);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 6s ease-in-out infinite;
+            margin-bottom: 12px;
+            letter-spacing: 2px;
+        }
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        .tagline {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            font-weight: 300;
+            letter-spacing: 4px;
+        }
+        .header-line {
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            margin: 20px auto;
+            border-radius: 2px;
+        }
+
+        /* Glass card */
+        .glass-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            backdrop-filter: blur(24px) saturate(1.3);
+            -webkit-backdrop-filter: blur(24px) saturate(1.3);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            position: relative;
+        }
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        }
+        .glass-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12);
+        }
+
+        section {
+            margin-bottom: 24px;
+        }
+        section h2 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text);
+        }
+        section h2 .icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        /* Intro section */
+        .intro-card {
+            padding: 32px;
+        }
+        .intro-card p {
+            color: var(--text-muted);
+            line-height: 2;
+            font-size: 0.95rem;
+        }
+        .intro-card .highlight {
+            color: var(--primary-light);
+            font-weight: 500;
+        }
+
+        /* Feature Grid */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+        }
+        .feature-item {
+            padding: 24px;
+            text-align: center;
+        }
+        .feature-item .icon-wrap {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 14px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(236,72,153,0.15));
+            border: 1px solid var(--glass-border);
+        }
+        .feature-item h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+        .feature-item p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* Architecture mockup */
+        .arch-card {
+            padding: 28px;
+        }
+        .arch-layers {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .arch-layer {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            background: rgba(255,255,255,0.03);
+            transition: all 0.3s ease;
+        }
+        .arch-layer:hover {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(139,92,246,0.3);
+        }
+        .arch-layer .layer-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .arch-layer .layer-info h4 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 2px;
+            color: var(--text);
+        }
+        .arch-layer .layer-info p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .arch-arrow {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            opacity: 0.5;
+            margin: -6px 0;
+        }
+
+        /* Demo Screen */
+        .demo-card {
+            padding: 28px;
+        }
+        .screen-mockup {
+            background: linear-gradient(180deg, #1E1B4B 0%, #312E81 100%);
+            border-radius: 16px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .screen-mockup::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(139,92,246,0.1) 0%, transparent 50%, rgba(236,72,153,0.1) 100%);
+            pointer-events: none;
+        }
+        .mock-navbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 1;
+        }
+        .mock-logo {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 1px;
+        }
+        .mock-search {
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.6);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .mock-section-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            position: relative;
+            z-index: 1;
+        }
+        .mock-books {
+            display: flex;
+            gap: 12px;
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+        }
+        .mock-book {
+            flex-shrink: 0;
+            width: 90px;
+        }
+        .mock-book .cover {
+            width: 90px;
+            height: 120px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .mock-book .cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .mock-book .title {
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.9);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .mock-book .author {
+            font-size: 0.65rem;
+            color: rgba(255,255,255,0.5);
+        }
+
+        /* Reader Demo */
+        .reader-mockup {
+            background: #FDF6E3;
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 16px;
+            border: 1px solid rgba(0,0,0,0.06);
+            font-family: 'Noto Serif SC', serif;
+            position: relative;
+            overflow: hidden;
+        }
+        .reader-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+        }
+        .reader-title {
+            font-size: 0.85rem;
+            color: #666;
+        }
+        .reader-progress {
+            font-size: 0.75rem;
+            color: #999;
+        }
+        .reader-content {
+            line-height: 2.2;
+            color: #2C2C2C;
+            font-size: 0.95rem;
+            text-indent: 2em;
+        }
+        .reader-content p {
+            margin-bottom: 0.8em;
+        }
+
+        /* Tech Stack */
+        .tech-card {
+            padding: 28px;
+        }
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+        }
+        .tech-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--glass-border);
+            transition: all 0.3s;
+        }
+        .tech-item:hover {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(139,92,246,0.3);
+        }
+        .tech-item .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .tech-item .name {
+            font-size: 0.85rem;
+            color: var(--text);
+        }
+        .tech-item .version {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+        .stat-item {
+            padding: 24px 16px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Roadmap */
+        .roadmap-card {
+            padding: 28px;
+        }
+        .roadmap-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .roadmap-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 18px;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            background: rgba(255,255,255,0.02);
+            transition: all 0.3s;
+        }
+        .roadmap-item:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        .roadmap-status {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+        .roadmap-status.done {
+            background: rgba(34,197,94,0.15);
+            color: var(--success);
+            border: 1px solid rgba(34,197,94,0.3);
+        }
+        .roadmap-status.pending {
+            background: rgba(245,158,11,0.15);
+            color: var(--warning);
+            border: 1px solid rgba(245,158,11,0.3);
+        }
+        .roadmap-text {
+            font-size: 0.9rem;
+            color: var(--text);
+        }
+        .roadmap-text small {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 40px 0 60px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        .footer-logo {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--primary-light);
+            margin-bottom: 8px;
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeInUp 0.8s ease-out forwards;
+            opacity: 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .logo { font-size: 2rem; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .container { padding: 0 16px; }
+            header { padding: 40px 0 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background Effects -->
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="particles" id="particles"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <header class="fade-in">
+            <div class="logo">紫枫免费小说</div>
+            <div class="tagline">ZIFENG NOVEL FREE</div>
+            <div class="header-line"></div>
+            <p style="color: var(--text-muted); font-size: 0.95rem; max-width: 600px; margin: 0 auto; line-height: 1.8;">
+                现代化开源小说阅读平台 —— 聚合多书源，沉浸式阅读，自由无界<br>
+                让阅读回归纯粹，让知识自由流动
+            </p>
+        </header>
+
+        <!-- Project Intro -->
+        <section class="fade-in" style="animation-delay: 0.1s">
+            <h2><span class="icon">📖</span> 项目简介</h2>
+            <div class="glass-card intro-card">
+                <p>
+                    <span class="highlight">紫枫免费小说</span> 是一个基于现代 Web 技术栈构建的开源小说阅读平台，
+                    旨在解决读者在多平台间辗转寻找小说资源的痛点。项目采用前后端分离架构，
+                    通过独创的<span class="highlight">聚合书源引擎</span>与<span class="highlight">规则解析系统</span>，
+                    实现对全网小说资源的一站式检索与沉浸式阅读。
+                </p>
+                <p style="margin-top: 12px;">
+                    系统支持 API、HTML、JS 动态页面等多种解析规则，兼容主流书源格式，
+                    提供 8 种阅读主题、智能缓存预加载、阅读进度云端同步等极致阅读体验。
+                </p>
+            </div>
+        </section>
+
+        <!-- Core Features -->
+        <section class="fade-in" style="animation-delay: 0.2s">
+            <h2><span class="icon">✨</span> 核心亮点</h2>
+            <div class="feature-grid">
+                <div class="glass-card feature-item">
+                    <div class="icon-wrap">🔍</div>
+                    <h3>聚合搜索</h3>
+                    <p>多书源并行检索，一键触达全网小说，去重合并展示</p>
+                </div>
+                <div class="glass-card feature-item">
+                    <div class="icon-wrap">📖</div>
+                    <h3>沉浸阅读</h3>
+                    <p>8 种阅读主题、自定义字体/layout、章节缓存预加载</p>
+                </div>
+                <div class="glass-card feature-item">
+                    <div class="icon-wrap">📚</div>
+                    <h3>智能书架</h3>
+                    <p>云端同步阅读进度，跨设备无缝续读</p>
+                </div>
+                <div class="glass-card feature-item">
+                    <div class="icon-wrap">🧩</div>
+                    <h3>规则引擎</h3>
+                    <p>兼容 Legado 书源格式，支持 JSONPath / XPath / CSS 解析</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- System Architecture -->
+        <section class="fade-in" style="animation-delay: 0.3s">
+            <h2><span class="icon">🏗️</span> 系统架构</h2>
+            <div class="glass-card arch-card">
+                <div class="arch-layers">
+                    <div class="arch-layer">
+                        <div class="layer-icon" style="background: linear-gradient(135deg, #3B82F6, #8B5CF6); color: #fff;">🖥️</div>
+                        <div class="layer-info">
+                            <h4>用户层</h4>
+                            <p>桌面浏览器 / 移动端 H5 / 微信小程序 / API 客户端</p>
+                        </div>
+                    </div>
+                    <div class="arch-arrow">▼</div>
+                    <div class="arch-layer">
+                        <div class="layer-icon" style="background: linear-gradient(135deg, #10B981, #3B82F6); color: #fff;">🚪</div>
+                        <div class="layer-info">
+                            <h4>网关层</h4>
+                            <p>Nginx 反向代理 — SSL 终止 / 请求路由 / 负载均衡 / 静态资源</p>
+                        </div>
+                    </div>
+                    <div class="arch-arrow">▼</div>
+                    <div class="arch-layer">
+                        <div class="layer-icon" style="background: linear-gradient(135deg, #F59E0B, #EC4899); color: #fff;">⚙️</div>
+                        <div class="layer-info">
+                            <h4>前端层 · React 19 + Vite 8</h4>
+                            <p>zifeng-web 用户端 + zifeng-admin 管理后台</p>
+                        </div>
+                    </div>
+                    <div class="arch-arrow">▼</div>
+                    <div class="arch-layer">
+                        <div class="layer-icon" style="background: linear-gradient(135deg, #EC4899, #8B5CF6); color: #fff;">☕</div>
+                        <div class="layer-info">
+                            <h4>后端层 · Spring Boot 3.2</h4>
+                            <p>用户 / 书源 / 解析 / 管理 / 反馈 / 邀请码 六大模块</p>
+                        </div>
+                    </div>
+                    <div class="arch-arrow">▼</div>
+                    <div class="arch-layer">
+                        <div class="layer-icon" style="background: linear-gradient(135deg, #6366F1, #8B5CF6); color: #fff;">🧠</div>
+                        <div class="layer-info">
+                            <h4>解析引擎 · Express + Puppeteer</h4>
+                            <p>规则引擎 / Java Shim / 内容解密 / 繁简转换</p>
+                        </div>
+                    </div>
+                    <div class="arch-arrow">▼</div>
+                    <div class="arch-layer">
+                        <div class="layer-icon" style="background: linear-gradient(135deg, #64748B, #94A3B8); color: #fff;">🗄️</div>
+                        <div class="layer-info">
+                            <h4>数据层 · MySQL 8 + Redis 7</h4>
+                            <p>结构化数据存储 + 高速缓存 / 会话 / 限流</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- UI Demo -->
+        <section class="fade-in" style="animation-delay: 0.4s">
+            <h2><span class="icon">🎨</span> 界面预览</h2>
+            <div class="glass-card demo-card">
+                <div class="screen-mockup">
+                    <div class="mock-navbar">
+                        <div class="mock-logo">🌸 紫枫免费小说</div>
+                        <div class="mock-search">🔍 搜索全网小说...</div>
+                    </div>
+                    <div class="mock-section-title">🔥 必读热门推荐</div>
+                    <div class="mock-books">
+                        <div class="mock-book">
+                            <div class="cover" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                                <img src="https://placehold.co/90x120/667eea/white?text=斗" alt="cover">
+                            </div>
+                            <div class="title">斗破苍穹</div>
+                            <div class="author">天蚕土豆</div>
+                        </div>
+                        <div class="mock-book">
+                            <div class="cover" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+                                <img src="https://placehold.co/90x120/f5576c/white?text=全" alt="cover">
+                            </div>
+                            <div class="title">全职高手</div>
+                            <div class="author">蝴蝶蓝</div>
+                        </div>
+                        <div class="mock-book">
+                            <div class="cover" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">
+                                <img src="https://placehold.co/90x120/4facfe/white?text=三" alt="cover">
+                            </div>
+                            <div class="title">三体</div>
+                            <div class="author">刘慈欣</div>
+                        </div>
+                        <div class="mock-book">
+                            <div class="cover" style="background: linear-gradient(135deg, #43e97b, #38f9d7);">
+                                <img src="https://placehold.co/90x120/43e97b/white?text=诡" alt="cover">
+                            </div>
+                            <div class="title">诡秘之主</div>
+                            <div class="author">爱潜水的乌贼</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reader Mockup -->
+                <div class="reader-mockup">
+                    <div class="reader-header">
+                        <div class="reader-title">📖 第一章 · 觉醒</div>
+                        <div class="reader-progress">阅读进度 23.5%</div>
+                    </div>
+                    <div class="reader-content">
+                        <p>夜幕低垂，星光洒落在古老的大地上。少年站在悬崖边缘，目光坚定地望向远方。那是一片未知的世界，等待着他去探索、去征服。</p>
+                        <p>“从今天起，我将不再是从前的我。”少年喃喃自语，体内的某种力量正在悄然觉醒……</p>
+                        <p>远处，一道金色的光芒划破夜空，仿佛是命运的召唤。少年深吸一口气，迈出了改变命运的第一步。</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tech Stack -->
+        <section class="fade-in" style="animation-delay: 0.5s">
+            <h2><span class="icon">💻</span> 技术栈</h2>
+            <div class="glass-card tech-card">
+                <div class="tech-grid">
+                    <div class="tech-item">
+                        <div class="dot" style="background: #61DAFB;"></div>
+                        <span class="name">React</span>
+                        <span class="version">v19</span>
+                    </div>
+                    <div class="tech-item">
+                        <div class="dot" style="background: #646CFF;"></div>
+                        <span class="name">Vite</span>
+                        <span class="version">v8</span>
+                    </div>
+                    <div class="tech-item">
+                        <div class="dot" style="background: #0170FE;"></div>
+                        <span class="name">Ant Design</span>
+                        <span class="version">v6</span>
+                    </div>
+                    <div class="tech-item">
+                        <div class="dot" style="background: #6DB33F;"></div>
+                        <span class="name">Spring Boot</span>
+                        <span class="version">v3.2</span>
+                    </div>
+                    <div class="tech-item">
+                        <div class="dot" style="background: #339933;"></div>
+                        <span class="name">Express</span>
+                        <span class="version">v4</span>
+                    </div>
+                    <div class="tech-item">
+                        <div class="dot" style="background: #4479A1;"></div>
+                        <span class="name">MySQL</span>
+                        <span class="version">v8</span>
+                    </div>
+                    <div class="tech-item">
+                        <div class="dot" style="background: #DC382D;"></div>
+                        <span class="name">Redis</span>
+                        <span class="version">v7</span>
+                    </div>
+                    <div class="tech-item">
+                        <div class="dot" style="background: #2496ED;"></div>
+                        <span class="name">Docker</span>
+                        <span class="version">✓</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stats -->
+        <section class="fade-in" style="animation-delay: 0.6s">
+            <h2><span class="icon">📊</span> 项目数据</h2>
+            <div class="feature-grid stats-grid">
+                <div class="glass-card stat-item">
+                    <div class="stat-number">8+</div>
+                    <div class="stat-label">阅读主题</div>
+                </div>
+                <div class="glass-card stat-item">
+                    <div class="stat-number">6</div>
+                    <div class="stat-label">后端模块</div>
+                </div>
+                <div class="glass-card stat-item">
+                    <div class="stat-number">100%</div>
+                    <div class="stat-label">开源免费</div>
+                </div>
+                <div class="glass-card stat-item">
+                    <div class="stat-number">3</div>
+                    <div class="stat-label">端点协同</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Roadmap -->
+        <section class="fade-in" style="animation-delay: 0.7s">
+            <h2><span class="icon">🗺️</span> 发展路线</h2>
+            <div class="glass-card roadmap-card">
+                <div class="roadmap-list">
+                    <div class="roadmap-item">
+                        <div class="roadmap-status done">✓</div>
+                        <div class="roadmap-text">
+                            核心阅读功能
+                            <small>聚合搜索、书源管理、阅读器基础功能</small>
+                        </div>
+                    </div>
+                    <div class="roadmap-item">
+                        <div class="roadmap-status done">✓</div>
+                        <div class="roadmap-text">
+                            管理后台
+                            <small>数据可视化、书源测活、用户反馈系统</small>
+                        </div>
+                    </div>
+                    <div class="roadmap-item">
+                        <div class="roadmap-status done">✓</div>
+                        <div class="roadmap-text">
+                            Docker 一键部署
+                            <small>Compose / Swarm / K8s 多场景部署</small>
+                        </div>
+                    </div>
+                    <div class="roadmap-item">
+                        <div class="roadmap-status pending">○</div>
+                        <div class="roadmap-text">
+                            AI 智能推荐
+                            <small>基于阅读历史的个性化推荐算法</small>
+                        </div>
+                    </div>
+                    <div class="roadmap-item">
+                        <div class="roadmap-status pending">○</div>
+                        <div class="roadmap-text">
+                            多端适配
+                            <small>Flutter / React Native 移动端 App</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="fade-in" style="animation-delay: 0.8s">
+            <div class="footer-logo">🌸 紫枫免费小说</div>
+            <p>让阅读成为享受，让知识自由流动</p>
+            <p style="margin-top: 8px; font-size: 0.8rem; opacity: 0.6;">
+                GitHub: @HAN102300/zifeng-novel-free · MIT License
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // Create floating particles
+        const particlesContainer = document.getElementById('particles');
+        for (let i = 0; i < 30; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.style.left = Math.random() * 100 + '%';
+            p.style.animationDuration = (15 + Math.random() * 20) + 's';
+            p.style.animationDelay = (Math.random() * 15) + 's';
+            p.style.width = (2 + Math.random() * 3) + 'px';
+            p.style.height = p.style.width;
+            particlesContainer.appendChild(p);
+        }
+
+        // Intersection Observer for animations
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.fade-in').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(30px)';
+            el.style.transition = 'opacity 0.8s ease-out, transform 0.8s ease-out';
+            observer.observe(el);
+        });
+
+        // Trigger initial animations
+        setTimeout(() => {
+            document.querySelectorAll('.fade-in').forEach((el, i) => {
+                setTimeout(() => {
+                    el.style.opacity = '1';
+                    el.style.transform = 'translateY(0)';
+                }, i * 100);
+            });
+        }, 300);
+    </script>
+
+</body>
+</html>

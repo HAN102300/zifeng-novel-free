@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>紫枫免费小说 · UI 重构设计方案</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&family=Noto+Serif+SC:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   紫枫免费小说 · 设计令牌系统 (Design Tokens)
+   方向：品牌紫 + 玻璃拟态 + 复杂动画
+   ============================================================ */
+:root{
+  /* —— 品牌色：紫枫紫 —— */
+  --zf-primary-50:#F5F3FF;
+  --zf-primary-100:#EDE9FE;
+  --zf-primary-300:#C4B5FD;
+  --zf-primary-400:#A78BFA;
+  --zf-primary-500:#8B5CF6;  /* 主色 */
+  --zf-primary-600:#7C3AED;  /* 深色 */
+  --zf-primary-700:#6D28D9;
+  --zf-primary-900:#4C1D95;
+
+  /* —— 辅助强调色 —— */
+  --zf-accent-magenta:#EC4899;  /* 高亮 / 排行榜火焰 */
+  --zf-accent-cyan:#06B6D4;     /* 信息 / 更新 */
+  --zf-accent-amber:#F59E0B;    /* 警告 / 完结 */
+  --zf-accent-emerald:#10B981;  /* 成功 / 在读 */
+  --zf-accent-rose:#F43F5E;     /* 危险 / 删除 */
+
+  /* —— 暗色玻璃表面 —— */
+  --zf-bg-base:#0B0814;
+  --zf-bg-elevated:#131022;
+  --zf-glass-bg:rgba(255,255,255,0.06);
+  --zf-glass-bg-strong:rgba(255,255,255,0.10);
+  --zf-glass-border:rgba(255,255,255,0.12);
+  --zf-glass-border-strong:rgba(255,255,255,0.20);
+  --zf-glass-highlight:rgba(255,255,255,0.16);
+
+  /* —— 文本 —— */
+  --zf-text-primary:#F8FAFC;
+  --zf-text-secondary:#CBD5E1;
+  --zf-text-muted:#94A3B8;
+  --zf-text-faint:#64748B;
+
+  /* —— 排版 —— */
+  --zf-font-ui:'Inter','Noto Sans SC',system-ui,sans-serif;
+  --zf-font-serif:'Noto Serif SC','Inter',serif;
+  --zf-fs-xs:12px; --zf-fs-sm:13px; --zf-fs-base:14px; --zf-fs-md:15px;
+  --zf-fs-lg:18px; --zf-fs-xl:22px; --zf-fs-2xl:28px; --zf-fs-3xl:38px; --zf-fs-4xl:52px;
+
+  /* —— 间距（8pt 体系） —— */
+  --zf-s1:4px; --zf-s2:8px; --zf-s3:12px; --zf-s4:16px; --zf-s5:20px;
+  --zf-s6:24px; --zf-s8:32px; --zf-s10:40px; --zf-s12:48px; --zf-s16:64px;
+
+  /* —— 圆角 —— */
+  --zf-r-sm:8px; --zf-r-md:12px; --zf-r-lg:16px; --zf-r-xl:22px; --zf-r-full:999px;
+
+  /* —— 阴影 / 光晕 —— */
+  --zf-shadow-sm:0 1px 2px rgba(0,0,0,.3);
+  --zf-shadow-md:0 8px 24px rgba(0,0,0,.35);
+  --zf-shadow-lg:0 20px 50px rgba(0,0,0,.45);
+  --zf-glow-primary:0 0 24px rgba(139,92,246,.45);
+  --zf-glow-magenta:0 0 24px rgba(236,72,153,.40);
+
+  /* —— 动画令牌 —— */
+  --zf-ease-out:cubic-bezier(.16,1,.3,1);
+  --zf-ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --zf-dur-fast:.18s; --zf-dur-normal:.32s; --zf-dur-slow:.6s; --zf-dur-slower:1.1s;
+
+  /* —— 玻璃模糊 —— */
+  --zf-blur-glass:blur(18px) saturate(160%);
+  --zf-blur-light:blur(8px);
+}
+[data-theme="light"]{
+  --zf-bg-base:#F6F4FF;
+  --zf-bg-elevated:#FFFFFF;
+  --zf-glass-bg:rgba(255,255,255,0.55);
+  --zf-glass-bg-strong:rgba(255,255,255,0.75);
+  --zf-glass-border:rgba(124,58,237,0.14);
+  --zf-glass-border-strong:rgba(124,58,237,0.28);
+  --zf-glass-highlight:rgba(255,255,255,0.9);
+  --zf-text-primary:#1E1B2E;
+  --zf-text-secondary:#475569;
+  --zf-text-muted:#64748B;
+  --zf-text-faint:#94A3B8;
+  --zf-shadow-md:0 8px 24px rgba(124,58,237,.10);
+  --zf-shadow-lg:0 20px 50px rgba(124,58,237,.16);
+}
+
+/* ============================================================
+   全局基础
+   ============================================================ */
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--zf-font-ui);
+  background:var(--zf-bg-base);
+  color:var(--zf-text-primary);
+  line-height:1.6;
+  overflow-x:hidden;
+  transition:background var(--zf-dur-slow) var(--zf-ease-out),color var(--zf-dur-slow) var(--zf-ease-out);
+}
+/* 背景流光网格 */
+body::before{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(60% 50% at 12% 8%, rgba(139,92,246,.22), transparent 60%),
+    radial-gradient(55% 45% at 88% 18%, rgba(236,72,153,.16), transparent 60%),
+    radial-gradient(50% 50% at 78% 88%, rgba(6,182,212,.14), transparent 60%),
+    radial-gradient(40% 40% at 20% 80%, rgba(124,58,237,.18), transparent 60%);
+  animation:meshShift 18s var(--zf-ease-out) infinite alternate;
+}
+@keyframes meshShift{
+  0%{transform:translate3d(0,0,0) scale(1)}
+  100%{transform:translate3d(-2%,2%,0) scale(1.06)}
+}
+/* 浮动光球 */
+.orb{position:fixed;border-radius:50%;filter:blur(60px);opacity:.5;z-index:0;pointer-events:none}
+.orb-1{width:340px;height:340px;background:var(--zf-primary-500);top:-80px;left:-60px;animation:float1 16s ease-in-out infinite}
+.orb-2{width:280px;height:280px;background:var(--zf-accent-magenta);top:30%;right:-80px;animation:float2 20s ease-in-out infinite}
+.orb-3{width:220px;height:220px;background:var(--zf-accent-cyan);bottom:-60px;left:30%;animation:float3 22s ease-in-out infinite}
+@keyframes float1{0%,100%{transform:translate(0,0)}50%{transform:translate(40px,60px)}}
+@keyframes float2{0%,100%{transform:translate(0,0)}50%{transform:translate(-50px,-40px)}}
+@keyframes float3{0%,100%{transform:translate(0,0)}50%{transform:translate(30px,-50px)}}
+
+/* ============================================================
+   布局骨架
+   ============================================================ */
+.app{position:relative;z-index:1;max-width:1320px;margin:0 auto;padding:0 var(--zf-s6)}
+.hero-bg-orbs{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+
+/* ============================================================
+   全新导航栏
+   ============================================================ */
+.zf-navbar{
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;gap:var(--zf-s6);
+  padding:14px var(--zf-s6);
+  margin:var(--zf-s4) 0 var(--zf-s8);
+  background:var(--zf-glass-bg);
+  backdrop-filter:var(--zf-blur-glass);
+  -webkit-backdrop-filter:var(--zf-blur-glass);
+  border:1px solid var(--zf-glass-border);
+  border-radius:var(--zf-r-xl);
+  box-shadow:var(--zf-shadow-md);
+  transition:all var(--zf-dur-normal) var(--zf-ease-out);
+}
+.zf-navbar.scrolled{padding:10px var(--zf-s6);box-shadow:var(--zf-shadow-lg);background:var(--zf-glass-bg-strong)}
+/* Logo */
+.zf-logo{display:flex;align-items:center;gap:10px;flex-shrink:0;cursor:pointer;text-decoration:none}
+.zf-logo-mark{
+  width:40px;height:40px;border-radius:12px;
+  background:linear-gradient(135deg,var(--zf-primary-500),var(--zf-accent-magenta));
+  display:grid;place-items:center;color:#fff;font-family:var(--zf-serif);font-weight:900;font-size:22px;
+  box-shadow:var(--zf-glow-primary);
+  position:relative;overflow:hidden;
+}
+.zf-logo-mark::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.5) 50%,transparent 70%);
+  transform:translateX(-120%);animation:logoShine 4s ease-in-out infinite;
+}
+@keyframes logoShine{0%,40%{transform:translateX(-120%)}60%,100%{transform:translateX(120%)}}
+.zf-logo-text{font-family:var(--zf-serif);font-weight:700;font-size:20px;color:var(--zf-text-primary);letter-spacing:.5px}
+.zf-logo-text em{font-style:normal;color:var(--zf-primary-400)}
+
+/* 菜单 */
+.zf-nav-menu{display:flex;align-items:center;gap:4px;flex:1;margin-left:var(--zf-s4)}
+.zf-nav-item{
+  position:relative;padding:10px 16px;font-size:var(--zf-fs-md);font-weight:500;
+  color:var(--zf-text-secondary);cursor:pointer;border:none;background:none;
+  font-family:inherit;transition:color var(--zf-dur-fast) var(--zf-ease-out);
+}
+.zf-nav-item:hover{color:var(--zf-text-primary)}
+.zf-nav-item.active{color:var(--zf-text-primary);font-weight:600}
+.zf-nav-indicator{
+  position:absolute;bottom:2px;height:3px;border-radius:3px;
+  background:linear-gradient(90deg,var(--zf-primary-500),var(--zf-accent-magenta));
+  box-shadow:var(--zf-glow-primary);
+  transition:left var(--zf-dur-normal) var(--zf-ease-spring),width var(--zf-dur-normal) var(--zf-ease-spring);
+}
+.zf-nav-badge{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:var(--zf-r-full);font-size:10px;font-weight:700;background:var(--zf-accent-magenta);color:#fff;transform:translateY(-1px)}
+
+/* 搜索 */
+.zf-search{position:relative;flex-shrink:0;width:240px}
+.zf-search input{
+  width:100%;padding:10px 14px 10px 40px;font-size:var(--zf-fs-base);font-family:inherit;
+  color:var(--zf-text-primary);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);
+  border-radius:var(--zf-r-full);outline:none;transition:all var(--zf-dur-fast) var(--zf-ease-out);
+}
+.zf-search input::placeholder{color:var(--zf-text-faint)}
+.zf-search input:focus{border-color:var(--zf-primary-500);box-shadow:0 0 0 4px rgba(139,92,246,.18);background:var(--zf-glass-bg-strong)}
+.zf-search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--zf-text-muted);pointer-events:none}
+
+/* 工具区 */
+.zf-nav-tools{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.zf-icon-btn{
+  width:38px;height:38px;border-radius:50%;border:1px solid var(--zf-glass-border);
+  background:var(--zf-glass-bg);color:var(--zf-text-secondary);cursor:pointer;
+  display:grid;place-items:center;transition:all var(--zf-dur-fast) var(--zf-ease-out);
+}
+.zf-icon-btn:hover{color:var(--zf-primary-400);border-color:var(--zf-primary-500);transform:translateY(-2px);box-shadow:var(--zf-glow-primary)}
+.zf-icon-btn:active{transform:scale(.92)}
+.zf-avatar{
+  width:38px;height:38px;border-radius:50%;cursor:pointer;border:2px solid var(--zf-primary-500);
+  background:linear-gradient(135deg,var(--zf-primary-500),var(--zf-accent-magenta));
+  display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px;
+  transition:transform var(--zf-dur-fast) var(--zf-ease-spring);
+}
+.zf-avatar:hover{transform:scale(1.08) rotate(-4deg)}
+.zf-hamburger{display:none}
+
+/* ============================================================
+   区块通用
+   ============================================================ */
+.section{margin-bottom:var(--zf-s16);scroll-margin-top:96px}
+.section-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:var(--zf-s6)}
+.section-title{font-family:var(--zf-serif);font-size:var(--zf-fs-2xl);font-weight:700;color:var(--zf-text-primary);display:flex;align-items:center;gap:12px}
+.section-title .bar{width:5px;height:28px;border-radius:3px;background:linear-gradient(180deg,var(--zf-primary-500),var(--zf-accent-magenta))}
+.section-sub{color:var(--zf-text-muted);font-size:var(--zf-fs-base);margin-top:4px}
+.eyebrow{display:inline-block;font-size:var(--zf-fs-xs);font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--zf-primary-400);margin-bottom:8px}
+
+/* ============================================================
+   设计令牌展示卡
+   ============================================================ */
+.token-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--zf-s3)}
+.token-card{
+  padding:var(--zf-s4);border-radius:var(--zf-r-md);background:var(--zf-glass-bg);
+  border:1px solid var(--zf-glass-border);backdrop-filter:var(--zf-blur-light);
+}
+.token-swatch{height:64px;border-radius:var(--zf-r-sm);margin-bottom:10px;border:1px solid var(--zf-glass-border)}
+.token-name{font-size:var(--zf-fs-sm);font-weight:600;color:var(--zf-text-secondary)}
+.token-value{font-size:var(--zf-fs-xs);color:var(--zf-text-muted);font-family:monospace;margin-top:2px}
+.type-row{display:flex;align-items:baseline;gap:16px;padding:14px 0;border-bottom:1px solid var(--zf-glass-border)}
+.type-row:last-child{border-bottom:none}
+.type-label{width:120px;color:var(--zf-text-muted);font-size:var(--zf-fs-sm);font-family:monospace;flex-shrink:0}
+
+/* ============================================================
+   组件库 — 按钮
+   ============================================================ */
+.comp-row{display:flex;flex-wrap:wrap;gap:var(--zf-s4);align-items:center;margin-bottom:var(--zf-s5)}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font-family:inherit;font-weight:600;font-size:var(--zf-fs-base);cursor:pointer;
+  border:none;border-radius:var(--zf-r-full);padding:11px 22px;text-decoration:none;
+  transition:all var(--zf-dur-fast) var(--zf-ease-out);position:relative;overflow:hidden;
+  user-select:none;white-space:nowrap;
+}
+.btn:focus-visible{outline:2px solid var(--zf-primary-400);outline-offset:3px}
+.btn-primary{background:linear-gradient(135deg,var(--zf-primary-600),var(--zf-primary-500));color:#fff;box-shadow:0 4px 14px rgba(139,92,246,.4)}
+.btn-primary::before{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.35) 50%,transparent 65%);transform:translateX(-120%);transition:transform .6s var(--zf-ease-out)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(139,92,246,.55)}
+.btn-primary:hover::before{transform:translateX(120%)}
+.btn-primary:active{transform:translateY(0) scale(.98)}
+.btn-glass{background:var(--zf-glass-bg-strong);color:var(--zf-text-primary);border:1px solid var(--zf-glass-border-strong);backdrop-filter:var(--zf-blur-light)}
+.btn-glass:hover{background:var(--zf-glass-highlight);border-color:var(--zf-primary-400);transform:translateY(-2px)}
+.btn-ghost{background:transparent;color:var(--zf-primary-400);border:1px solid var(--zf-primary-500)}
+.btn-ghost:hover{background:rgba(139,92,246,.12);transform:translateY(-2px)}
+.btn-danger{background:linear-gradient(135deg,var(--zf-accent-rose),#BE123C);color:#fff}
+.btn-danger:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(244,63,94,.4)}
+.btn-sm{padding:7px 14px;font-size:var(--zf-fs-sm)}
+.btn-lg{padding:14px 30px;font-size:var(--zf-fs-lg)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+.btn-icon{padding:11px;width:42px}
+
+/* ============================================================
+   组件库 — 小说卡
+   ============================================================ */
+.novel-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:var(--zf-s4)}
+@media(max-width:1100px){.novel-grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:720px){.novel-grid{grid-template-columns:repeat(2,1fr)}}
+
+.novel-card{
+  position:relative;cursor:pointer;border-radius:var(--zf-r-lg);overflow:hidden;
+  background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);
+  backdrop-filter:var(--zf-blur-light);
+  transition:transform var(--zf-dur-normal) var(--zf-ease-spring),box-shadow var(--zf-dur-normal) var(--zf-ease-out),border-color var(--zf-dur-normal);
+  animation:cardEnter .6s var(--zf-ease-out) backwards;
+}
+.novel-card:hover{transform:translateY(-8px) scale(1.02);box-shadow:var(--zf-shadow-lg);border-color:var(--zf-primary-400)}
+@keyframes cardEnter{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+.novel-cover{position:relative;height:220px;overflow:hidden;background:linear-gradient(135deg,var(--zf-primary-700),var(--zf-primary-500))}
+.novel-cover img{width:100%;height:100%;object-fit:cover;transition:transform .5s var(--zf-ease-out)}
+.novel-card:hover .novel-cover img{transform:scale(1.12)}
+.novel-cover::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 50%,rgba(11,8,20,.7));opacity:0;transition:opacity var(--zf-dur-normal)}
+.novel-card:hover .novel-cover::after{opacity:1}
+/* 排名徽章 */
+.rank-badge{
+  position:absolute;top:10px;left:10px;width:30px;height:36px;border-radius:6px;
+  display:grid;place-items:center;font-family:var(--zf-serif);font-weight:900;font-size:18px;color:#fff;
+  background:linear-gradient(135deg,var(--zf-primary-600),var(--zf-primary-500));
+  box-shadow:0 4px 12px rgba(0,0,0,.4);
+}
+.rank-badge.top1{background:linear-gradient(135deg,#F59E0B,#F97316);box-shadow:0 0 18px rgba(245,158,11,.7);animation:pulseGold 2s ease-in-out infinite}
+.rank-badge.top2{background:linear-gradient(135deg,#94A3B8,#64748B)}
+.rank-badge.top3{background:linear-gradient(135deg,#B45309,#92400E)}
+@keyframes pulseGold{0%,100%{box-shadow:0 0 18px rgba(245,158,11,.7)}50%{box-shadow:0 0 28px rgba(245,158,11,1)}}
+/* 标签角标 */
+.novel-tag{position:absolute;top:10px;right:10px;padding:3px 9px;border-radius:var(--zf-r-full);font-size:11px;font-weight:700;backdrop-filter:var(--zf-blur-light);background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.15)}
+.novel-tag.hot{background:linear-gradient(135deg,var(--zf-accent-magenta),#BE123C);border:none}
+.novel-tag.new{background:linear-gradient(135deg,var(--zf-accent-cyan),#0E7490);border:none}
+.novel-body{padding:12px 14px 14px}
+.novel-title{font-family:var(--zf-serif);font-size:var(--zf-fs-md);font-weight:700;color:var(--zf-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}
+.novel-author{font-size:var(--zf-fs-xs);color:var(--zf-text-muted);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.novel-meta{display:flex;align-items:center;gap:10px;font-size:var(--zf-fs-xs);color:var(--zf-text-secondary)}
+.novel-meta span{display:inline-flex;align-items:center;gap:3px}
+.novel-cat{display:inline-block;padding:2px 8px;border-radius:var(--zf-r-sm);font-size:10px;font-weight:600;background:rgba(139,92,246,.15);color:var(--zf-primary-400);border:1px solid rgba(139,92,246,.25)}
+
+/* ============================================================
+   组件库 — 榜单条目（列表式）
+   ============================================================ */
+.rank-list{display:flex;flex-direction:column;gap:var(--zf-s2)}
+.rank-item{
+  display:flex;align-items:center;gap:var(--zf-s4);padding:12px 14px;border-radius:var(--zf-r-md);
+  background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);
+  cursor:pointer;transition:all var(--zf-dur-fast) var(--zf-ease-out);
+}
+.rank-item:hover{background:var(--zf-glass-bg-strong);border-color:var(--zf-primary-400);transform:translateX(6px)}
+.rank-num{width:28px;text-align:center;font-family:var(--zf-serif);font-weight:900;font-size:18px;color:var(--zf-text-muted);flex-shrink:0}
+.rank-item:nth-child(1) .rank-num{color:var(--zf-accent-amber);text-shadow:0 0 12px rgba(245,158,11,.6)}
+.rank-item:nth-child(2) .rank-num{color:#CBD5E1}
+.rank-item:nth-child(3) .rank-num{color:#B45309}
+.rank-cover{width:42px;height:56px;border-radius:6px;object-fit:cover;flex-shrink:0;border:1px solid var(--zf-glass-border)}
+.rank-info{flex:1;min-width:0}
+.rank-name{font-weight:600;font-size:var(--zf-fs-base);color:var(--zf-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rank-desc{font-size:var(--zf-fs-xs);color:var(--zf-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.rank-stat{font-size:var(--zf-fs-xs);color:var(--zf-text-secondary);display:flex;align-items:center;gap:4px;flex-shrink:0}
+
+/* ============================================================
+   组件库 — 标签 / 徽章
+   ============================================================ */
+.tag{display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:var(--zf-r-full);font-size:var(--zf-fs-xs);font-weight:600;border:1px solid var(--zf-glass-border);background:var(--zf-glass-bg);color:var(--zf-text-secondary)}
+.tag-primary{background:rgba(139,92,246,.15);color:var(--zf-primary-400);border-color:rgba(139,92,246,.3)}
+.tag-magenta{background:rgba(236,72,153,.15);color:var(--zf-accent-magenta);border-color:rgba(236,72,153,.3)}
+.tag-emerald{background:rgba(16,185,129,.15);color:var(--zf-accent-emerald);border-color:rgba(16,185,129,.3)}
+.tag-amber{background:rgba(245,158,11,.15);color:var(--zf-accent-amber);border-color:rgba(245,158,11,.3)}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.dot-live{background:var(--zf-accent-emerald);box-shadow:0 0 0 0 rgba(16,185,129,.6);animation:livePulse 1.8s infinite}
+@keyframes livePulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.6)}70%{box-shadow:0 0 0 8px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}
+
+/* ============================================================
+   组件库 — 进度条
+   ============================================================ */
+.progress{height:6px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;position:relative}
+.progress-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--zf-primary-500),var(--zf-accent-magenta));box-shadow:0 0 8px rgba(139,92,246,.6);transition:width .8s var(--zf-ease-out);position:relative}
+.progress-fill::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);animation:progressShine 2s linear infinite}
+@keyframes progressShine{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+
+/* ============================================================
+   组件库 — 分区标题
+   ============================================================ */
+.sec-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;margin-bottom:var(--zf-s5);border-radius:var(--zf-r-lg);
+  background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);backdrop-filter:var(--zf-blur-light);
+}
+.sec-header-left{display:flex;align-items:center;gap:12px}
+.sec-header-icon{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;color:#fff;flex-shrink:0}
+.sec-header-icon.fire{background:linear-gradient(135deg,var(--zf-accent-magenta),#BE123C);box-shadow:var(--zf-glow-magenta)}
+.sec-header-icon.trophy{background:linear-gradient(135deg,#F59E0B,#B45309)}
+.sec-header-icon.rise{background:linear-gradient(135deg,var(--zf-accent-cyan),#0E7490)}
+.sec-header-icon.check{background:linear-gradient(135deg,var(--zf-accent-emerald),#047857)}
+.sec-header-title{font-family:var(--zf-serif);font-size:var(--zf-fs-lg);font-weight:700;color:var(--zf-text-primary)}
+.sec-header-sub{font-size:var(--zf-fs-xs);color:var(--zf-text-muted);margin-top:1px}
+.sec-more{display:inline-flex;align-items:center;gap:4px;color:var(--zf-primary-400);font-size:var(--zf-fs-sm);font-weight:600;cursor:pointer;transition:gap var(--zf-dur-fast)}
+.sec-more:hover{gap:8px}
+
+/* ============================================================
+   组件库 — 空状态 / 骨架
+   ============================================================ */
+.empty-state{padding:var(--zf-s12);text-align:center;border-radius:var(--zf-r-lg);background:var(--zf-glass-bg);border:1px dashed var(--zf-glass-border-strong)}
+.empty-icon{width:72px;height:72px;margin:0 auto var(--zf-s4);border-radius:50%;background:var(--zf-glass-bg-strong);display:grid;place-items:center;color:var(--zf-primary-400)}
+.skeleton{background:linear-gradient(90deg,var(--zf-glass-bg) 25%,var(--zf-glass-bg-strong) 50%,var(--zf-glass-bg) 75%);background-size:200% 100%;animation:skel 1.4s linear infinite;border-radius:var(--zf-r-sm)}
+@keyframes skel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ============================================================
+   Hero 横幅
+   ============================================================ */
+.hero{
+  position:relative;border-radius:var(--zf-r-xl);overflow:hidden;
+  padding:var(--zf-s12) var(--zf-s10);margin-bottom:var(--zf-s10);
+  background:linear-gradient(135deg,rgba(124,58,237,.25),rgba(236,72,153,.15));
+  border:1px solid var(--zf-glass-border-strong);backdrop-filter:var(--zf-blur-glass);
+  box-shadow:var(--zf-shadow-lg);
+}
+.hero-title{font-family:var(--zf-serif);font-size:var(--zf-fs-4xl);font-weight:900;line-height:1.1;color:var(--zf-text-primary);margin-bottom:var(--zf-s4)}
+.hero-title .grad{background:linear-gradient(120deg,var(--zf-primary-400),var(--zf-accent-magenta),var(--zf-accent-cyan));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;background-size:200% auto;animation:gradFlow 4s linear infinite}
+@keyframes gradFlow{0%{background-position:0% center}100%{background-position:200% center}}
+.hero-desc{font-size:var(--zf-fs-lg);color:var(--zf-text-secondary);max-width:560px;margin-bottom:var(--zf-s6)}
+.hero-stats{display:flex;gap:var(--zf-s8);flex-wrap:wrap}
+.hero-stat-num{font-family:var(--zf-serif);font-size:var(--zf-fs-2xl);font-weight:900;color:var(--zf-primary-400)}
+.hero-stat-label{font-size:var(--zf-fs-sm);color:var(--zf-text-muted)}
+
+/* ============================================================
+   书架页
+   ============================================================ */
+.segmented{display:inline-flex;padding:4px;border-radius:var(--zf-r-full);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);gap:2px;margin-bottom:var(--zf-s6)}
+.segmented button{padding:8px 20px;border:none;background:none;color:var(--zf-text-muted);font-family:inherit;font-size:var(--zf-fs-sm);font-weight:600;border-radius:var(--zf-r-full);cursor:pointer;transition:all var(--zf-dur-fast) var(--zf-ease-out)}
+.segmented button.active{background:linear-gradient(135deg,var(--zf-primary-600),var(--zf-primary-500));color:#fff;box-shadow:0 4px 12px rgba(139,92,246,.4)}
+
+.shelf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--zf-s4)}
+@media(max-width:900px){.shelf-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.shelf-grid{grid-template-columns:1fr}}
+.shelf-card{display:flex;gap:var(--zf-s4);padding:var(--zf-s4);border-radius:var(--zf-r-lg);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);transition:all var(--zf-dur-normal) var(--zf-ease-out);cursor:pointer}
+.shelf-card:hover{transform:translateY(-4px);border-color:var(--zf-primary-400);box-shadow:var(--zf-shadow-md)}
+.shelf-cover{width:72px;height:96px;border-radius:8px;object-fit:cover;flex-shrink:0;box-shadow:var(--shadow-md)}
+.shelf-body{flex:1;min-width:0;display:flex;flex-direction:column}
+.shelf-title{font-family:var(--zf-serif);font-weight:700;font-size:var(--zf-fs-md);color:var(--zf-text-primary);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shelf-chap{font-size:var(--zf-fs-xs);color:var(--zf-text-muted);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shelf-progress-wrap{margin-top:auto}
+.shelf-progress-label{display:flex;justify-content:space-between;font-size:var(--zf-fs-xs);color:var(--zf-text-secondary);margin-bottom:5px}
+
+/* ============================================================
+   动画展示
+   ============================================================ */
+.anim-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--zf-s4)}
+.anim-card{padding:var(--zf-s6);border-radius:var(--zf-r-lg);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);text-align:center;min-height:140px;display:flex;flex-direction:column;justify-content:center;gap:8px}
+.anim-card h4{font-size:var(--zf-fs-base);color:var(--zf-text-primary);font-weight:600}
+.anim-card p{font-size:var(--zf-fs-xs);color:var(--zf-text-muted);font-family:monospace}
+.shimmer-text{background:linear-gradient(110deg,var(--zf-text-muted) 30%,var(--zf-primary-400) 50%,var(--zf-text-muted) 70%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 2.5s linear infinite;font-weight:700;font-size:var(--zf-fs-lg)}
+@keyframes shimmer{0%{background-position:200% center}100%{background-position:-200% center}}
+.float-demo{animation:floatDemo 3s ease-in-out infinite}
+@keyframes floatDemo{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.glow-demo{width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--zf-primary-500),var(--zf-accent-magenta));margin:0 auto;animation:glowPulse 2s ease-in-out infinite}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 0 0 rgba(139,92,246,.6)}50%{box-shadow:0 0 0 16px rgba(139,92,246,0)}}
+
+/* ============================================================
+   响应式
+   ============================================================ */
+@media(max-width:880px){
+  .zf-nav-menu,.zf-search{display:none}
+  .zf-hamburger{display:grid}
+  .hero-title{font-size:var(--zf-fs-3xl)}
+  .section-title{font-size:var(--zf-fs-xl)}
+}
+
+/* 工具栏 */
+.toolbar{position:fixed;bottom:24px;right:24px;z-index:200;display:flex;flex-direction:column;gap:10px}
+.tool-btn{width:46px;height:46px;border-radius:50%;border:1px solid var(--zf-glass-border-strong);background:var(--zf-glass-bg-strong);backdrop-filter:var(--zf-blur-glass);color:var(--zf-text-primary);cursor:pointer;display:grid;place-items:center;transition:all var(--zf-dur-fast) var(--zf-ease-out);box-shadow:var(--zf-shadow-md)}
+.tool-btn:hover{transform:translateY(-3px) scale(1.05);color:var(--zf-primary-400);border-color:var(--zf-primary-500)}
+
+/* 文档卡 */
+.doc-card{padding:var(--zf-s6);border-radius:var(--zf-r-lg);background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);backdrop-filter:var(--zf-blur-light);margin-bottom:var(--zf-s4)}
+.doc-card h3{font-family:var(--zf-serif);font-size:var(--zf-fs-lg);color:var(--zf-text-primary);margin-bottom:var(--zf-s3);display:flex;align-items:center;gap:8px}
+.doc-card ul{list-style:none;padding-left:0}
+.doc-card li{padding:6px 0 6px 20px;position:relative;color:var(--zf-text-secondary);font-size:var(--zf-fs-base)}
+.doc-card li::before{content:"";position:absolute;left:0;top:13px;width:6px;height:6px;border-radius:50%;background:var(--zf-primary-500)}
+code{font-family:monospace;background:var(--zf-glass-bg-strong);padding:2px 7px;border-radius:5px;font-size:.9em;color:var(--zf-primary-400)}
+
+/* 入场动画 */
+.reveal{opacity:0;transform:translateY(30px);transition:opacity .7s var(--zf-ease-out),transform .7s var(--zf-ease-out)}
+.reveal.in{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- ============ 全新导航栏 ============ -->
+<header class="zf-navbar" id="navbar">
+  <a class="zf-logo" href="#top">
+    <div class="zf-logo-mark">紫</div>
+    <div class="zf-logo-text">紫枫<em>小说</em></div>
+  </a>
+  <nav class="zf-nav-menu" id="navMenu">
+    <button class="zf-nav-item active" data-nav>首页</button>
+    <button class="zf-nav-item" data-nav>分类</button>
+    <button class="zf-nav-item" data-nav>书架</button>
+    <button class="zf-nav-item" data-nav>排行榜 <span class="zf-nav-badge">HOT</span></button>
+    <button class="zf-nav-item" data-nav>书源</button>
+    <span class="zf-nav-indicator" id="navIndicator"></span>
+  </nav>
+  <div class="zf-search">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input type="text" placeholder="搜索小说、作者…" />
+  </div>
+  <div class="zf-nav-tools">
+    <button class="zf-icon-btn" title="主题色" onclick="cycleTheme()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>
+    </button>
+    <button class="zf-icon-btn" id="darkToggle" title="深色模式" onclick="toggleDark()">
+      <svg id="iconMoon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+    </button>
+    <div class="zf-avatar" title="个人中心">紫</div>
+    <button class="zf-icon-btn zf-hamburger" title="菜单">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="app" id="top">
+
+  <!-- ============ Hero ============ -->
+  <section class="hero reveal">
+    <span class="eyebrow">UI 重构设计方案 · v1.0</span>
+    <h1 class="hero-title">为阅读而生的<br><span class="grad">玻璃拟态界面</span></h1>
+    <p class="hero-desc">以「紫枫品牌紫」为色彩主轴，玻璃拟态为视觉语言，复杂微交互动效为体验灵魂，统一重构导航栏与全站组件，让每一次翻阅都精致而流畅。</p>
+    <div class="hero-stats">
+      <div><div class="hero-stat-num" data-count="13">0</div><div class="hero-stat-label">统一页面</div></div>
+      <div><div class="hero-stat-num" data-count="24">0</div><div class="hero-stat-label">组件变体</div></div>
+      <div><div class="hero-stat-num" data-count="16">0</div><div class="hero-stat-label">动画令牌</div></div>
+      <div><div class="hero-stat-num" data-count="5">0</div><div class="hero-stat-label">主题色板</div></div>
+    </div>
+  </section>
+
+  <!-- ============ 设计令牌 ============ -->
+  <section class="section reveal" id="tokens">
+    <div class="section-head">
+      <div>
+        <div class="section-title"><span class="bar"></span>设计令牌系统</div>
+        <div class="section-sub">色彩 · 排版 · 间距 · 阴影 · 动画 — 一切组件的统一源头</div>
+      </div>
+    </div>
+
+    <div class="doc-card">
+      <h3>🎨 品牌色板 · 紫枫紫</h3>
+      <div class="token-grid">
+        <div class="token-card"><div class="token-swatch" style="background:#F5F3FF"></div><div class="token-name">Primary 50</div><div class="token-value">#F5F3FF</div></div>
+        <div class="token-card"><div class="token-swatch" style="background:#C4B5FD"></div><div class="token-name">Primary 300</div><div class="token-value">#C4B5FD</div></div>
+        <div class="token-card"><div class="token-swatch" style="background:#8B5CF6;box-shadow:0 0 16px rgba(139,92,246,.5)"></div><div class="token-name">Primary 500 ★</div><div class="token-value">#8B5CF6</div></div>
+        <div class="token-card"><div class="token-swatch" style="background:#7C3AED"></div><div class="token-name">Primary 600</div><div class="token-value">#7C3AED</div></div>
+        <div class="token-card"><div class="token-swatch" style="background:#4C1D95"></div><div class="token-name">Primary 900</div><div class="token-value">#4C1D95</div></div>
+        <div class="token-card"><div class="token-swatch" style="background:#EC4899;box-shadow:0 0 16px rgba(236,72,153,.5)"></div><div class="token-name">Accent 品红</div><div class="token-value">#EC4899</div></div>
+        <div class="token-card"><div class="token-swatch" style="background:#06B6D4"></div><div class="token-name">Accent 青</div><div class="token-value">#06B6D4</div></div>
+        <div class="token-card"><div class="token-swatch" style="background:#10B981"></div><div class="token-name">Success 翠</div><div class="token-value">#10B981</div></div>
+        <div class="token-card"><div class="token-swatch" style="background:#F59E0B"></div><div class="token-name">Warning 琥</div><div class="token-value">#F59E0B</div></div>
+        <div class="token-card"><div class="token-swatch" style="background:#F43F5E"></div><div class="token-name">Danger 玫</div><div class="token-value">#F43F5E</div></div>
+      </div>
+    </div>
+
+    <div class="doc-card">
+      <h3>🔤 排版体系</h3>
+      <div class="type-row"><span class="type-label">Display / Serif</span><span style="font-family:var(--zf-serif);font-size:var(--zf-fs-3xl);font-weight:900">紫枫免费小说</span></div>
+      <div class="type-row"><span class="type-label">H1 / 38px</span><span style="font-family:var(--zf-serif);font-size:var(--zf-fs-3xl);font-weight:700">沉浸阅读 · 精致交互</span></div>
+      <div class="type-row"><span class="type-label">H2 / 28px</span><span style="font-size:var(--zf-fs-2xl);font-weight:700">分区标题</span></div>
+      <div class="type-row"><span class="type-label">Body / 14px</span><span style="font-size:var(--zf-fs-base)">正文文本，行高 1.6，确保长文阅读舒适度。</span></div>
+      <div class="type-row"><span class="type-label">Caption / 12px</span><span style="font-size:var(--zf-fs-xs);color:var(--zf-text-muted)">辅助说明、元信息</span></div>
+    </div>
+
+    <div class="doc-card">
+      <h3>📐 间距 / 圆角 / 阴影</h3>
+      <div class="comp-row" style="align-items:flex-end">
+        <div style="text-align:center"><div style="width:16px;height:16px;background:var(--zf-primary-500);border-radius:4px;margin:0 auto 6px"></div><div style="font-size:11px;color:var(--zf-text-muted)">4px</div></div>
+        <div style="text-align:center"><div style="width:24px;height:24px;background:var(--zf-primary-500);border-radius:6px;margin:0 auto 6px"></div><div style="font-size:11px;color:var(--zf-text-muted)">8px</div></div>
+        <div style="text-align:center"><div style="width:36px;height:36px;background:var(--zf-primary-500);border-radius:8px;margin:0 auto 6px"></div><div style="font-size:11px;color:var(--zf-text-muted)">12px</div></div>
+        <div style="text-align:center"><div style="width:48px;height:48px;background:var(--zf-primary-500);border-radius:10px;margin:0 auto 6px"></div><div style="font-size:11px;color:var(--zf-text-muted)">16px</div></div>
+        <div style="text-align:center"><div style="width:64px;height:64px;background:var(--zf-primary-500);border-radius:12px;margin:0 auto 6px"></div><div style="font-size:11px;color:var(--zf-text-muted)">24px</div></div>
+        <div style="text-align:center"><div style="width:80px;height:80px;background:var(--zf-primary-500);border-radius:16px;margin:0 auto 6px"></div><div style="font-size:11px;color:var(--zf-text-muted)">32px</div></div>
+      </div>
+      <div class="comp-row" style="margin-top:16px">
+        <div style="width:80px;height:60px;background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);border-radius:8px;display:grid;place-items:center;font-size:11px;color:var(--zf-text-muted)">r-sm 8</div>
+        <div style="width:80px;height:60px;background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);border-radius:12px;display:grid;place-items:center;font-size:11px;color:var(--zf-text-muted)">r-md 12</div>
+        <div style="width:80px;height:60px;background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);border-radius:16px;display:grid;place-items:center;font-size:11px;color:var(--zf-text-muted)">r-lg 16</div>
+        <div style="width:80px;height:60px;background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);border-radius:22px;display:grid;place-items:center;font-size:11px;color:var(--zf-text-muted)">r-xl 22</div>
+        <div style="width:80px;height:60px;background:var(--zf-glass-bg);border:1px solid var(--zf-glass-border);border-radius:999px;display:grid;place-items:center;font-size:11px;color:var(--zf-text-muted)">full</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 导航栏说明 ============ -->
+  <section class="section reveal" id="navbar-section">
+    <div class="section-head">
+      <div>
+        <div class="section-title"><span class="bar"></span>全新导航栏</div>
+        <div class="section-sub">玻璃磨砂 · 滚动收缩 · 磁吸下划线 · 全局搜索 · 主题/暗色切换</div>
+      </div>
+    </div>
+    <div class="doc-card">
+      <h3>🧭 交互特性</h3>
+      <ul>
+        <li><strong>玻璃磨砂表面</strong>：<code>backdrop-filter: blur(18px) saturate(160%)</code>，半透明浮于内容之上，背景流光透出</li>
+        <li><strong>滚动响应收缩</strong>：页面滚动时导航栏 padding 减小、阴影加深、背景不透明度提升（见上方实际效果，向下滚动试试）</li>
+        <li><strong>磁吸下划线指示器</strong>：菜单项切换时，渐变下划线以弹簧曲线滑动到目标项，带紫色光晕</li>
+        <li><strong>Logo 流光扫过</strong>：紫枫 Logo 标记每 4 秒有一道高光扫过，强化品牌记忆</li>
+        <li><strong>全局搜索</strong>：圆角胶囊搜索框，聚焦时紫色光晕环 + 背景提亮</li>
+        <li><strong>工具区</strong>：主题色切换 / 暗色模式 / 用户头像（hover 微旋转放大）/ 移动端汉堡菜单</li>
+        <li><strong>响应式</strong>：≤880px 隐藏菜单与搜索，显示汉堡按钮</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ 组件库 ============ -->
+  <section class="section reveal" id="components">
+    <div class="section-head">
+      <div>
+        <div class="section-title"><span class="bar"></span>统一组件库</div>
+        <div class="section-sub">按钮 · 小说卡 · 榜单 · 标签 · 进度 · 分区标题 · 空状态 · 骨架</div>
+      </div>
+    </div>
+
+    <!-- 按钮 -->
+    <div class="doc-card">
+      <h3>🔘 按钮 Buttons</h3>
+      <div class="comp-row">
+        <button class="btn btn-primary">立即阅读</button>
+        <button class="btn btn-glass">加入书架</button>
+        <button class="btn btn-ghost">查看详情</button>
+        <button class="btn btn-danger">移除</button>
+        <button class="btn btn-primary btn-sm">小尺寸</button>
+        <button class="btn btn-primary btn-lg">大尺寸</button>
+        <button class="btn btn-primary" disabled>禁用</button>
+        <button class="btn btn-glass btn-icon">♡</button>
+      </div>
+      <p style="font-size:var(--zf-fs-xs);color:var(--zf-text-muted)">主按钮：渐变紫 + 光泽扫过 + 上浮光晕；玻璃按钮：磨砂半透；幽灵按钮：描边呼吸。</p>
+    </div>
+
+    <!-- 小说卡 -->
+    <div class="doc-card">
+      <h3>📚 小说卡 NovelCard</h3>
+      <div class="novel-grid">
+        <div class="novel-card" style="animation-delay:0s">
+          <div class="novel-cover"><img src="https://placehold.co/200x280/7C3AED/fff?text=剑来" alt=""><span class="rank-badge top1">1</span><span class="novel-tag hot">热销</span></div>
+          <div class="novel-body"><div class="novel-title">剑来</div><div class="novel-author">烽火戏诸侯</div><div class="novel-meta"><span class="novel-cat">玄幻</span><span>👁 1.2亿</span></div></div>
+        </div>
+        <div class="novel-card" style="animation-delay:.08s">
+          <div class="novel-cover"><img src="https://placehold.co/200x280/06B6D4/fff?text=诡秘之主" alt=""><span class="rank-badge top2">2</span><span class="novel-tag new">新书</span></div>
+          <div class="novel-body"><div class="novel-title">诡秘之主</div><div class="novel-author">爱潜水的乌贼</div><div class="novel-meta"><span class="novel-cat">奇幻</span><span>👁 9800万</span></div></div>
+        </div>
+        <div class="novel-card" style="animation-delay:.16s">
+          <div class="novel-cover"><img src="https://placehold.co/200x280/EC4899/fff?text=大奉打更人" alt=""><span class="rank-badge top3">3</span></div>
+          <div class="novel-body"><div class="novel-title">大奉打更人</div><div class="novel-author">卖报小郎君</div><div class="novel-meta"><span class="novel-cat">仙侠</span><span>👁 8200万</span></div></div>
+        </div>
+        <div class="novel-card" style="animation-delay:.24s">
+          <div class="novel-cover"><img src="https://placehold.co/200x280/10B981/fff?text=赘婿" alt=""><span class="rank-badge">4</span></div>
+          <div class="novel-body"><div class="novel-title">赘婿</div><div class="novel-author">愤怒的香蕉</div><div class="novel-meta"><span class="novel-cat">历史</span><span>👁 7100万</span></div></div>
+        </div>
+        <div class="novel-card" style="animation-delay:.32s">
+          <div class="novel-cover"><img src="https://placehold.co/200x280/F59E0B/fff?text=凡人修仙" alt=""><span class="rank-badge">5</span></div>
+          <div class="novel-body"><div class="novel-title">凡人修仙传</div><div class="novel-author">忘语</div><div class="novel-meta"><span class="novel-cat">仙侠</span><span>👁 6800万</span></div></div>
+        </div>
+        <div class="novel-card" style="animation-delay:.4s">
+          <div class="novel-cover"><img src="https://placehold.co/200x280/8B5CF6/fff?text=道诡异仙" alt=""><span class="rank-badge">6</span></div>
+          <div class="novel-body"><div class="novel-title">道诡异仙</div><div class="novel-author">狐尾的笔</div><div class="novel-meta"><span class="novel-cat">悬疑</span><span>👁 5500万</span></div></div>
+        </div>
+      </div>
+      <p style="font-size:var(--zf-fs-xs);color:var(--zf-text-muted);margin-top:14px">入场错峰淡入上浮 · hover 整卡上浮缩放 + 封面放大 + 暗角渐显 · Top1 金牌脉冲光晕 · 角标分类色编码。</p>
+    </div>
+
+    <!-- 榜单条目 -->
+    <div class="doc-card">
+      <h3>🏆 榜单条目 RankItem</h3>
+      <div class="rank-list">
+        <div class="rank-item"><div class="rank-num">1</div><img class="rank-cover" src="https://placehold.co/100x140/7C3AED/fff?text=1"><div class="rank-info"><div class="rank-name">剑来</div><div class="rank-desc">烽火戏诸侯 · 天地生剑气，少年自微末起</div></div><div class="rank-stat"><span class="dot dot-live"></span>在读 128万</div></div>
+        <div class="rank-item"><div class="rank-num">2</div><img class="rank-cover" src="https://placehold.co/100x140/06B6D4/fff?text=2"><div class="rank-info"><div class="rank-name">诡秘之主</div><div class="rank-desc">爱潜水的乌贼 · 维多利亚时代的克苏鲁</div></div><div class="rank-stat"><span class="dot dot-live"></span>在读 96万</div></div>
+        <div class="rank-item"><div class="rank-num">3</div><img class="rank-cover" src="https://placehold.co/100x140/EC4899/fff?text=3"><div class="rank-info"><div class="rank-name">大奉打更人</div><div class="rank-desc">卖报小郎君 · 钟声敲响，妖魔现形</div></div><div class="rank-stat"><span class="dot dot-live"></span>在读 82万</div></div>
+        <div class="rank-item"><div class="rank-num">4</div><img class="rank-cover" src="https://placehold.co/100x140/10B981/fff?text=4"><div class="rank-info"><div class="rank-name">赘婿</div><div class="rank-desc">愤怒的香蕉 · 商战权谋，宁毅的逆袭</div></div><div class="rank-stat">在读 71万</div></div>
+        <div class="rank-item"><div class="rank-num">5</div><img class="rank-cover" src="https://placehold.co/100x140/F59E0B/fff?text=5"><div class="rank-info"><div class="rank-name">凡人修仙传</div><div class="rank-desc">忘语 · 凡人逆天改命的修仙长卷</div></div><div class="rank-stat">在读 68万</div></div>
+      </div>
+      <p style="font-size:var(--zf-fs-xs);color:var(--zf-text-muted);margin-top:14px">hover 整行右滑 6px + 边框高亮 · 前 3 名序号金/银/铜着色 · 在读状态用脉冲绿点。</p>
+    </div>
+
+    <!-- 标签 + 进度 -->
+    <div class="doc-card">
+      <h3>🏷️ 标签 / 徽章 / 进度</h3>
+      <div class="comp-row">
+        <span class="tag tag-primary">玄幻</span>
+        <span class="tag tag-magenta">热销</span>
+        <span class="tag tag-emerald">连载中</span>
+        <span class="tag tag-amber">已完结</span>
+        <span class="tag">默认</span>
+        <span class="tag"><span class="dot dot-live"></span>更新中</span>
+      </div>
+      <div style="margin-top:16px">
+        <div style="display:flex;justify-content:space-between;font-size:var(--zf-fs-xs);color:var(--zf-text-secondary);margin-bottom:6px"><span>阅读进度</span><span>67.5%</span></div>
+        <div class="progress"><div class="progress-fill" style="width:67.5%"></div></div>
+      </div>
+    </div>
+
+    <!-- 分区标题 -->
+    <div class="doc-card">
+      <h3>🗂️ 分区标题 SectionHeader</h3>
+      <div class="sec-header">
+        <div class="sec-header-left">
+          <div class="sec-header-icon fire">🔥</div>
+          <div><div class="sec-header-title">必看热门</div><div class="sec-header-sub">编辑精选 · 本月最热</div></div>
+        </div>
+        <a class="sec-more">查看全部 →</a>
+      </div>
+      <div class="sec-header">
+        <div class="sec-header-left">
+          <div class="sec-header-icon trophy">🏆</div>
+          <div><div class="sec-header-title">潜力新书</div><div class="sec-header-sub">上升最快 · 值得追更</div></div>
+        </div>
+        <a class="sec-more">查看全部 →</a>
+      </div>
+    </div>
+
+    <!-- 空状态 + 骨架 -->
+    <div class="doc-card">
+      <h3>🌫️ 空状态 / 骨架屏</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--zf-s4)">
+        <div class="empty-state">
+          <div class="empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+          <h4 style="color:var(--zf-text-primary);margin-bottom:6px">书架还是空的</h4>
+          <p style="font-size:var(--zf-fs-sm);color:var(--zf-text-muted);margin-bottom:16px">去首页发现一本好书吧</p>
+          <button class="btn btn-primary btn-sm">去逛逛</button>
+        </div>
+        <div style="padding:var(--zf-s4)">
+          <div class="skeleton" style="height:16px;width:60%;margin-bottom:10px"></div>
+          <div class="skeleton" style="height:12px;width:90%;margin-bottom:6px"></div>
+          <div class="skeleton" style="height:12px;width:75%;margin-bottom:16px"></div>
+          <div class="skeleton" style="height:120px;border-radius:8px"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 首页原型 ============ -->
+  <section class="section reveal" id="home">
+    <div class="section-head">
+      <div>
+        <div class="section-title"><span class="bar"></span>首页原型落地</div>
+        <div class="section-sub">Hero 横幅 + 多榜单分区 · 组件库直接组装</div>
+      </div>
+    </div>
+
+    <div class="sec-header">
+      <div class="sec-header-left">
+        <div class="sec-header-icon fire">🔥</div>
+        <div><div class="sec-header-title">必看热门</div><div class="sec-header-sub">编辑精选 · 本月最热</div></div>
+      </div>
+      <a class="sec-more">查看全部 →</a>
+    </div>
+    <div class="novel-grid" style="margin-bottom:var(--zf-s10)">
+      <div class="novel-card" style="animation-delay:0s"><div class="novel-cover"><img src="https://placehold.co/200x280/7C3AED/fff?text=雪中悍刀行" alt=""><span class="rank-badge top1">1</span></div><div class="novel-body"><div class="novel-title">雪中悍刀行</div><div class="novel-author">烽火戏诸侯</div><div class="novel-meta"><span class="novel-cat">玄幻</span><span>👁 1.5亿</span></div></div></div>
+      <div class="novel-card" style="animation-delay:.08s"><div class="novel-cover"><img src="https://placehold.co/200x280/EC4899/fff?text=将夜" alt=""><span class="rank-badge top2">2</span></div><div class="novel-body"><div class="novel-title">将夜</div><div class="novel-author">猫腻</div><div class="novel-meta"><span class="novel-cat">玄幻</span><span>👁 1.1亿</span></div></div></div>
+      <div class="novel-card" style="animation-delay:.16s"><div class="novel-cover"><img src="https://placehold.co/200x280/06B6D4/fff?text=庆余年" alt=""><span class="rank-badge top3">3</span></div><div class="novel-body"><div class="novel-title">庆余年</div><div class="novel-author">猫腻</div><div class="novel-meta"><span class="novel-cat">历史</span><span>👁 9900万</span></div></div></div>
+      <div class="novel-card" style="animation-delay:.24s"><div class="novel-cover"><img src="https://placehold.co/200x280/8B5CF6/fff?text=牧神记" alt=""><span class="rank-badge">4</span></div><div class="novel-body"><div class="novel-title">牧神记</div><div class="novel-author">宅猪</div><div class="novel-meta"><span class="novel-cat">玄幻</span><span>👁 8700万</span></div></div></div>
+      <div class="novel-card" style="animation-delay:.32s"><div class="novel-cover"><img src="https://placehold.co/200x280/10B981/fff?text=择天记" alt=""><span class="rank-badge">5</span></div><div class="novel-body"><div class="novel-title">择天记</div><div class="novel-author">猫腻</div><div class="novel-meta"><span class="novel-cat">玄幻</span><span>👁 7600万</span></div></div></div>
+      <div class="novel-card" style="animation-delay:.4s"><div class="novel-cover"><img src="https://placehold.co/200x280/F59E0B/fff?text=间客" alt=""><span class="rank-badge">6</span></div><div class="novel-body"><div class="novel-title">间客</div><div class="novel-author">猫腻</div><div class="novel-meta"><span class="novel-cat">科幻</span><span>👁 6400万</span></div></div></div>
+    </div>
+
+    <div class="sec-header">
+      <div class="sec-header-left">
+        <div class="sec-header-icon rise">📈</div>
+        <div><div class="sec-header-title">潜力飙升</div><div class="sec-header-sub">本周上升最快</div></div>
+      </div>
+      <a class="sec-more">查看全部 →</a>
+    </div>
+    <div class="novel-grid" style="margin-bottom:var(--zf-s10)">
+      <div class="novel-card" style="animation-delay:0s"><div class="novel-cover"><img src="https://placehold.co/200x280/7C3AED/fff?text=道诡异仙" alt=""><span class="novel-tag new">新书</span></div><div class="novel-body"><div class="novel-title">道诡异仙</div><div class="novel-author">狐尾的笔</div><div class="novel-meta"><span class="novel-cat">悬疑</span><span>👁 5500万</span></div></div></div>
+      <div class="novel-card" style="animation-delay:.08s"><div class="novel-cover"><img src="https://placehold.co/200x280/EC4899/fff?text=深海余烬" alt=""><span class="novel-tag new">新书</span></div><div class="novel-body"><div class="novel-title">深海余烬</div><div class="novel-author">远瞳</div><div class="novel-meta"><span class="novel-cat">奇幻</span><span>👁 3200万</span></div></div></div>
+      <div class="novel-card" style="animation-delay:.16s"><div class="novel-cover"><img src="https://placehold.co/200x280/06B6D4/fff?text=黎明之剑" alt=""></div><div class="novel-body"><div class="novel-title">黎明之剑</div><div class="novel-author">远瞳</div><div class="novel-meta"><span class="novel-cat">奇幻</span><span>👁 4100万</span></div></div></div>
+      <div class="novel-card" style="animation-delay:.24s"><div class="novel-cover"><img src="https://placehold.co/200x280/8B5CF6/fff?text=异常生物见闻录" alt=""></div><div class="novel-body"><div class="novel-title">异常生物见闻录</div><div class="novel-author">远瞳</div><div class="novel-meta"><span class="novel-cat">科幻</span><span>👁 6800万</span></div></div></div>
+      <div class="novel-card" style="animation-delay:.32s"><div class="novel-cover"><img src="https://placehold.co/200x280/10B981/fff?text=修真聊天群" alt=""></div><div class="novel-body"><div class="novel-title">修真聊天群</div><div class="novel-author">圣骑士的传说</div><div class="novel-meta"><span class="novel-cat">都市</span><span>👁 7200万</span></div></div></div>
+      <div class="novel-card" style="animation-delay:.4s"><div class="novel-cover"><img src="https://placehold.co/200x280/F59E0B/fff?text=大医凌然" alt=""></div><div class="novel-body"><div class="novel-title">大医凌然</div><div class="novel-author">志鸟村</div><div class="novel-meta"><span class="novel-cat">都市</span><span>👁 3800万</span></div></div></div>
+    </div>
+
+    <div class="sec-header">
+      <div class="sec-header-left">
+        <div class="sec-header-icon check">✅</div>
+        <div><div class="sec-header-title">完结好评</div><div class="sec-header-sub">口碑佳作 · 完结可 binge</div></div>
+      </div>
+      <a class="sec-more">查看全部 →</a>
+    </div>
+    <div class="rank-list">
+      <div class="rank-item"><div class="rank-num">1</div><img class="rank-cover" src="https://placehold.co/100x140/7C3AED/fff?text=1"><div class="rank-info"><div class="rank-name">诛仙</div><div class="rank-desc">萧鼎 · 天地不仁，以万物为刍狗</div></div><div class="rank-stat">⭐ 9.4</div></div>
+      <div class="rank-item"><div class="rank-num">2</div><img class="rank-cover" src="https://placehold.co/100x140/06B6D4/fff?text=2"><div class="rank-info"><div class="rank-name">斗破苍穹</div><div class="rank-desc">天蚕土豆 · 三十年河东三十年河西</div></div><div class="rank-stat">⭐ 9.1</div></div>
+      <div class="rank-item"><div class="rank-num">3</div><img class="rank-cover" src="https://placehold.co/100x140/EC4899/fff?text=3"><div class="rank-info"><div class="rank-name">遮天</div><div class="rank-desc">辰东 · 九龙拉棺，万古悲歌</div></div><div class="rank-stat">⭐ 9.3</div></div>
+      <div class="rank-item"><div class="rank-num">4</div><img class="rank-cover" src="https://placehold.co/100x140/10B981/fff?text=4"><div class="rank-info"><div class="rank-name">完美世界</div><div class="rank-desc">辰东 · 荒古禁地，少年逆天</div></div><div class="rank-stat">⭐ 9.0</div></div>
+    </div>
+  </section>
+
+  <!-- ============ 书架页原型 ============ -->
+  <section class="section reveal" id="shelf">
+    <div class="section-head">
+      <div>
+        <div class="section-title"><span class="bar"></span>书架页原型</div>
+        <div class="section-sub">分段切换 · 阅读进度 · 最近阅读 · 流光进度条</div>
+      </div>
+    </div>
+
+    <div class="segmented" id="shelfSeg">
+      <button class="active" data-seg>在读</button>
+      <button data-seg>最近阅读</button>
+      <button data-seg>收藏</button>
+    </div>
+
+    <div class="shelf-grid">
+      <div class="shelf-card">
+        <img class="shelf-cover" src="https://placehold.co/100x140/7C3AED/fff?text=剑来" alt="">
+        <div class="shelf-body">
+          <div class="shelf-title">剑来</div>
+          <div class="shelf-chap">第 1024 章 · 山崖书院的新规矩</div>
+          <div class="shelf-progress-wrap">
+            <div class="shelf-progress-label"><span>阅读进度</span><span>67.5%</span></div>
+            <div class="progress"><div class="progress-fill" style="width:67.5%"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="shelf-card">
+        <img class="shelf-cover" src="https://placehold.co/100x140/06B6D4/fff?text=诡秘之主" alt="">
+        <div class="shelf-body">
+          <div class="shelf-title">诡秘之主</div>
+          <div class="shelf-chap">第 892 章 · 愚者的舞会</div>
+          <div class="shelf-progress-wrap">
+            <div class="shelf-progress-label"><span>阅读进度</span><span>43.2%</span></div>
+            <div class="progress"><div class="progress-fill" style="width:43.2%"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="shelf-card">
+        <img class="shelf-cover" src="https://placehold.co/100x140/EC4899/fff?text=大奉打更人" alt="">
+        <div class="shelf-body">
+          <div class="shelf-title">大奉打更人</div>
+          <div class="shelf-chap">第 1156 章 · 钟声再起</div>
+          <div class="shelf-progress-wrap">
+            <div class="shelf-progress-label"><span>阅读进度</span><span>88.1%</span></div>
+            <div class="progress"><div class="progress-fill" style="width:88.1%"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="shelf-card">
+        <img class="shelf-cover" src="https://placehold.co/100x140/10B981/fff?text=赘婿" alt="">
+        <div class="shelf-body">
+          <div class="shelf-title">赘婿</div>
+          <div class="shelf-chap">第 768 章 · 商战再启</div>
+          <div class="shelf-progress-wrap">
+            <div class="shelf-progress-label"><span>阅读进度</span><span>21.7%</span></div>
+            <div class="progress"><div class="progress-fill" style="width:21.7%"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="shelf-card">
+        <img class="shelf-cover" src="https://placehold.co/100x140/F59E0B/fff?text=凡人修仙传" alt="">
+        <div class="shelf-body">
+          <div class="shelf-title">凡人修仙传</div>
+          <div class="shelf-chap">第 2448 章 · 飞升之路</div>
+          <div class="shelf-progress-wrap">
+            <div class="shelf-progress-label"><span>阅读进度</span><span>95.3%</span></div>
+            <div class="progress"><div class="progress-fill" style="width:95.3%"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="shelf-card">
+        <img class="shelf-cover" src="https://placehold.co/100x140/8B5CF6/fff?text=道诡异仙" alt="">
+        <div class="shelf-body">
+          <div class="shelf-title">道诡异仙</div>
+          <div class="shelf-chap">第 412 章 · 异端审判</div>
+          <div class="shelf-progress-wrap">
+            <div class="shelf-progress-label"><span>阅读进度</span><span>12.4%</span></div>
+            <div class="progress"><div class="progress-fill" style="width:12.4%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 动画清单 ============ -->
+  <section class="section reveal" id="animations">
+    <div class="section-head">
+      <div>
+        <div class="section-title"><span class="bar"></span>复杂动画清单</div>
+        <div class="section-sub">16 组统一动效令牌 · 全站复用</div>
+      </div>
+    </div>
+    <div class="anim-grid">
+      <div class="anim-card"><div class="shimmer-text">Shimmer</div><h4>流光文字</h4><p>gradient + clip</p></div>
+      <div class="anim-card"><div class="glow-demo"></div><h4>光晕脉冲</h4><p>box-shadow pulse</p></div>
+      <div class="anim-card"><div class="float-demo" style="font-size:32px">📚</div><h4>浮动</h4><p>translateY loop</p></div>
+      <div class="anim-card"><div style="font-size:var(--zf-fs-lg);font-weight:700;background:linear-gradient(120deg,var(--zf-primary-400),var(--zf-accent-magenta),var(--zf-accent-cyan));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;background-size:200% auto;animation:gradFlow 3s linear infinite">渐变流动</div><h4>渐变流动</h4><p>background-position</p></div>
+      <div class="anim-card"><div style="width:100%;height:6px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;position:relative"><div style="height:100%;width:60%;border-radius:3px;background:linear-gradient(90deg,var(--zf-primary-500),var(--zf-accent-magenta));position:relative"><div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);animation:progressShine 1.5s linear infinite"></div></div></div><h4>进度流光</h4><p>translateX shine</p></div>
+      <div class="anim-card"><div style="display:flex;gap:6px;justify-content:center"><span class="dot dot-live"></span><span class="dot" style="background:var(--zf-accent-magenta);animation:livePulse 1.8s infinite .3s"></span><span class="dot" style="background:var(--zf-accent-cyan);animation:livePulse 1.8s infinite .6s"></span></div><h4>状态脉冲</h4><p>livePulse stagger</p></div>
+      <div class="anim-card"><div class="zf-logo-mark" style="margin:0 auto">紫</div><h4>Logo 扫光</h4><p>logoShine 4s</p></div>
+      <div class="anim-card"><div style="font-size:11px;color:var(--zf-text-muted);font-family:monospace;margin-bottom:4px">stagger 0s → .4s</div><div style="display:flex;gap:4px"><div class="novel-card" style="animation:cardEnter .6s var(--zf-ease-out) backwards;flex:1;height:40px"></div><div class="novel-card" style="animation:cardEnter .6s var(--zf-ease-out) .15s backwards;flex:1;height:40px"></div><div class="novel-card" style="animation:cardEnter .6s var(--zf-ease-out) .3s backwards;flex:1;height:40px"></div></div><h4>错峰入场</h4><p>cardEnter delay</p></div>
+    </div>
+
+    <div class="doc-card" style="margin-top:var(--zf-s6)">
+      <h3>🎬 动画令牌速查</h3>
+      <ul>
+        <li><code>--zf-ease-out</code> cubic-bezier(.16,1,.3,1) — 通用出场</li>
+        <li><code>--zf-ease-spring</code> cubic-bezier(.34,1.56,.64,1) — 弹簧反馈（下划线、按钮）</li>
+        <li><code>--zf-dur-fast</code> .18s / <code>--zf-dur-normal</code> .32s / <code>--zf-dur-slow</code> .6s</li>
+        <li>页面级：meshShift(背景网格 18s) · float1/2/3(光球 16-22s) · cardEnter(错峰入场) · reveal(滚动揭示)</li>
+        <li>组件级：logoShine · shimmer · gradFlow · progressShine · livePulse · pulseGold · cardEnter</li>
+        <li>交互级：hover 上浮缩放 · 磁吸下划线滑动 · 搜索聚焦光晕环 · 按钮光泽扫过</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ 落地指南 ============ -->
+  <section class="section reveal" id="handoff">
+    <div class="section-head">
+      <div>
+        <div class="section-title"><span class="bar"></span>开发者对接</div>
+        <div class="section-sub">令牌 → CSS 变量 → Ant Design ConfigProvider 主题映射</div>
+      </div>
+    </div>
+    <div class="doc-card">
+      <h3>🔧 实现路径</h3>
+      <ul>
+        <li><strong>令牌层</strong>：将 <code>:root</code> 中的 <code>--zf-*</code> 变量迁入 <code>zifeng-web/src/index.css</code>，替换现有散落硬编码色值</li>
+        <li><strong>主题映射</strong>：Ant Design <code>ConfigProvider</code> 的 <code>theme.token</code> 映射 <code>colorPrimary=#8B5CF6</code>、<code>borderRadius=12</code>、<code>fontSize=14</code>，与令牌对齐</li>
+        <li><strong>玻璃工具</strong>：复用已有 <code>utils/glassStyle.js</code>，新增 <code>glassNavbar()</code> 收缩态、<code>glassNavIndicator()</code> 磁吸下划线</li>
+        <li><strong>导航栏</strong>：替换 <code>App.jsx</code> Header，菜单项改用按钮 + <code>framer-motion layoutId</code> 实现磁吸下划线，滚动监听加 <code>.scrolled</code></li>
+        <li><strong>小说卡</strong>：提炼 <code>NovelCard</code> 为独立组件，统一封面比例 200×280、错峰 <code>animation-delay</code>、Top3 金银铜徽章</li>
+        <li><strong>动画</strong>：keyframes 集中到 <code>animations.css</code>，Framer Motion 处理布局动画（下划线、列表过渡），CSS 处理装饰动画（光球、扫光）</li>
+        <li><strong>响应式</strong>：保留现有 6/5/4/3/2 列断点，导航栏 ≤880px 切汉堡菜单</li>
+        <li><strong>无障碍</strong>：所有交互元素 <code>:focus-visible</code> 紫色描边、按钮 ≥38px 触达区、动画遵守 <code>prefers-reduced-motion</code></li>
+      </ul>
+    </div>
+    <div class="doc-card">
+      <h3>♿ 无障碍 & 性能</h3>
+      <ul>
+        <li>文本对比度：正文 #F8FAFC / 背景 #0B0814 ≈ 17:1，远超 WCAG AA 4.5:1</li>
+        <li>品牌紫 #8B5CF6 在暗底上用于大标题与图标，次要文本用 #CBD5E1 保证可读</li>
+        <li>玻璃模糊仅在导航栏/Hero/卡片使用，避免大面积 backdrop-filter 影响滚动性能</li>
+        <li>装饰光球 <code>pointer-events:none</code> 且 <code>will-change:transform</code>，GPU 加速</li>
+        <li>骨架屏优先于 Spinner，减少布局抖动</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer style="text-align:center;padding:var(--zf-s12) 0;color:var(--zf-text-muted);font-size:var(--zf-fs-sm)">
+    紫枫免费小说 · UI 重构设计方案 v1.0 · 玻璃拟态 + 品牌紫 + 复杂动画<br>
+    <span style="color:var(--zf-text-faint)">由 UI Designer 出品 · 可直接作为开发对接参考</span>
+  </footer>
+</main>
+
+<!-- 浮动工具栏 -->
+<div class="toolbar">
+  <button class="tool-btn" onclick="toggleDark()" title="切换深/浅色">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+  </button>
+  <button class="tool-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="回到顶部">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg>
+  </button>
+</div>
+
+<script>
+// —— 滚动收缩导航栏 ——
+const navbar=document.getElementById('navbar');
+window.addEventListener('scroll',()=>{navbar.classList.toggle('scrolled',window.scrollY>20)});
+
+// —— 磁吸下划线 ——
+const navItems=[...document.querySelectorAll('[data-nav]')];
+const indicator=document.getElementById('navIndicator');
+function moveIndicator(el){indicator.style.left=el.offsetLeft+'px';indicator.style.width=el.offsetWidth+'px';indicator.style.opacity='1'}
+const activeNav=navItems.find(n=>n.classList.contains('active'))||navItems[0];
+requestAnimationFrame(()=>moveIndicator(activeNav));
+navItems.forEach(item=>{item.addEventListener('mouseenter',()=>moveIndicator(item));item.addEventListener('click',()=>{navItems.forEach(n=>n.classList.remove('active'));item.classList.add('active');moveIndicator(item)})});
+window.addEventListener('resize',()=>moveIndicator(document.querySelector('.zf-nav-item.active')));
+
+// —— 深浅色切换 ——
+function toggleDark(){const html=document.documentElement;const next=html.getAttribute('data-theme')==='dark'?'light':'dark';html.setAttribute('data-theme',next)}
+
+// —— 主题色循环（演示5套色板，此处仅切换主色演示）——
+const themes=[['#8B5CF6','#7C3AED','#EC4899'],['#1890ff','#096dd9','#40a9ff'],['#52c41a','#389e0d','#73d13d'],['#fa8c16','#d46b08','#ffa940'],['#f5222d','#cf1322','#ff4d4f']];
+let ti=0;
+function cycleTheme(){ti=(ti+1)%themes.length;const [p,pd,a]=themes[ti];const r=document.documentElement;r.style.setProperty('--zf-primary-500',p);r.style.setProperty('--zf-primary-600',pd);r.style.setProperty('--zf-primary-400',p);r.style.setProperty('--zf-accent-magenta',a)}
+
+// —— 书架分段切换 ——
+document.querySelectorAll('#shelfSeg button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#shelfSeg button').forEach(x=>x.classList.remove('active'));b.classList.add('active')}));
+
+// —— 滚动揭示 ——
+const io=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.12});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+// —— 数字滚动 ——
+const countIO=new IntersectionObserver((es)=>es.forEach(e=>{if(!e.isIntersecting)return;const el=e.target;const target=+el.dataset.count;let cur=0;const step=target/40;const t=setInterval(()=>{cur+=step;if(cur>=target){cur=target;clearInterval(t)}el.textContent=Math.floor(cur)},18);countIO.unobserve(el)}),{threshold:.5});
+document.querySelectorAll('[data-count]').forEach(el=>countIO.observe(el));
+</script>
+</body>
+</html>

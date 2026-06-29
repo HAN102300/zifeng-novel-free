@@ -43,6 +43,9 @@ Thumbs.db
 # Trae IDE
 .trae/
 
+# WorkBuddy AI memory
+.workbuddy/
+
 # Uploads (user data)
 zifeng-server/uploads/
 
