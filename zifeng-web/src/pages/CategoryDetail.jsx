@@ -66,7 +66,7 @@ function CategoryDetailSkeleton() {
         }}
       >
         {[0, 1, 2, 3, 4, 5].map((i) => (
-          <Skel key={i} height={252} radius="var(--zf-r-md)" />
+          <Skel key={i} height={290} radius="var(--zf-r-md)" />
         ))}
       </div>
     </div>

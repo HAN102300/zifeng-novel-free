@@ -69,10 +69,10 @@ function HomeSkeleton() {
             <Skel height={42} width={220} radius="var(--zf-r-lg)" />
           </div>
           <div className="zf-rank-layout">
-            <Skel height={380} radius="var(--zf-r-lg)" />
+            <Skel height={300} radius="var(--zf-r-lg)" />
             <div className="zf-rank-grid">
               {[0, 1, 2, 3].map((j) => (
-                <Skel key={j} height={252} radius="var(--zf-r-md)" />
+                <Skel key={j} height={290} radius="var(--zf-r-md)" />
               ))}
             </div>
           </div>
@@ -221,7 +221,7 @@ const Home = () => {
                   position: 'relative',
                   borderRadius: 'var(--zf-r-lg)',
                   overflow: 'hidden',
-                  height: 380,
+                  height: 300,
                   cursor: 'pointer',
                   transition: 'transform var(--zf-dur-normal) var(--zf-ease-spring)',
                   background: `linear-gradient(135deg, var(--zf-primary-700), ${primaryColor})`,

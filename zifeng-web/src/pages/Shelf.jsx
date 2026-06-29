@@ -233,10 +233,18 @@ const Shelf = () => {
   const [layoutMode, setLayoutMode] = useState(
     () => localStorage.getItem('shelf_layout_mode') || 'grid'
   );
+  const [historyLayoutMode, setHistoryLayoutMode] = useState(
+    () => localStorage.getItem('shelf_history_layout_mode') || 'list'
+  );
 
   const handleLayoutChange = (mode) => {
     setLayoutMode(mode);
     localStorage.setItem('shelf_layout_mode', mode);
+  };
+
+  const handleHistoryLayoutChange = (mode) => {
+    setHistoryLayoutMode(mode);
+    localStorage.setItem('shelf_history_layout_mode', mode);
   };
 
   /* —— 数据获取：保留原有 BookshelfController 调用逻辑 —— */
@@ -733,217 +741,6 @@ const Shelf = () => {
         </div>
       </motion.section>
 
-      {/* ============== 最近阅读（时间轴列表） ============== */}
-      {readingBooks.length > 0 && (
-        <motion.section
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-50px' }}
-          transition={{ duration: 0.7, ease: REVEAL_EASE }}
-          style={{ marginBottom: 'var(--zf-s10)' }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '14px 18px',
-              borderRadius: 'var(--zf-r-lg)',
-              background: 'var(--zf-glass-bg)',
-              border: '1px solid var(--zf-glass-border)',
-              backdropFilter: 'var(--zf-blur-light)',
-              WebkitBackdropFilter: 'var(--zf-blur-light)',
-              marginBottom: 'var(--zf-s5)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div
-                style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 11,
-                  display: 'grid',
-                  placeItems: 'center',
-                  color: '#fff',
-                  fontSize: 18,
-                  background:
-                    'linear-gradient(135deg, var(--zf-accent-cyan), #0E7490)',
-                }}
-              >
-                <ClockCircleOutlined />
-              </div>
-              <div>
-                <div
-                  style={{
-                    fontFamily: 'var(--zf-font-serif)',
-                    fontSize: 'var(--zf-fs-lg)',
-                    fontWeight: 700,
-                    color: 'var(--zf-text-primary)',
-                    lineHeight: 1.2,
-                  }}
-                >
-                  最近阅读
-                </div>
-                <div style={{ fontSize: 'var(--zf-fs-xs)', color: 'var(--zf-text-muted)', marginTop: 1 }}>
-                  {readingBooks.length} 本在读 · 进度自动同步
-                </div>
-              </div>
-            </div>
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => handleRemoveBook(null, 'history')}
-              style={BTN_GLASS_SM}
-            >
-              <DeleteOutlined /> 清空历史
-            </motion.button>
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--zf-s3)',
-            }}
-          >
-            {readingBooks.map((book, idx) => (
-              <motion.div
-                key={book.id || idx}
-                initial={{ opacity: 0, x: -16 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true, margin: '-30px' }}
-                transition={{ duration: 0.5, ease: REVEAL_EASE, delay: idx * 0.06 }}
-                whileHover={{ x: 4 }}
-                style={{
-                  display: 'flex',
-                  gap: 14,
-                  padding: 14,
-                  borderRadius: 'var(--zf-r-lg)',
-                  background: 'var(--zf-glass-bg)',
-                  border: '1px solid var(--zf-glass-border)',
-                  backdropFilter: 'var(--zf-blur-light)',
-                  WebkitBackdropFilter: 'var(--zf-blur-light)',
-                  alignItems: 'center',
-                  position: 'relative',
-                  overflow: 'hidden',
-                }}
-              >
-                {/* 时间轴竖线装饰 */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: 3,
-                    background:
-                      'linear-gradient(180deg, var(--zf-primary-500), var(--zf-accent-magenta))',
-                    opacity: 0.6,
-                  }}
-                />
-                {/* 封面 */}
-                <div
-                  style={{
-                    width: 54,
-                    height: 72,
-                    borderRadius: 'var(--zf-r-sm)',
-                    overflow: 'hidden',
-                    flexShrink: 0,
-                    background: 'var(--zf-glass-bg-strong)',
-                  }}
-                >
-                  {book.cover ? (
-                    <img
-                      src={book.cover}
-                      alt={book.name}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        display: 'grid',
-                        placeItems: 'center',
-                        color: 'var(--zf-text-faint)',
-                        fontSize: 18,
-                      }}
-                    >
-                      <BookOutlined />
-                    </div>
-                  )}
-                </div>
-
-                {/* 信息：标题 + 章节 + 进度条 */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontFamily: 'var(--zf-font-serif)',
-                      fontSize: 'var(--zf-fs-md)',
-                      fontWeight: 700,
-                      color: 'var(--zf-text-primary)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      marginBottom: 3,
-                    }}
-                  >
-                    {book.name}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 'var(--zf-fs-xs)',
-                      color: 'var(--zf-text-muted)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      marginBottom: 8,
-                    }}
-                  >
-                    {book.author ? `${book.author} · ` : ''}
-                    {book.chapterName || '未读'}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ flex: 1, maxWidth: 220 }}>
-                      <ProgressBar progress={book.progress} />
-                    </div>
-                    <span
-                      style={{
-                        fontSize: 'var(--zf-fs-xs)',
-                        fontWeight: 600,
-                        color: 'var(--zf-primary-300)',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {formatProgress(book.progress)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 操作：继续阅读 + 删除 */}
-                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                  <motion.button
-                    whileHover={{ scale: 1.04 }}
-                    whileTap={{ scale: 0.96 }}
-                    onClick={() => navigateToReader(book.id)}
-                    style={BTN_PRIMARY_SM}
-                  >
-                    继续
-                  </motion.button>
-                  <button
-                    onClick={() => handleRemoveBook(book.id, 'singleHistory')}
-                    style={BTN_ICON}
-                    title="删除此记录"
-                  >
-                    <DeleteOutlined />
-                  </button>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.section>
-      )}
-
       {/* ============== 我的收藏（NovelCard 网格 / 紧凑列表） ============== */}
       {favoriteBooks.length > 0 && (
         <motion.section
@@ -1143,6 +940,235 @@ const Shelf = () => {
         </motion.section>
       )}
 
+      {/* ============== 最近阅读（时间轴列表 / NovelCard 网格） ============== */}
+      {readingBooks.length > 0 && (
+        <motion.section
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-50px' }}
+          transition={{ duration: 0.7, ease: REVEAL_EASE }}
+          style={{ marginBottom: 'var(--zf-s10)', marginTop: 32 }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 'var(--zf-s3)',
+              marginBottom: 'var(--zf-s5)',
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <SectionHeader
+                icon="clock"
+                title="最近阅读"
+                subtitle={`${readingBooks.length} 本在读 · 进度自动同步`}
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--zf-s3)' }}>
+              <Segmented
+                value={historyLayoutMode}
+                onChange={handleHistoryLayoutChange}
+                options={[
+                  { value: 'grid', icon: <AppstoreOutlined /> },
+                  { value: 'list', icon: <UnorderedListOutlined /> },
+                ]}
+              />
+              <motion.button
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => handleRemoveBook(null, 'history')}
+                style={BTN_GLASS_SM}
+              >
+                <DeleteOutlined /> 清空历史
+              </motion.button>
+            </div>
+          </div>
+
+          {historyLayoutMode === 'grid' ? (
+            <div className="zf-shelf-grid">
+              {readingBooks.map((book, idx) => (
+                <motion.div
+                  key={book.id || idx}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-30px' }}
+                  transition={{ duration: 0.5, ease: REVEAL_EASE, delay: idx * 0.05 }}
+                  className="zf-shelf-card-wrap"
+                >
+                  <NovelCard
+                    novel={book}
+                    index={idx}
+                    color={primaryColor}
+                    glassMode={glassMode}
+                    isDarkMode={isDarkMode}
+                    onClick={() => navigateToReader(book.id)}
+                  />
+                  {/* 删除浮层按钮（hover 显示） */}
+                  <button
+                    className="zf-shelf-del"
+                    onClick={() => handleRemoveBook(book.id, 'singleHistory')}
+                    title="删除此记录"
+                  >
+                    <DeleteOutlined style={{ fontSize: 14 }} />
+                  </button>
+                  {/* navigating 加载蒙层 */}
+                  {navigatingBookId === book.id && (
+                    <div className="zf-shelf-loading">
+                      <div className="zf-spin">
+                        <ClockCircleOutlined />
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--zf-s3)',
+              }}
+            >
+              {readingBooks.map((book, idx) => (
+                <motion.div
+                  key={book.id || idx}
+                  initial={{ opacity: 0, x: -16 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true, margin: '-30px' }}
+                  transition={{ duration: 0.5, ease: REVEAL_EASE, delay: idx * 0.06 }}
+                  whileHover={{ x: 4 }}
+                  style={{
+                    display: 'flex',
+                    gap: 14,
+                    padding: 14,
+                    borderRadius: 'var(--zf-r-lg)',
+                    background: 'var(--zf-glass-bg)',
+                    border: '1px solid var(--zf-glass-border)',
+                    backdropFilter: 'var(--zf-blur-light)',
+                    WebkitBackdropFilter: 'var(--zf-blur-light)',
+                    alignItems: 'center',
+                    position: 'relative',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {/* 时间轴竖线装饰 */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: 3,
+                      background:
+                        'linear-gradient(180deg, var(--zf-primary-500), var(--zf-accent-magenta))',
+                      opacity: 0.6,
+                    }}
+                  />
+                  {/* 封面 */}
+                  <div
+                    style={{
+                      width: 54,
+                      height: 72,
+                      borderRadius: 'var(--zf-r-sm)',
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                      background: 'var(--zf-glass-bg-strong)',
+                    }}
+                  >
+                    {book.cover ? (
+                      <img
+                        src={book.cover}
+                        alt={book.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          display: 'grid',
+                          placeItems: 'center',
+                          color: 'var(--zf-text-faint)',
+                          fontSize: 18,
+                        }}
+                      >
+                        <BookOutlined />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 信息：标题 + 章节 + 进度条 */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontFamily: 'var(--zf-font-serif)',
+                        fontSize: 'var(--zf-fs-md)',
+                        fontWeight: 700,
+                        color: 'var(--zf-text-primary)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        marginBottom: 3,
+                      }}
+                    >
+                      {book.name}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 'var(--zf-fs-xs)',
+                        color: 'var(--zf-text-muted)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        marginBottom: 8,
+                      }}
+                    >
+                      {book.author ? `${book.author} · ` : ''}
+                      {book.chapterName || '未读'}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ flex: 1, maxWidth: 220 }}>
+                        <ProgressBar progress={book.progress} />
+                      </div>
+                      <span
+                        style={{
+                          fontSize: 'var(--zf-fs-xs)',
+                          fontWeight: 600,
+                          color: 'var(--zf-primary-300)',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {formatProgress(book.progress)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 操作：继续阅读 + 删除 */}
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    <motion.button
+                      whileHover={{ scale: 1.04 }}
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => navigateToReader(book.id)}
+                      style={BTN_PRIMARY_SM}
+                    >
+                      继续
+                    </motion.button>
+                    <button
+                      onClick={() => handleRemoveBook(book.id, 'singleHistory')}
+                      style={BTN_ICON}
+                      title="删除此记录"
+                    >
+                      <DeleteOutlined />
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </motion.section>
+      )}
       {/* ============== 双空状态：书架空空如也 ============== */}
       {isAllEmpty && (
         <motion.div

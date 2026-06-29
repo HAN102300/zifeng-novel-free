@@ -37,14 +37,24 @@ function formatReadCount(count) {
   return String(n);
 }
 
+/* 选取卡片简介：desc/intro > 有意义的 rankInfo > category */
+function getSummary(novel) {
+  const intro = novel?.desc ?? novel?.intro ?? '';
+  if (intro) return intro;
+  const rankInfo = novel?.rankInfo ?? '';
+  if (rankInfo && String(rankInfo) !== String(novel?.rank)) return rankInfo;
+  return novel?.category ?? '';
+}
+
 export default function NovelCard({ novel, index = 0, color, glassMode, isDarkMode, onClick }) {
   const [imgHover, setImgHover] = useState(false);
 
   const name = novel?.name ?? novel?.novelName ?? '未命名';
   const author = novel?.author ?? novel?.authorName ?? '佚名';
-  const intro = novel?.desc ?? novel?.intro ?? '';
+  const summary = getSummary(novel);
   const rank = novel?.rank;
   const badge = novel?.badge;
+  const score = novel?.score;
   const hasCover = !!novel?.cover;
 
   const rankStyle =
@@ -77,7 +87,7 @@ export default function NovelCard({ novel, index = 0, color, glassMode, isDarkMo
       <div
         style={{
           position: 'relative',
-          height: 140,
+          height: 180,
           overflow: 'hidden',
           flexShrink: 0,
           background: `linear-gradient(135deg, var(--zf-primary-700), ${color || 'var(--zf-primary-500)'})`,
@@ -159,16 +169,19 @@ export default function NovelCard({ novel, index = 0, color, glassMode, isDarkMo
         ) : null}
       </div>
 
-      {/* —— 卡片底部信息（flex:1 撑满剩余空间，内容均匀分布） —— */}
+      {/* —— 卡片信息区（垂直均匀分布，避免大面积留白） —— */}
       <div
         style={{
-          padding: '10px 12px 12px',
+          padding: '12px',
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          gap: 4,
+          justifyContent: 'space-between',
+          gap: 6,
+          minHeight: 0,
         }}
       >
+        {/* 标题 */}
         <div
           style={{
             fontFamily: 'var(--zf-font-serif)',
@@ -178,64 +191,98 @@ export default function NovelCard({ novel, index = 0, color, glassMode, isDarkMo
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
+            lineHeight: 1.35,
           }}
         >
           {name}
         </div>
-        <div
-          style={{
-            fontSize: 11,
-            color: 'var(--zf-text-muted)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {author}
-        </div>
-        {intro ? (
-          <div
-            style={{
-              fontSize: 11,
-              color: 'var(--zf-text-muted)',
-              lineHeight: 1.45,
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              marginTop: 2,
-            }}
-          >
-            {intro}
-          </div>
-        ) : null}
+
+        {/* 作者 + 评分 */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+            minHeight: 0,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 12,
+              color: 'var(--zf-text-muted)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              flex: 1,
+            }}
+          >
+            {author}
+          </span>
+          {Number(score) > 0 ? (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 2,
+                flexShrink: 0,
+                fontSize: 11,
+                fontWeight: 700,
+                color: 'var(--zf-accent-amber)',
+              }}
+            >
+              <span style={{ fontSize: 10 }}>★</span>
+              {Number(score).toFixed(1)}
+            </span>
+          ) : null}
+        </div>
+
+        {/* 简介 / 榜单信息 */}
+        <div
+          style={{
+            fontSize: 12,
+            color: 'var(--zf-text-secondary)',
+            lineHeight: 1.5,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            minHeight: 36,
+          }}
+        >
+          {summary}
+        </div>
+
+        {/* 分类标签 + 阅读量 */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
             gap: 8,
             fontSize: 11,
             color: 'var(--zf-text-secondary)',
-            marginTop: 'auto',
-            paddingTop: 6,
           }}
         >
           {novel?.category ? (
             <span
               style={{
-                padding: '1px 7px',
+                padding: '2px 8px',
                 borderRadius: 5,
                 fontSize: 10,
                 fontWeight: 600,
                 background: 'rgba(139,92,246,.15)',
                 color: 'var(--zf-primary-400)',
+                flexShrink: 0,
               }}
             >
               {novel.category}
             </span>
-          ) : null}
+          ) : (
+            <span />
+          )}
           {Number(novel?.readCount) > 0 ? (
-            <span style={{ marginLeft: 'auto' }}>{formatReadCount(novel?.readCount)} 阅读量</span>
+            <span style={{ whiteSpace: 'nowrap' }}>{formatReadCount(novel?.readCount)} 阅读量</span>
           ) : null}
         </div>
       </div>
