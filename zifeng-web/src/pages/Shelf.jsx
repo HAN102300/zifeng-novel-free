@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { message } from 'antd';
+import { message, Segmented } from 'antd';
 import {
   BookOutlined,
   DeleteOutlined,
@@ -9,6 +9,8 @@ import {
   PlusOutlined,
   LoginOutlined,
   ClockCircleOutlined,
+  AppstoreOutlined,
+  UnorderedListOutlined,
 } from '@ant-design/icons';
 import { ThemeContext } from '../App';
 import { AuthContext } from '../App';
@@ -43,6 +45,19 @@ const formatProgress = (val) => {
   if (val == null || val === 0) return '0.0%';
   const p = val <= 1 ? val * 100 : val;
   return `${p.toFixed(1)}%`;
+};
+
+/* 标签解析：category/tags 可能是「5个月前,7.8分,,轻松,热血」这类混合字符串，
+   拆分后过滤掉日期、评分、空串、纯数字等非标签值，返回干净的标签数组。 */
+const parseTags = (raw) => {
+  if (!raw) return [];
+  const arr = Array.isArray(raw) ? raw : String(raw).split(',');
+  return arr
+    .map((s) => String(s).trim())
+    .filter((s) => s.length > 0)
+    .filter((s) => !/^\d+(\.\d+)?分$/.test(s)) // 评分：7.8分
+    .filter((s) => !/\d+(\s*(个月|天|小时|分钟|年|周)前|\s*前)$/.test(s)) // 日期：5个月前
+    .filter((s) => !/^\d+$/.test(s)); // 纯数字
 };
 
 /* 流光进度条（参考原型 .progress / .progress-fill） */
@@ -215,6 +230,14 @@ const Shelf = () => {
   const [favoriteBooks, setFavoriteBooks] = useState([]);
   const [navigatingBookId, setNavigatingBookId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [layoutMode, setLayoutMode] = useState(
+    () => localStorage.getItem('shelf_layout_mode') || 'grid'
+  );
+
+  const handleLayoutChange = (mode) => {
+    setLayoutMode(mode);
+    localStorage.setItem('shelf_layout_mode', mode);
+  };
 
   /* —— 数据获取：保留原有 BookshelfController 调用逻辑 —— */
   useEffect(() => {
@@ -234,19 +257,23 @@ const Shelf = () => {
             getReadingHistory(),
           ]);
 
-          const mappedShelf = serverShelf.map((item) => ({
-            id: item.bookUrl,
-            name: item.bookName,
-            author: item.author,
-            cover: item.coverUrl,
-            summary: item.summary,
-            lastChapter: item.lastChapter,
-            sourceUrl: item.sourceUrl,
-            sourceName: item.sourceName,
-            bookUrl: item.bookUrl,
-            category: item.category,
-            progress: item.progress || 0,
-          }));
+          const mappedShelf = serverShelf.map((item) => {
+            const tags = parseTags(item.category);
+            return {
+              id: item.bookUrl,
+              name: item.bookName,
+              author: item.author,
+              cover: item.coverUrl,
+              summary: item.summary,
+              lastChapter: item.lastChapter,
+              sourceUrl: item.sourceUrl,
+              sourceName: item.sourceName,
+              bookUrl: item.bookUrl,
+              category: tags[0] || item.category,
+              tags,
+              progress: item.progress || 0,
+            };
+          });
 
           const mappedHistory = serverHistory.map((item) => ({
             id: item.bookUrl,
@@ -583,7 +610,7 @@ const Shelf = () => {
           width:30px; height:30px; border-radius:50%;
           display:grid; place-items:center;
           background:rgba(11,8,20,.72);
-          color:#FCA5A5;
+          color:var(--zf-accent-rose);
           border:1px solid rgba(244,63,94,.35);
           cursor:pointer;
           opacity:0;
@@ -594,7 +621,7 @@ const Shelf = () => {
         }
         .zf-shelf-card-wrap:hover .zf-shelf-del{opacity:1; transform:scale(1)}
         .zf-shelf-del:hover{
-          background:rgba(244,63,94,.85);
+          background:var(--zf-accent-rose);
           color:#fff;
           border-color:rgba(244,63,94,.6);
           box-shadow:0 0 14px rgba(244,63,94,.5);
@@ -609,6 +636,24 @@ const Shelf = () => {
           color:var(--zf-primary-300);
           font-size:24px;
           z-index:6;
+        }
+        .zf-shelf-list-item{
+          display:flex; gap:14px; padding:14px;
+          border-radius:var(--zf-r-lg);
+          background:var(--zf-glass-bg);
+          border:1px solid var(--zf-glass-border);
+          backdrop-filter:var(--zf-blur-light);
+          -webkit-backdrop-filter:var(--zf-blur-light);
+          align-items:center; position:relative; overflow:hidden;
+          cursor:pointer;
+        }
+        .zf-shelf-tag{
+          display:inline-block; max-width:96px;
+          padding:1px 8px; border-radius:5px;
+          font-size:11px; font-weight:600;
+          background:rgba(139,92,246,.15);
+          color:var(--zf-primary-400);
+          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
         }
         @keyframes zf-spin{to{transform:rotate(360deg)}}
         .zf-spin{animation:zf-spin 0.8s linear infinite}
@@ -899,7 +944,7 @@ const Shelf = () => {
         </motion.section>
       )}
 
-      {/* ============== 我的收藏（NovelCard 网格） ============== */}
+      {/* ============== 我的收藏（NovelCard 网格 / 紧凑列表） ============== */}
       {favoriteBooks.length > 0 && (
         <motion.section
           initial={{ opacity: 0, y: 30 }}
@@ -907,48 +952,194 @@ const Shelf = () => {
           viewport={{ once: true, margin: '-50px' }}
           transition={{ duration: 0.7, ease: REVEAL_EASE }}
         >
-          <SectionHeader
-            icon="fire"
-            title="我的收藏"
-            subtitle={`共 ${favoriteBooks.length} 本好书`}
-          />
-          <div className="zf-shelf-grid">
-            {favoriteBooks.map((book, idx) => (
-              <motion.div
-                key={book.id || idx}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-30px' }}
-                transition={{ duration: 0.5, ease: REVEAL_EASE, delay: idx * 0.05 }}
-                className="zf-shelf-card-wrap"
-              >
-                <NovelCard
-                  novel={book}
-                  index={idx}
-                  color={primaryColor}
-                  glassMode={glassMode}
-                  isDarkMode={isDarkMode}
-                  onClick={() => navigateToReader(book.id)}
-                />
-                {/* 删除浮层按钮（hover 显示） */}
-                <button
-                  className="zf-shelf-del"
-                  onClick={() => handleRemoveBook(book.id, 'shelf')}
-                  title="移出书架"
-                >
-                  <DeleteOutlined style={{ fontSize: 14 }} />
-                </button>
-                {/* navigating 加载蒙层 */}
-                {navigatingBookId === book.id && (
-                  <div className="zf-shelf-loading">
-                    <div className="zf-spin">
-                      <ClockCircleOutlined />
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-            ))}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 'var(--zf-s3)',
+              marginBottom: 'var(--zf-s5)',
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <SectionHeader
+                icon="fire"
+                title="我的收藏"
+                subtitle={`共 ${favoriteBooks.length} 本好书`}
+              />
+            </div>
+            <Segmented
+              value={layoutMode}
+              onChange={handleLayoutChange}
+              options={[
+                { value: 'grid', icon: <AppstoreOutlined /> },
+                { value: 'list', icon: <UnorderedListOutlined /> },
+              ]}
+            />
           </div>
+
+          {layoutMode === 'grid' ? (
+            <div className="zf-shelf-grid">
+              {favoriteBooks.map((book, idx) => (
+                <motion.div
+                  key={book.id || idx}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-30px' }}
+                  transition={{ duration: 0.5, ease: REVEAL_EASE, delay: idx * 0.05 }}
+                  className="zf-shelf-card-wrap"
+                >
+                  <NovelCard
+                    novel={book}
+                    index={idx}
+                    color={primaryColor}
+                    glassMode={glassMode}
+                    isDarkMode={isDarkMode}
+                    onClick={() => navigateToReader(book.id)}
+                  />
+                  {/* 删除浮层按钮（hover 显示） */}
+                  <button
+                    className="zf-shelf-del"
+                    onClick={() => handleRemoveBook(book.id, 'shelf')}
+                    title="移出书架"
+                  >
+                    <DeleteOutlined style={{ fontSize: 14 }} />
+                  </button>
+                  {/* navigating 加载蒙层 */}
+                  {navigatingBookId === book.id && (
+                    <div className="zf-shelf-loading">
+                      <div className="zf-spin">
+                        <ClockCircleOutlined />
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--zf-s3)' }}>
+              {favoriteBooks.map((book, idx) => (
+                <motion.div
+                  key={book.id || idx}
+                  initial={{ opacity: 0, x: -16 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true, margin: '-30px' }}
+                  transition={{ duration: 0.5, ease: REVEAL_EASE, delay: idx * 0.05 }}
+                  whileHover={{ x: 4 }}
+                  className="zf-shelf-list-item"
+                  onClick={() => navigateToReader(book.id)}
+                >
+                  {/* 封面 */}
+                  <div
+                    style={{
+                      width: 54,
+                      height: 72,
+                      borderRadius: 'var(--zf-r-sm)',
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                      background: 'var(--zf-glass-bg-strong)',
+                    }}
+                  >
+                    {book.cover ? (
+                      <img
+                        src={book.cover}
+                        alt={book.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          display: 'grid',
+                          placeItems: 'center',
+                          color: 'var(--zf-text-faint)',
+                          fontSize: 18,
+                        }}
+                      >
+                        <BookOutlined />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 信息：标题 + 作者 + 标签 + 简介 */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontFamily: 'var(--zf-font-serif)',
+                        fontSize: 'var(--zf-fs-md)',
+                        fontWeight: 700,
+                        color: 'var(--zf-text-primary)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        marginBottom: 3,
+                      }}
+                    >
+                      {book.name}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 'var(--zf-fs-xs)',
+                        color: 'var(--zf-text-muted)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        marginBottom: 6,
+                      }}
+                    >
+                      {book.author || '佚名'}
+                      {book.sourceName ? ` · ${book.sourceName}` : ''}
+                    </div>
+                    {book.tags && book.tags.length > 0 && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: 6,
+                          flexWrap: 'nowrap',
+                          overflow: 'hidden',
+                          marginBottom: 6,
+                        }}
+                      >
+                        {book.tags.slice(0, 4).map((tag, i) => (
+                          <span key={i} className="zf-shelf-tag">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {book.summary && (
+                      <div
+                        style={{
+                          fontSize: 'var(--zf-fs-xs)',
+                          color: 'var(--zf-text-secondary)',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {book.summary}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 删除按钮 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveBook(book.id, 'shelf');
+                    }}
+                    title="移出书架"
+                    style={{ ...BTN_ICON, flexShrink: 0 }}
+                  >
+                    <DeleteOutlined />
+                  </button>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </motion.section>
       )}
 

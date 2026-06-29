@@ -197,7 +197,7 @@ export default function RankItem({ rank, novel, onClick }) {
           textAlign: 'right',
         }}
       >
-        {readCount !== undefined && readCount !== null ? (
+        {readCount !== undefined && readCount !== null && Number(readCount) > 0 ? (
           <div>
             <strong
               style={{

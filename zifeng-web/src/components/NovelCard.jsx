@@ -42,6 +42,7 @@ export default function NovelCard({ novel, index = 0, color, glassMode, isDarkMo
 
   const name = novel?.name ?? novel?.novelName ?? '未命名';
   const author = novel?.author ?? novel?.authorName ?? '佚名';
+  const intro = novel?.desc ?? novel?.intro ?? '';
   const rank = novel?.rank;
   const badge = novel?.badge;
   const hasCover = !!novel?.cover;
@@ -68,14 +69,17 @@ export default function NovelCard({ novel, index = 0, color, glassMode, isDarkMo
         borderRadius: 'var(--zf-r-md)',
         overflow: 'hidden',
         border: '1px solid var(--zf-glass-border)',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       {/* —— 封面区 —— */}
       <div
         style={{
           position: 'relative',
-          height: 180,
+          height: 140,
           overflow: 'hidden',
+          flexShrink: 0,
           background: `linear-gradient(135deg, var(--zf-primary-700), ${color || 'var(--zf-primary-500)'})`,
         }}
       >
@@ -155,8 +159,16 @@ export default function NovelCard({ novel, index = 0, color, glassMode, isDarkMo
         ) : null}
       </div>
 
-      {/* —— 卡片底部信息 —— */}
-      <div style={{ padding: '10px 12px 12px' }}>
+      {/* —— 卡片底部信息（flex:1 撑满剩余空间，内容均匀分布） —— */}
+      <div
+        style={{
+          padding: '10px 12px 12px',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+        }}
+      >
         <div
           style={{
             fontFamily: 'var(--zf-font-serif)',
@@ -166,7 +178,6 @@ export default function NovelCard({ novel, index = 0, color, glassMode, isDarkMo
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            marginBottom: 3,
           }}
         >
           {name}
@@ -175,7 +186,6 @@ export default function NovelCard({ novel, index = 0, color, glassMode, isDarkMo
           style={{
             fontSize: 11,
             color: 'var(--zf-text-muted)',
-            marginBottom: 6,
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -183,6 +193,22 @@ export default function NovelCard({ novel, index = 0, color, glassMode, isDarkMo
         >
           {author}
         </div>
+        {intro ? (
+          <div
+            style={{
+              fontSize: 11,
+              color: 'var(--zf-text-muted)',
+              lineHeight: 1.45,
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              marginTop: 2,
+            }}
+          >
+            {intro}
+          </div>
+        ) : null}
         <div
           style={{
             display: 'flex',
@@ -190,6 +216,8 @@ export default function NovelCard({ novel, index = 0, color, glassMode, isDarkMo
             gap: 8,
             fontSize: 11,
             color: 'var(--zf-text-secondary)',
+            marginTop: 'auto',
+            paddingTop: 6,
           }}
         >
           {novel?.category ? (
@@ -206,7 +234,9 @@ export default function NovelCard({ novel, index = 0, color, glassMode, isDarkMo
               {novel.category}
             </span>
           ) : null}
-          <span style={{ marginLeft: 'auto' }}>{formatReadCount(novel?.readCount)} 阅读量</span>
+          {Number(novel?.readCount) > 0 ? (
+            <span style={{ marginLeft: 'auto' }}>{formatReadCount(novel?.readCount)} 阅读量</span>
+          ) : null}
         </div>
       </div>
     </motion.div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   FireOutlined,
@@ -18,10 +18,10 @@ import axios from 'axios';
 /* ============================================================
    紫枫免费小说 · 榜单详情页（Task 10 重构）
    - 榜单头部：渐变背景 + 图标方块 72×72 + 标题 + 统计
-   - 左侧栏（200px sticky）：性别 / 完结状态 / 排序，active 紫色渐变 + 光晕
+   - 左侧栏（200px sticky）：排序，active 紫色渐变 + 光晕
    - 右侧列表：RankItem 渲染，序号金/银/铜，top3 在读脉冲
    - 分页：自定义 Pager，紫色渐变 active
-   - 保留：/module/rank?type=* 数据获取、useParams、useSearchParams
+   - 保留：/module/rank?type=* 数据获取、useParams；筛选状态改用 useState（避免返回键逐级回退）
    参考：design/zifeng-pages-deep-dive.html .rank-detail-*
    ============================================================ */
 
@@ -201,7 +201,6 @@ function Pager({ current, total, pageSize, onChange }) {
 const RankDetail = () => {
   const { rankType } = useParams();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
 
   const [novels, setNovels] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -209,21 +208,15 @@ const RankDetail = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(MAX_TOTAL);
 
+  /* —— 筛选状态：使用 useState 管理，不写入 URL（避免返回键逐级回退） —— */
+  /* gender=male / status=all 固定：API 仅支持 channel=1，原 themes.js rankUrls 均无 isComplete —— */
+  const [sort, setSort] = useState('hot');
+
   /* —— 安全 fallback：字符串键 OR 数字 type 反查 —— */
   const config = rankConfig[rankType] || rankConfigByType[Number(rankType)];
 
-  /* —— 筛选状态：默认 male/all/hot（严格保留原 ?type=X&channel=1&page=Y 默认行为） —— */
-  const gender = searchParams.get('gender') || 'male';
-  const status = searchParams.get('status') || 'all';
-  const sort = searchParams.get('sort') || 'hot';
-
-  /* gender → channel 映射 */
-  const channelNum = gender === 'female' ? 2 : gender === 'all' ? 0 : 1;
-
   const updateFilter = (key, value) => {
-    const next = new URLSearchParams(searchParams);
-    next.set(key, value);
-    setSearchParams(next, { replace: false });
+    if (key === 'sort') setSort(value);
     setCurrentPage(1);
   };
 
@@ -235,7 +228,7 @@ const RankDetail = () => {
       return;
     }
 
-    const cacheKey = `${rankType}_${gender}_${status}_${currentPage}`;
+    const cacheKey = `${rankType}_${currentPage}`;
 
     if (rankCache.has(cacheKey)) {
       const cached = rankCache.get(cacheKey);
@@ -262,10 +255,8 @@ const RankDetail = () => {
           }
         })();
 
-        /* —— 严格保留默认 URL：默认 male→channel=1，不加 isComplete —— */
-        let url = `${ds.bookSourceUrl}/module/rank?type=${config.type}&channel=${channelNum}&page=${currentPage}`;
-        if (status === 'complete') url += '&isComplete=1';
-        else if (status === 'serial') url += '&isComplete=0';
+        /* —— 严格保留默认 URL：channel=1，不加 isComplete（与 themes.js rankUrls 一致） —— */
+        let url = `${ds.bookSourceUrl}/module/rank?type=${config.type}&channel=1&page=${currentPage}`;
 
         const response = await axios.get(url, { headers });
 
@@ -322,7 +313,7 @@ const RankDetail = () => {
     };
 
     fetchRankData();
-  }, [rankType, gender, status, sort, currentPage, config, channelNum]);
+  }, [rankType, sort, currentPage, config]);
 
   /* —— 点击跳转小说详情：完整保留 bookUrlTemplate 解析 + saveNovelCache + navigate —— */
   const handleClick = (novel) => {
@@ -392,26 +383,8 @@ const RankDetail = () => {
   const iconCfg = ICON_SQUARE[config.icon] || ICON_SQUARE.fire;
   const Icon = iconCfg.Icon;
 
-  /* —— 筛选项配置 —— */
+  /* —— 筛选项配置：仅保留排序（gender/status 其他选项 API 返回空数据，已移除） —— */
   const FILTER_GROUPS = [
-    {
-      key: 'gender',
-      label: '性别',
-      options: [
-        { value: 'male', label: '男生' },
-        { value: 'female', label: '女生' },
-        { value: 'all', label: '全部' },
-      ],
-    },
-    {
-      key: 'status',
-      label: '完结状态',
-      options: [
-        { value: 'all', label: '全部' },
-        { value: 'serial', label: '连载' },
-        { value: 'complete', label: '完结' },
-      ],
-    },
     {
       key: 'sort',
       label: '排序',
@@ -537,8 +510,6 @@ const RankDetail = () => {
               共 {total} 本
             </span>
             <span style={{ color: 'var(--zf-text-faint)', fontSize: 'var(--zf-fs-xs)' }}>
-              {gender === 'female' ? '女生' : gender === 'all' ? '全部' : '男生'} ·{' '}
-              {status === 'complete' ? '完结' : status === 'serial' ? '连载' : '全部'} ·{' '}
               {sort === 'score' ? '评分' : '热度'}
             </span>
           </div>
@@ -563,10 +534,7 @@ const RankDetail = () => {
               <div key={group.key}>
                 <div className="zf-sb-label">{group.label}</div>
                 {group.options.map((opt) => {
-                  const isActive =
-                    (group.key === 'gender' && gender === opt.value) ||
-                    (group.key === 'status' && status === opt.value) ||
-                    (group.key === 'sort' && sort === opt.value);
+                  const isActive = group.key === 'sort' && sort === opt.value;
                   return (
                     <button
                       key={opt.value}

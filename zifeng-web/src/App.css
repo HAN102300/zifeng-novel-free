@@ -272,7 +272,7 @@ body {
 }
 
 /* 触达区最小尺寸 */
-.zf-nav-btn, .ant-btn, .ant-avatar, .ant-switch {
+.zf-nav-btn, .ant-btn, .ant-avatar {
   min-height: 38px;
 }
 

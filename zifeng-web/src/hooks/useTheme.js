@@ -8,7 +8,7 @@ import { themeConfigs } from '../config/themes';
 
 export function useTheme() {
   const [currentTheme, setCurrentTheme] = useState(() => {
-    return localStorage.getItem('zifeng_theme') || 'default';
+    return localStorage.getItem('zifeng_theme') || 'purple';
   });
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -83,7 +83,7 @@ export function useTheme() {
     localStorage.setItem('zifeng_glass_mode', String(value));
   }, []);
 
-  const currentThemeConfig = themeConfigs[currentTheme] || themeConfigs.default;
+  const currentThemeConfig = themeConfigs[currentTheme] || themeConfigs.purple;
 
   return {
     currentTheme, setCurrentTheme,

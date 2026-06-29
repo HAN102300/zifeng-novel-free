@@ -3,20 +3,15 @@
    ============================================================ */
 
 export const themeConfigs = {
-  default: {
+  purple: {
     primaryColor: '#8B5CF6',
-    colors: ['#8B5CF6', '#A78BFA', '#C4B5FD', '#DDD6FE', '#EDE9FE'],
-    name: '紫枫紫'
+    colors: ['#722ed1', '#9254de', '#b37feb', '#d3adf7', '#efdbff'],
+    name: '优雅紫'
   },
   green: {
     primaryColor: '#52c41a',
     colors: ['#52c41a', '#73d13d', '#95de64', '#b7eb8f', '#d9f7be'],
     name: '清新绿'
-  },
-  purple: {
-    primaryColor: '#8B5CF6',
-    colors: ['#722ed1', '#9254de', '#b37feb', '#d3adf7', '#efdbff'],
-    name: '优雅紫'
   },
   orange: {
     primaryColor: '#fa8c16',
@@ -27,6 +22,11 @@ export const themeConfigs = {
     primaryColor: '#f5222d',
     colors: ['#f5222d', '#ff4d4f', '#ff7875', '#ffa39e', '#ffccc7'],
     name: '热情红'
+  },
+  default: {
+    primaryColor: '#1890ff',
+    colors: ['#1890ff', '#40a9ff', '#69c0ff', '#91d5ff', '#bae7ff'],
+    name: '经典蓝'
   }
 };
 

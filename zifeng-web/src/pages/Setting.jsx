@@ -102,15 +102,15 @@ const Setting = () => {
 
   // 主题选项 —— 色块颜色对齐 themeConfigs.primaryColor，确保色块与实际主题色一致
   const themeOptions = [
-    { key: 'default', name: '经典蓝', color: themeConfigs.default.primaryColor },
-    { key: 'green', name: '清新绿', color: themeConfigs.green.primaryColor },
     { key: 'purple', name: '优雅紫', color: themeConfigs.purple.primaryColor },
+    { key: 'green', name: '清新绿', color: themeConfigs.green.primaryColor },
     { key: 'orange', name: '活力橙', color: themeConfigs.orange.primaryColor },
     { key: 'red', name: '热情红', color: themeConfigs.red.primaryColor },
+    { key: 'default', name: '经典蓝', color: themeConfigs.default.primaryColor },
   ];
 
   // 主题切换映射：将 --zf-primary-500 令牌同步到当前主题主色，使令牌驱动的组件也跟随主题
-  // （默认主题为紫枫紫 #8B5CF6，与 index.css 既有值一致，默认态无副作用）
+  // （默认主题为优雅紫 #8B5CF6，与 index.css 既有值一致，默认态无副作用）
   useEffect(() => {
     const pc = themeConfigs[currentTheme]?.primaryColor;
     if (pc) {

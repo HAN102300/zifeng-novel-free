@@ -123,13 +123,16 @@ export default function Navbar({
             <div style={{
               width: 40, height: 40, borderRadius: 12,
               background: 'linear-gradient(135deg, var(--zf-primary-500), var(--zf-accent-magenta))',
-              display: 'grid', placeItems: 'center', color: '#fff',
-              fontFamily: 'var(--zf-font-serif)', fontWeight: 900, fontSize: 22,
-              boxShadow: 'var(--zf-glow-primary)', position: 'relative', overflow: 'hidden'
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              position: 'relative', overflow: 'hidden',
+              boxShadow: 'var(--zf-glow-primary)'
             }}>
-              枫
               <span style={{
-                position: 'absolute', inset: 0,
+                fontFamily: 'var(--zf-font-serif)', fontWeight: 900, fontSize: 22,
+                color: '#fff', lineHeight: 1, position: 'relative', zIndex: 1
+              }}>枫</span>
+              <span style={{
+                position: 'absolute', inset: 0, pointerEvents: 'none',
                 background: 'linear-gradient(110deg, transparent 30%, rgba(255,255,255,.5) 50%, transparent 70%)',
                 backgroundSize: '200% auto',
                 animation: 'logoShine 4s ease-in-out infinite',

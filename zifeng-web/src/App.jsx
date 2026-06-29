@@ -77,8 +77,8 @@ const AppLayout = ({ themeState, authState, glassMode }) => {
   const isReaderPage = location.pathname.startsWith('/reader');
   const isSearchPage = location.pathname.startsWith('/search');
 
-  const { isDarkMode, currentThemeConfig } = themeState;
-  const { isLoggedIn, userInfo, setIsLoggedIn, setUserInfo, setIsDarkMode } = authState;
+  const { isDarkMode, currentThemeConfig, setIsDarkMode } = themeState;
+  const { isLoggedIn, userInfo, setIsLoggedIn, setUserInfo } = authState;
 
   return (
     <AuthContext.Provider value={{ ...authState }}>
