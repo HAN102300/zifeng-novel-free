@@ -6,7 +6,7 @@
 
 [![Stars](https://img.shields.io/github/stars/HAN102300/zifeng-novel-free?style=for-the-badge&label=⭐%20Stars)](https://github.com/HAN102300/zifeng-novel-free/stargazers)
 [![Forks](https://img.shields.io/github/forks/HAN102300/zifeng-novel-free?style=for-the-badge)](https://github.com/HAN102300/zifeng-novel-free/network)
-[![License](https://img.shields.io/github/license/HAN102300/zifeng-novel-free?style=for-the-badge)](https://github.com/HAN102300/zifeng-novel-free/blob/main/LICENSE)
+[![License](https://img.shields.io/github/license/HAN102300/zifeng-novel-free?style=for-the-badge)](https://github.com/HAN102300/zifeng-novel-free/blob/master/LICENSE)
 [![Issues](https://img.shields.io/github/issues/HAN102300/zifeng-novel-free?style=for-the-badge)](https://github.com/HAN102300/zifeng-novel-free/issues)
 
 <br/>
@@ -30,19 +30,25 @@
 
 <table>
 <tr>
-<td width="33%" valign="top">
+<td width="25%" valign="top">
 
 ### 🔍 聚合搜索
 多书源并行检索，一键触达全网小说。支持 API、HTML、JS 脚本等多种解析规则，兼容 Legado 书源格式。
 
 </td>
-<td width="33%" valign="top">
+<td width="25%" valign="top">
 
 ### 📖 沉浸阅读
 8 种阅读主题、自由调节字体/行距/背景、章节缓存预加载，打造极致阅读体验。
 
 </td>
-<td width="33%" valign="top">
+<td width="25%" valign="top">
+
+### 🎨 设计系统
+基于设计令牌（CSS 变量）的统一视觉体系，16 组动画编排 + 磁吸玻璃导航栏，年轻化 UI 风格。
+
+</td>
+<td width="25%" valign="top">
 
 ### 🏗️ 全栈架构
 前后端分离 + 独立解析引擎，Spring Boot + React + Express 三端协同，Docker 一键部署。
@@ -70,7 +76,7 @@
 - 热门榜单实时更新
 - 分类导航快速探索
 - 个性化书籍推荐
-- Framer Motion 流畅动画
+- 16 组动画 + 磁吸玻璃导航栏
 
 </td>
 <td>
@@ -92,7 +98,7 @@
 <td>
 
 - 收藏管理 + 进度追踪
-- 阅读历史自动记录
+- 阅读历史 + 收藏双区列表/网格切换
 - 精美进度条可视化
 - 一键续读上次章节
 
@@ -240,15 +246,15 @@
 - 总访问量/今日访问/在线用户
 - 访问趋势折线图
 - IP 分布饼图
-- 书架/阅读统计
+- 内容分类/热词统计
 
 </td>
 <td>
 
-- 全局搜索（IP/路径/UA/属地）
-- 访客类型筛选（管理员/用户/游客）
-- 批量删除 + 确认机制
-- 分页浏览 + 时间排序
+- 多条件筛选（IP/路径/UA/属地）
+- 访客类型过滤（管理员/用户/游客）
+- 批量删除 + 二次确认
+- 分页 + 时间排序
 
 </td>
 <td>
@@ -302,9 +308,9 @@
 <td>
 
 - 管理员分级（超管/普通管理员）
-- 管理员独立认证体系
-- 访问日志查询与筛选
-- 系统数据看板
+- 管理员权限配置
+- 访问日志归档
+- 系统参数调优
 
 </td>
 </tr>
@@ -418,6 +424,8 @@ zifeng-novel-free/
 | **Framer Motion** | 12 | 丝滑页面过渡与微动画 |
 | **Vite** | 8 | 毫秒级 HMR，闪电构建 |
 | **Anime.js** | 3 | 精细动画编排 |
+| **Design Tokens** | — | CSS 变量体系（`--zf-*`），统一颜色/间距/圆角/字体 |
+| **NovelCard 组件库** | — | 统一卡片组件（封面/评分/简介/阅读量），复用于首页/分类/书架 |
 | **Crypto-JS** | 4 | 前端内容解密 |
 | **React Avatar Editor** | 15 | 头像裁剪上传 |
 
@@ -425,10 +433,10 @@ zifeng-novel-free/
 
 | 技术 | 版本 | 用途 |
 |:-----|:-----|:-----|
-| **Spring Boot** | 3.2 | Java 17+，现代化后端框架 |
+| **Spring Boot** | 3.2.5 | Java 17+，现代化后端框架 |
 | **Sa-Token** | 1.39 | 轻量级权限认证，支持多端登录 |
 | **Spring Data JPA** | — | 优雅的数据持久层 |
-| **Redis** | 7 | 会话缓存 + 限流计数器 |
+| **Redis** | 7+ | 会话缓存 + 限流计数器 |
 | **ConcurrentMapCache** | — | 本地缓存（10 区域，2~10 分钟 TTL） |
 | **RateLimitFilter** | — | 三级限流（认证 5/60s / 全局 100/60s / 单接口 30/60s） |
 | **VisitLogInterceptor** | — | 30+ 接口访问统计 + 10s 去重窗口 |
@@ -503,11 +511,11 @@ zifeng-novel-free/
 | 依赖 | 版本 | 用途 |
 |:-----|:-----|:-----|
 | Node.js | 18+ | 前端 & 解析引擎 |
+| **Nginx** | 1.20+ | 反向代理 & 静态资源服务 |
 | Java | 17+ | Spring Boot 后端 |
 | Maven | 3.8+ | Java 项目构建 |
 | MySQL | 8.0+ | 数据存储 |
 | Redis | 7+ | 缓存 & 会话 |
-| Nginx | 1.25+ | 反向代理 & 静态资源服务 |
 
 ### 方式一：一键启动（推荐）
 
@@ -557,18 +565,20 @@ cd ../zifeng-server && mvn spring-boot:run
 ### 方式三：Docker Compose 生产部署
 
 ```bash
-# 配置环境变量（参照 .env.production 中的变量说明）
-cp .env.production .env.local
-# 编辑 .env.local 填入实际配置
+# 1. 复制环境变量配置
+cp .env.example .env.local
+# 编辑 .env.local 填入实际配置（密码、端口等）
 
-# 启动全部服务（Docker Engine 20.10+ 建议使用 docker compose）
+# 2. 启动全部服务
 docker compose up -d
 
-# 旧版 Docker Compose 插件用户也可使用
-docker-compose up -d
+# 3. 查看运行状态
+docker compose ps
 ```
 
-Docker Compose 包含：**Nginx 网关 + Spring Boot + Parser + Web + Admin + MySQL + Redis**
+服务包含：**Nginx 网关 + Spring Boot + Parser + Web + Admin + MySQL + Redis**
+
+如需修改配置，编辑根目录的 `docker-compose.yml` 和 `.env.local`。
 
 ### 数据库初始化
 
@@ -588,8 +598,9 @@ JPA 会自动创建表结构，首次启动会初始化超级管理员账号。
 |:---------|:-----|
 | `zifeng-server/src/main/resources/application.yml` | Spring Boot 主配置 |
 | `zifeng-server/src/main/resources/application-prod.yml` | 生产环境配置 |
-| `.env.production` | 生产部署环境变量 |
-| `deploy/nginx/nginx-gateway.conf` | Nginx 网关路由配置 |
+| `.env.example` | 环境变量模板（复制为 `.env.local` 使用） |
+| `deploy/nginx/nginx-gateway.conf` | Nginx 生产网关路由配置 |
+| `deploy/nginx/zifeng-local.conf` | Nginx 本地开发配置 |
 
 ---
 

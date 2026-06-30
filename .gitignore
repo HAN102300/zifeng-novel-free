@@ -38,11 +38,14 @@ zifeng-server/target/
 !.env.example
 .env.local
 .env.*.local
+.env.production
+.env.prod
 
 # Secrets / Certificates
 *.pem
 *.key
 *.crt
+*.json.bak
 
 # Docker overrides (may contain local secrets)
 docker-compose.override.yml
@@ -50,28 +53,36 @@ docker-compose.override.yml
 # OS
 Thumbs.db
 
-# Trae IDE
+# IDE / Editor
 .trae/
-
-# WorkBuddy AI memory
 .workbuddy/
+.agents/
+.codegenie/
+.vscode/*
+!.vscode/extensions.json
 
-# Uploads (user data)
+# User uploads (production data)
 zifeng-server/uploads/
-
-# Playwright CLI temp files
-.playwright-cli/
 
 # Parser runtime state
 zifeng-parser/auth_state.json
-
-# Trae AI skill installations and lock files
-.agents/
-skills-lock.json
+zifeng-parser/parser.log
 
 # HarmonyOS IDE / codegenie generated files
 zifeng-harmony/.codegenie/
 
-# Temporary stats / screenshot images not referenced by docs
+# Dev / docs not for distribution
+review-report.md
+overview.md
+zifeng-creative-proposal.html
 stats-*.png
 reader-page.png
+
+# Playwright CLI temp files
+.playwright-cli/
+
+# AI skill installations and lock files
+skills-lock.json
+
+# Temporary stats / screenshot images not referenced by docs
+*.trae-cn/
