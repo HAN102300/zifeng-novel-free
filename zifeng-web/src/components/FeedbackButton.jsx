@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { FloatButton, Modal, Form, Input, Select, Button, message } from 'antd';
+import { Modal, Form, Input, Select, Button, message } from 'antd';
 import { MessageOutlined } from '@ant-design/icons';
+import { motion } from 'framer-motion';
 import { submitFeedback } from '../utils/apiClient';
 
 const { TextArea } = Input;
@@ -31,13 +32,42 @@ export default function FeedbackButton() {
 
   return (
     <>
-      <FloatButton
-        icon={<MessageOutlined />}
-        type="primary"
-        style={{ right: 24, bottom: 80 }}
-        onClick={() => setOpen(true)}
-        tooltip="提交反馈"
-      />
+      <motion.div
+        style={{ position: 'fixed', right: 24, bottom: 80, zIndex: 100 }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+      >
+        <motion.button
+          type="button"
+          title="提交反馈"
+          onClick={() => setOpen(true)}
+          animate={{
+            boxShadow: [
+              '0 0 0 0 rgba(139,92,246,0.6)',
+              '0 0 0 12px rgba(139,92,246,0)',
+            ],
+          }}
+          transition={{
+            boxShadow: { duration: 1.6, repeat: Infinity, ease: 'ease-out' },
+          }}
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: '50%',
+            border: 'none',
+            background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)',
+            color: '#fff',
+            fontSize: 20,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            outline: 'none',
+          }}
+        >
+          <MessageOutlined />
+        </motion.button>
+      </motion.div>
       <Modal
         title="提交反馈"
         open={open}
