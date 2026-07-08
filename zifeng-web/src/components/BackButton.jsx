@@ -12,9 +12,9 @@ const BackButton = ({ onClick, text, style = {} }) => {
       onClick={onClick}
       initial={{ opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-      whileHover={{ x: -4, scale: 1.04 }}
-      whileTap={{ scale: 0.92 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+      whileHover={{ x: -4 }}
+      whileTap={{ scale: 0.95 }}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
