@@ -679,33 +679,42 @@ const Reader = () => {
           </Button>
         </div>
 
-        <div style={{ padding: '24px 0 40px' }}>
-          {content ? (
-            content.split('\n').map((paragraph, index) => (
-              <p key={index} style={{ 
-                marginBottom: readerSettings.paragraphSpacing,
-                fontSize: readerSettings.fontSize,
-                fontWeight: readerSettings.fontWeight,
-                lineHeight: readerSettings.lineHeight,
-                textIndent: `${readerSettings.indent}em`,
-                letterSpacing: `${readerSettings.letterSpacing}px`,
-                fontFamily: 'var(--zf-font-ui)'
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentChapterIndex}
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -40 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            style={{ padding: '24px 0 40px' }}
+          >
+            {content ? (
+              content.split('\n').map((paragraph, index) => (
+                <p key={index} style={{
+                  marginBottom: readerSettings.paragraphSpacing,
+                  fontSize: readerSettings.fontSize,
+                  fontWeight: readerSettings.fontWeight,
+                  lineHeight: readerSettings.lineHeight,
+                  textIndent: `${readerSettings.indent}em`,
+                  letterSpacing: `${readerSettings.letterSpacing}px`,
+                  fontFamily: 'var(--zf-font-ui)'
+                }}>
+                  {paragraph}
+                </p>
+              ))
+            ) : (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: 300,
+                opacity: 0.5
               }}>
-                {paragraph}
-              </p>
-            ))
-          ) : (
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              alignItems: 'center', 
-              height: 300,
-              opacity: 0.5
-            }}>
-              正文内容为空，无法显示。
-            </div>
-          )}
-        </div>
+                正文内容为空，无法显示。
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
 
         <Divider style={{ borderColor: `${readerSettings.textColor}22` }} />
         <div style={{ 
