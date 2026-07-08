@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useRef, useMemo, useCallback } from 'react';
-import { Card, Typography, Space, Switch, Tag, List, Input, Empty, Badge, Tooltip, Spin, message, Button } from 'antd';
+import { Card, Typography, Space, Switch, Tag, List, Input, Empty, Badge, Tooltip, message, Button } from 'antd';
 import {
   SearchOutlined,
   CloudOutlined,
@@ -30,6 +30,7 @@ import {
 import { staggerFadeIn, fadeInUp } from '../utils/animations';
 import { glassCardStyle, glassItemStyle } from '../utils/glassStyle';
 import { CountUp, ShinyText, ReactBitsErrorBoundary } from '../components/react-bits';
+import Skeleton from '../components/Skeleton';
 
 const { Title, Text } = Typography;
 
@@ -207,8 +208,19 @@ const BookSourcePage = () => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-        <Spin size="large" tip="加载书源中..." />
+      <div style={{ padding: '0 0 40px 0', maxWidth: 900, margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+          <Skeleton height={32} width={180} radius="var(--zf-r-sm)" />
+          <Skeleton height={32} width={200} radius={8} />
+        </div>
+        <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} style={{ flex: 1, minWidth: 100 }}>
+              <Skeleton height={68} radius="var(--zf-r-md)" />
+            </div>
+          ))}
+        </div>
+        <Skeleton height={400} radius={16} />
       </div>
     );
   }
@@ -300,8 +312,13 @@ const BookSourcePage = () => {
                 const typeConf = sourceTypeConfig[source.bookSourceType] || sourceTypeConfig[0];
 
                 return (
-                  <div
+                  <motion.div
                     key={source.bookSourceUrl || index}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.4, delay: index * 0.05 }}
+                    whileHover={{ y: -4 }}
                     style={{
                       padding: '14px 20px',
                       borderLeft: isActive ? `3px solid ${color}` : '3px solid transparent',
@@ -362,7 +379,7 @@ const BookSourcePage = () => {
                         </Tooltip>
                       </Space>
                     </div>
-                  </div>
+                  </motion.div>
                 );
               }}
             />
