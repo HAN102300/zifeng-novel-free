@@ -100,6 +100,51 @@
   50% { box-shadow: 0 0 0 16px rgba(139,92,246,0); }
 }
 
+/* ============== 新增 keyframes（小说详情页增强） ============== */
+
+/* 逐字浮现（汉字数字入场） */
+@keyframes charReveal {
+  from { opacity: 0; transform: translateY(8px) scale(0.9); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+/* 翻页转场 */
+@keyframes pageFlipIn {
+  from { opacity: 0; transform: perspective(1000px) rotateY(-15deg) translateX(30px); }
+  to { opacity: 1; transform: perspective(1000px) rotateY(0) translateX(0); }
+}
+
+@keyframes pageFlipOut {
+  from { opacity: 1; transform: perspective(1000px) rotateY(0) translateX(0); }
+  to { opacity: 0; transform: perspective(1000px) rotateY(15deg) translateX(-30px); }
+}
+
+/* 点击涟漪 */
+@keyframes ripple {
+  from { transform: scale(0); opacity: 0.6; }
+  to { transform: scale(4); opacity: 0; }
+}
+
+/* 墨团流动（增强版float，带缩放） */
+@keyframes inkFlow {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.12; }
+  33% { transform: translate(30px, -40px) scale(1.1); opacity: 0.18; }
+  66% { transform: translate(-20px, 30px) scale(0.95); opacity: 0.10; }
+}
+
+/* 标题下划线绘制 */
+@keyframes drawLine {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* 数字微跳 */
+@keyframes numPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
 /* ============================================================
    无障碍：尊重用户的减少动效偏好
    ============================================================ */
