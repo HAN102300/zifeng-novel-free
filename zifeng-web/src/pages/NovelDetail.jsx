@@ -45,6 +45,21 @@ const NovelDetail = () => {
   const [searchParams] = useSearchParams();
   const { currentTheme, themeConfigs, isDarkMode, glassMode } = useContext(ThemeContext);
   const { isLargeScreen } = useResponsive();
+  const [coverRotate, setCoverRotate] = useState({ x: 0, y: 0 });
+  const [coverHovered, setCoverHovered] = useState(false);
+
+  const handleCoverMouseMove = (e) => {
+    if (!isLargeScreen) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    setCoverRotate({ x: -y * 20, y: x * 20 });
+  };
+
+  const handleCoverMouseLeave = () => {
+    setCoverRotate({ x: 0, y: 0 });
+    setCoverHovered(false);
+  };
   const [novel, setNovel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -464,22 +479,38 @@ const NovelDetail = () => {
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5, delay: 0.3 }}
-                style={{ display: 'flex', justifyContent: 'center' }}
+                transition={{ duration: 0.5, delay: 0.3, type: 'spring', stiffness: 120 }}
+                style={{ display: 'flex', justifyContent: 'center', perspective: 1000 }}
               >
-                <div style={{
-                  width: 200,
-                  height: 280,
-                  overflow: 'hidden',
-                  borderRadius: 'var(--zf-r-md)',
-                  boxShadow: 'var(--zf-shadow-md)',
-                }}>
+                <motion.div
+                  onMouseMove={handleCoverMouseMove}
+                  onMouseEnter={() => setCoverHovered(true)}
+                  onMouseLeave={handleCoverMouseLeave}
+                  animate={{
+                    rotateX: coverRotate.x,
+                    rotateY: coverRotate.y,
+                    scale: coverHovered ? 1.05 : 1,
+                  }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                  style={{
+                    width: 200,
+                    height: 280,
+                    overflow: 'hidden',
+                    borderRadius: 'var(--zf-r-md)',
+                    boxShadow: coverHovered
+                      ? `0 20px 50px ${color}55, 0 0 40px ${color}40, var(--zf-shadow-md)`
+                      : 'var(--zf-shadow-md)',
+                    transformStyle: 'preserve-3d',
+                    cursor: 'pointer',
+                    transition: 'box-shadow 0.3s ease',
+                  }}
+                >
                   <img
                     alt={novel.novelName}
                     src={proxyImageUrl(novel.cover) || `https://placehold.co/200x300/${color.replace('#', '')}/white?text=${encodeURIComponent(novel.novelName.slice(0, 2))}`}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
-                </div>
+                </motion.div>
               </motion.div>
             </Col>
 
