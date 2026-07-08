@@ -633,15 +633,22 @@ const NovelDetail = () => {
                   </Descriptions>
                 </motion.div>
 
-                <Divider orientation="left" style={{ fontWeight: 'bold', color }}>简介</Divider>
-                <Card
-                  style={{ borderRadius: 'var(--zf-r-md)', border: '1px solid var(--zf-glass-border)', background: isDarkMode ? '#1e1e1e' : '#f9f9f9', ...glassItemStyle(glassMode, isDarkMode) }}
-                  styles={{ body: { padding: 'var(--zf-s5)' } }}
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-50px' }}
+                  transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  <Paragraph style={{ lineHeight: 1.8, margin: 0 }}>
-                    {novel.summary || '暂无简介'}
-                  </Paragraph>
-                </Card>
+                  <Divider orientation="left" style={{ fontWeight: 'bold', color }}>简介</Divider>
+                  <Card
+                    style={{ borderRadius: 'var(--zf-r-md)', border: '1px solid var(--zf-glass-border)', background: isDarkMode ? '#1e1e1e' : '#f9f9f9', ...glassItemStyle(glassMode, isDarkMode) }}
+                    styles={{ body: { padding: 'var(--zf-s5)' } }}
+                  >
+                    <Paragraph style={{ lineHeight: 1.8, margin: 0 }}>
+                      {novel.summary || '暂无简介'}
+                    </Paragraph>
+                  </Card>
+                </motion.div>
 
                 <motion.div variants={itemVariants}>
                   <div style={{ marginTop: 'var(--zf-s6)', display: 'flex', gap: 'var(--zf-s4)' }}>
