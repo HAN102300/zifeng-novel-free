@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import { Card, Row, Col, Typography, Tag, Space, Divider, Spin, Button, Descriptions, message } from 'antd';
 import { CheckOutlined } from '@ant-design/icons';
 import BackButton from '../components/BackButton';
+import NovelDetailSkeleton from '../components/NovelDetailSkeleton';
+import NovelBackground from '../components/NovelBackground';
 import { ThemeContext } from '../App';
 import { addToBookShelf, addToReadHistory, getUserInfo, getBookShelf } from '../utils/storage';
 import { getBookInfoAPI, getTocAPI, addToBookshelf as apiAddToBookshelf, checkBookInShelf, unifiedBookInfoAPI, proxyImageUrl } from '../utils/apiClient';
@@ -401,8 +403,11 @@ const NovelDetail = () => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
-        <Spin size="large" tip="加载中..." />
+      <div style={{ position: 'relative', padding: '0' }}>
+        <NovelBackground char="墨" primaryColor={color} colors={themeConfigs[currentTheme].colors} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <NovelDetailSkeleton />
+        </div>
       </div>
     );
   }
@@ -428,8 +433,9 @@ const NovelDetail = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      style={{ padding: '20px 0' }}
+      style={{ padding: '20px 0', position: 'relative' }}
     >
+      <NovelBackground char="墨" primaryColor={color} colors={themeConfigs[currentTheme].colors} />
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
