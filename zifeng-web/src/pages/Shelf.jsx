@@ -190,20 +190,6 @@ const BTN_PRIMARY_SM = {
   padding: '7px 16px',
 };
 
-const BTN_ICON = {
-  display: 'grid',
-  placeItems: 'center',
-  width: 32,
-  height: 32,
-  borderRadius: '50%',
-  border: '1px solid var(--zf-glass-border)',
-  background: 'var(--zf-glass-bg)',
-  color: 'var(--zf-text-muted)',
-  cursor: 'pointer',
-  flexShrink: 0,
-  transition: 'all var(--zf-dur-fast) var(--zf-ease-out)',
-};
-
 const BTN_GLASS_SM = {
   display: 'inline-flex',
   alignItems: 'center',
