@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Card, Row, Col, Typography, Tag, Space, Divider, Spin, Button, Descriptions, message } from 'antd';
+import { Card, Row, Col, Typography, Tag, Space, Divider, Button, Descriptions, message } from 'antd';
 import { CheckOutlined } from '@ant-design/icons';
 import BackButton from '../components/BackButton';
 import NovelDetailSkeleton from '../components/NovelDetailSkeleton';

@@ -28,7 +28,7 @@ function fourDigitsToChinese(num) {
       if (hasPrev) result.push('零');
       hasPrev = false;
     } else {
-      if (digit === 1 && unit === '十' && i === 0 && num < 100) {
+      if (digit === 1 && unit === '十' && i === 2 && num < 100) {
         result.push('十');
       } else {
         result.push(CHINESE_DIGITS[digit] + unit);
