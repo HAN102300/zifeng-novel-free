@@ -76,14 +76,27 @@ const MyFeedbackTab = ({ isDarkMode, color, glassMode }) => {
     );
   }
 
+  const listVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
+  };
+  const itemVariants = {
+    hidden: { opacity: 0, y: 16 },
+    visible: { opacity: 1, y: 0 },
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {feedbacks.map((fb, index) => (
+    <motion.div
+      variants={listVariants}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true }}
+      style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+    >
+      {feedbacks.map((fb) => (
         <motion.div
           key={fb.id}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: index * 0.05 }}
+          variants={itemVariants}
         >
           <Card
             style={{
@@ -141,7 +154,7 @@ const MyFeedbackTab = ({ isDarkMode, color, glassMode }) => {
           </Card>
         </motion.div>
       ))}
-    </div>
+    </motion.div>
   );
 };
 
@@ -285,7 +298,11 @@ const UserCenter = ({ setIsLoggedIn, setUserInfo }) => {
               transition={{ duration: 0.5, delay: 0.3 }}
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
             >
-              <div style={{ marginBottom: 20 }}>
+              <motion.div
+                whileHover={{ rotate: 5, scale: 1.05 }}
+                transition={{ type: 'spring', stiffness: 300 }}
+                style={{ marginBottom: 20, display: 'inline-block' }}
+              >
                 <Avatar
                   size={120}
                   src={userInfo.avatar || undefined}
@@ -295,7 +312,7 @@ const UserCenter = ({ setIsLoggedIn, setUserInfo }) => {
                     boxShadow: '0 0 0 3px var(--zf-primary-500), var(--zf-glow-primary)'
                   }}
                 />
-              </div>
+              </motion.div>
               
               <Title level={4} style={{ margin: 0, marginBottom: 8 }}>
                 <ReactBitsErrorBoundary fallback={userInfo.username}>
