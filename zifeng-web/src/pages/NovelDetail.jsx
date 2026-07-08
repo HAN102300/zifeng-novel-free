@@ -70,6 +70,18 @@ const NovelDetail = () => {
 
   const color = themeConfigs[currentTheme].colors[0];
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.08, delayChildren: 0.3 },
+    },
+  };
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+  };
+
   useEffect(() => {
     const loadUser = async () => {
       const user = await getUserInfo();
@@ -516,99 +528,110 @@ const NovelDetail = () => {
 
             <Col xs={24} md={18}>
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.4 }}
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
               >
-                <div style={{ margin: 0, marginBottom: 12, fontSize: 24, fontWeight: 600, lineHeight: 1.35 }}>
-                  <ReactBitsErrorBoundary fallback={novel.novelName}>
-                    <ShinyText
-                      text={novel.novelName}
-                      speed={3}
-                      color={color}
-                      shineColor={isDarkMode ? '#ffffff' : '#ffffff'}
-                      spread={120}
-                    />
-                  </ReactBitsErrorBoundary>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-                  <Text type="secondary" style={{ fontSize: 16 }}>作者：{novel.authorName}</Text>
-                  {fieldSources.sourceName && (
-                    <Tag style={{ fontSize: 11, padding: '0 6px', background: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f5f5f5', border: `1px solid ${color}30`, color }}>
-                      数据来源: {fieldSources.sourceName}
-                    </Tag>
-                  )}
-                  <Tag color={completeness >= 70 ? 'green' : completeness >= 40 ? 'orange' : 'red'} style={{ fontSize: 11, padding: '0 6px' }}>
-                    完整性 <ReactBitsErrorBoundary fallback={`${completeness}%`}><CountUp to={completeness} from={0} duration={1.5} /></ReactBitsErrorBoundary>%
-                  </Tag>
-                </div>
+                <motion.div variants={itemVariants}>
+                  <div style={{ margin: 0, marginBottom: 12, fontSize: 24, fontWeight: 600, lineHeight: 1.35 }}>
+                    <ReactBitsErrorBoundary fallback={novel.novelName}>
+                      <ShinyText
+                        text={novel.novelName}
+                        speed={3}
+                        color={color}
+                        shineColor={isDarkMode ? '#ffffff' : '#ffffff'}
+                        spread={120}
+                      />
+                    </ReactBitsErrorBoundary>
+                  </div>
+                </motion.div>
 
-                <Space wrap style={{ marginBottom: 24 }}>
-                  {novel.categoryNames && novel.categoryNames.map((category, index) => (
-                    <Tag key={index} color={color} style={{ fontSize: 12, padding: '4px 12px' }}>{category.className}</Tag>
-                  ))}
-                  {novel.averageScore > 0 && (
-                    <Tag color="orange" style={{ fontSize: 12, padding: '4px 12px' }}>
-                      <ReactBitsErrorBoundary fallback={`${novel.averageScore}分`}>
-                        <CountUp to={novel.averageScore} from={0} duration={1.5} />
-                      </ReactBitsErrorBoundary>分
+                <motion.div variants={itemVariants}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                    <Text type="secondary" style={{ fontSize: 16 }}>作者：{novel.authorName}</Text>
+                    {fieldSources.sourceName && (
+                      <Tag style={{ fontSize: 11, padding: '0 6px', background: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f5f5f5', border: `1px solid ${color}30`, color }}>
+                        数据来源: {fieldSources.sourceName}
+                      </Tag>
+                    )}
+                    <Tag color={completeness >= 70 ? 'green' : completeness >= 40 ? 'orange' : 'red'} style={{ fontSize: 11, padding: '0 6px' }}>
+                      完整性 <ReactBitsErrorBoundary fallback={`${completeness}%`}><CountUp to={completeness} from={0} duration={1.5} /></ReactBitsErrorBoundary>%
                     </Tag>
-                  )}
-                </Space>
+                  </div>
+                </motion.div>
 
-                <Descriptions column={2} bordered style={{ borderRadius: 'var(--zf-r-sm)', overflow: 'hidden', marginBottom: 'var(--zf-s6)' }} size="small">
-                  <Descriptions.Item label="字数">
-                    {(() => {
-                      const parsed = parseNumericValue(novel.wordNum);
-                      if (parsed) {
-                        if (isLargeScreen) {
-                          const chinese = numberToChinese(parsed.number, { simplified: true, unit: parsed.suffix || '字' });
+                <motion.div variants={itemVariants}>
+                  <Space wrap style={{ marginBottom: 24 }}>
+                    {novel.categoryNames && novel.categoryNames.map((category, index) => (
+                      <motion.div key={index} whileHover={{ scale: 1.1 }} transition={{ type: 'spring', stiffness: 400 }}>
+                        <Tag color={color} style={{ fontSize: 12, padding: '4px 12px', cursor: 'default' }}>{category.className}</Tag>
+                      </motion.div>
+                    ))}
+                    {novel.averageScore > 0 && (
+                      <Tag color="orange" style={{ fontSize: 12, padding: '4px 12px' }}>
+                        <ReactBitsErrorBoundary fallback={`${novel.averageScore}分`}>
+                          <CountUp to={novel.averageScore} from={0} duration={1.5} />
+                        </ReactBitsErrorBoundary>分
+                      </Tag>
+                    )}
+                  </Space>
+                </motion.div>
+
+                <motion.div variants={itemVariants}>
+                  <Descriptions column={2} bordered style={{ borderRadius: 'var(--zf-r-sm)', overflow: 'hidden', marginBottom: 'var(--zf-s6)' }} size="small">
+                    <Descriptions.Item label="字数">
+                      {(() => {
+                        const parsed = parseNumericValue(novel.wordNum);
+                        if (parsed) {
+                          if (isLargeScreen) {
+                            const chinese = numberToChinese(parsed.number, { simplified: true, unit: parsed.suffix || '字' });
+                            return (
+                              <ReactBitsErrorBoundary fallback={novel.wordNum}>
+                                <span style={{ fontFamily: 'var(--zf-font-serif)', animation: 'charReveal 0.6s ease-out' }}>
+                                  {chinese}
+                                </span>
+                              </ReactBitsErrorBoundary>
+                            );
+                          }
                           return (
                             <ReactBitsErrorBoundary fallback={novel.wordNum}>
-                              <span style={{ fontFamily: 'var(--zf-font-serif)', animation: 'charReveal 0.6s ease-out' }}>
-                                {chinese}
-                              </span>
+                              <CountUp to={parsed.number} from={0} duration={1.5} separator="," />
+                              {parsed.suffix}
                             </ReactBitsErrorBoundary>
                           );
                         }
-                        return (
-                          <ReactBitsErrorBoundary fallback={novel.wordNum}>
-                            <CountUp to={parsed.number} from={0} duration={1.5} separator="," />
-                            {parsed.suffix}
-                          </ReactBitsErrorBoundary>
-                        );
-                      }
-                      return novel.wordNum || '未知';
-                    })()}
-                    {novel.wordNum !== '未知' && fieldSources.coverUrl && <Tag color={color} style={{fontSize:10,marginLeft:4}}>{fieldSources.coverUrl}</Tag>}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="章节数">
-                    {(() => {
-                      const parsed = parseNumericValue(novel.chapterNum);
-                      if (parsed) {
-                        if (isLargeScreen) {
-                          const chinese = numberToChinese(parsed.number, { unit: parsed.suffix || '章' });
+                        return novel.wordNum || '未知';
+                      })()}
+                      {novel.wordNum !== '未知' && fieldSources.coverUrl && <Tag color={color} style={{fontSize:10,marginLeft:4}}>{fieldSources.coverUrl}</Tag>}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="章节数">
+                      {(() => {
+                        const parsed = parseNumericValue(novel.chapterNum);
+                        if (parsed) {
+                          if (isLargeScreen) {
+                            const chinese = numberToChinese(parsed.number, { unit: parsed.suffix || '章' });
+                            return (
+                              <ReactBitsErrorBoundary fallback={novel.chapterNum}>
+                                <span style={{ fontFamily: 'var(--zf-font-serif)', animation: 'charReveal 0.6s ease-out 0.2s both' }}>
+                                  {chinese}
+                                </span>
+                              </ReactBitsErrorBoundary>
+                            );
+                          }
                           return (
                             <ReactBitsErrorBoundary fallback={novel.chapterNum}>
-                              <span style={{ fontFamily: 'var(--zf-font-serif)', animation: 'charReveal 0.6s ease-out 0.2s both' }}>
-                                {chinese}
-                              </span>
+                              <CountUp to={parsed.number} from={0} duration={1.5} separator="," />
+                              {parsed.suffix || '章'}
                             </ReactBitsErrorBoundary>
                           );
                         }
-                        return (
-                          <ReactBitsErrorBoundary fallback={novel.chapterNum}>
-                            <CountUp to={parsed.number} from={0} duration={1.5} separator="," />
-                            {parsed.suffix || '章'}
-                          </ReactBitsErrorBoundary>
-                        );
-                      }
-                      return novel.chapterNum || '未知';
-                    })()}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="最后更新">{novel.lastUpdatedAt || '未知'}</Descriptions.Item>
-                  <Descriptions.Item label="最后章节">{novel.lastChapter?.chapterName || '未知'}</Descriptions.Item>
-                </Descriptions>
+                        return novel.chapterNum || '未知';
+                      })()}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="最后更新">{novel.lastUpdatedAt || '未知'}</Descriptions.Item>
+                    <Descriptions.Item label="最后章节">{novel.lastChapter?.chapterName || '未知'}</Descriptions.Item>
+                  </Descriptions>
+                </motion.div>
 
                 <Divider orientation="left" style={{ fontWeight: 'bold', color }}>简介</Divider>
                 <Card
@@ -620,45 +643,61 @@ const NovelDetail = () => {
                   </Paragraph>
                 </Card>
 
-                <div style={{ marginTop: 'var(--zf-s6)', display: 'flex', gap: 'var(--zf-s4)' }}>
-                  <Button
-                    type="primary"
-                    size="large"
-                    className="btn-shimmer"
-                    style={{
-                      padding: '0 32px',
-                      fontSize: 16,
-                      height: 48,
-                      borderRadius: 'var(--zf-r-full)',
-                      border: 'none',
-                      backgroundImage: `linear-gradient(135deg, ${color}, ${color}cc)`,
-                      backgroundSize: '200% auto',
-                      boxShadow: `0 6px 22px ${color}66, var(--zf-glow-primary)`,
-                      transition: 'transform var(--zf-dur-fast) var(--zf-ease-out), box-shadow var(--zf-dur-fast) var(--zf-ease-out)'
-                    }}
-                    onClick={handleStartReading}
-                  >
-                    开始阅读
-                  </Button>
-                  <Button
-                    size="large"
-                    style={{
-                      padding: '0 32px',
-                      fontSize: 16,
-                      height: 48,
-                      borderRadius: 'var(--zf-r-full)',
-                      background: glassMode ? 'var(--zf-glass-bg-strong)' : 'transparent',
-                      border: `1px solid ${glassMode ? 'var(--zf-glass-border-strong)' : color}`,
-                      backdropFilter: glassMode ? 'var(--zf-blur-light)' : 'none',
-                      WebkitBackdropFilter: glassMode ? 'var(--zf-blur-light)' : 'none',
-                      color: glassMode ? 'var(--zf-text-primary)' : color,
-                      transition: 'all var(--zf-dur-fast) var(--zf-ease-out)'
-                    }}
-                    onClick={handleAddToShelf}
-                  >
-                    {isInShelf ? <Space><CheckOutlined /> 已加入书架</Space> : '加入书架'}
-                  </Button>
-                </div>
+                <motion.div variants={itemVariants}>
+                  <div style={{ marginTop: 'var(--zf-s6)', display: 'flex', gap: 'var(--zf-s4)' }}>
+                    <motion.div
+                      whileHover={{ y: -3 }}
+                      whileTap={{ scale: 0.97 }}
+                      transition={{ type: 'spring', stiffness: 400 }}
+                      style={{ display: 'inline-block' }}
+                    >
+                      <Button
+                        type="primary"
+                        size="large"
+                        className="btn-shimmer"
+                        style={{
+                          padding: '0 32px',
+                          fontSize: 16,
+                          height: 48,
+                          borderRadius: 'var(--zf-r-full)',
+                          border: 'none',
+                          backgroundImage: `linear-gradient(135deg, ${color}, ${color}cc)`,
+                          backgroundSize: '200% auto',
+                          boxShadow: `0 6px 22px ${color}66, var(--zf-glow-primary)`,
+                          transition: 'transform var(--zf-dur-fast) var(--zf-ease-out), box-shadow var(--zf-dur-fast) var(--zf-ease-out)'
+                        }}
+                        onClick={handleStartReading}
+                      >
+                        开始阅读
+                      </Button>
+                    </motion.div>
+                    <motion.div
+                      whileHover={{ y: -3 }}
+                      whileTap={{ scale: 0.97 }}
+                      transition={{ type: 'spring', stiffness: 400 }}
+                      style={{ display: 'inline-block' }}
+                    >
+                      <Button
+                        size="large"
+                        style={{
+                          padding: '0 32px',
+                          fontSize: 16,
+                          height: 48,
+                          borderRadius: 'var(--zf-r-full)',
+                          background: glassMode ? 'var(--zf-glass-bg-strong)' : 'transparent',
+                          border: `1px solid ${glassMode ? 'var(--zf-glass-border-strong)' : color}`,
+                          backdropFilter: glassMode ? 'var(--zf-blur-light)' : 'none',
+                          WebkitBackdropFilter: glassMode ? 'var(--zf-blur-light)' : 'none',
+                          color: glassMode ? 'var(--zf-text-primary)' : color,
+                          transition: 'all var(--zf-dur-fast) var(--zf-ease-out)'
+                        }}
+                        onClick={handleAddToShelf}
+                      >
+                        {isInShelf ? <Space><CheckOutlined /> 已加入书架</Space> : '加入书架'}
+                      </Button>
+                    </motion.div>
+                  </div>
+                </motion.div>
               </motion.div>
             </Col>
           </Row>
