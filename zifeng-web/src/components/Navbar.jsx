@@ -120,13 +120,22 @@ export default function Navbar({
         {/* 左侧：Logo + 导航链接 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 20, flex: '1 1 auto', minWidth: 0 }}>
           <NavLink to="/" aria-label="紫枫免费小说首页" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: 12,
-              background: 'linear-gradient(135deg, var(--zf-primary-500), var(--zf-accent-magenta))',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              position: 'relative', overflow: 'hidden',
-              boxShadow: 'var(--zf-glow-primary)'
-            }}>
+            <motion.div
+              animate={{
+                boxShadow: [
+                  `0 0 8px 0 rgba(${primaryRgb}, 0.3)`,
+                  `0 0 16px 4px rgba(${primaryRgb}, 0.5)`,
+                  `0 0 8px 0 rgba(${primaryRgb}, 0.3)`,
+                ],
+              }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+              style={{
+                width: 40, height: 40, borderRadius: 12,
+                background: 'linear-gradient(135deg, var(--zf-primary-500), var(--zf-accent-magenta))',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                position: 'relative', overflow: 'hidden',
+              }}
+            >
               <span style={{
                 fontFamily: 'var(--zf-font-serif)', fontWeight: 900, fontSize: 22,
                 color: '#fff', lineHeight: 1, position: 'relative', zIndex: 1
@@ -137,7 +146,7 @@ export default function Navbar({
                 backgroundSize: '200% auto',
                 animation: 'logoShine 4s ease-in-out infinite',
               }} />
-            </div>
+            </motion.div>
             {!isMobile && (
               <span style={{ fontFamily: 'var(--zf-font-serif)', fontWeight: 700, fontSize: 20, color: 'var(--zf-text-primary)' }}>
                 紫枫<em style={{ fontStyle: 'normal', color: 'var(--zf-primary-400)' }}>免费小说</em>
