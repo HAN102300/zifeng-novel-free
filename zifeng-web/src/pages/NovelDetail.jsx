@@ -12,6 +12,8 @@ import { loadNovelCache, saveReaderCache, simpleHash, getDefaultSource, isDefaul
 import { adaptBookInfo, computeCompleteness } from '../utils/bookAdapter';
 import { glassCardStyle, glassItemStyle } from '../utils/glassStyle';
 import { ShinyText, CountUp, ReactBitsErrorBoundary } from '../components/react-bits';
+import { numberToChinese } from '../utils/numberToChinese';
+import { useResponsive } from '../hooks/useResponsive';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -40,6 +42,7 @@ const NovelDetail = () => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { currentTheme, themeConfigs, isDarkMode, glassMode } = useContext(ThemeContext);
+  const { isLargeScreen } = useResponsive();
   const [novel, setNovel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -521,6 +524,16 @@ const NovelDetail = () => {
                     {(() => {
                       const parsed = parseNumericValue(novel.wordNum);
                       if (parsed) {
+                        if (isLargeScreen) {
+                          const chinese = numberToChinese(parsed.number, { simplified: true, unit: parsed.suffix || '字' });
+                          return (
+                            <ReactBitsErrorBoundary fallback={novel.wordNum}>
+                              <span style={{ fontFamily: 'var(--zf-font-serif)', animation: 'charReveal 0.6s ease-out' }}>
+                                {chinese}
+                              </span>
+                            </ReactBitsErrorBoundary>
+                          );
+                        }
                         return (
                           <ReactBitsErrorBoundary fallback={novel.wordNum}>
                             <CountUp to={parsed.number} from={0} duration={1.5} separator="," />
@@ -536,10 +549,20 @@ const NovelDetail = () => {
                     {(() => {
                       const parsed = parseNumericValue(novel.chapterNum);
                       if (parsed) {
+                        if (isLargeScreen) {
+                          const chinese = numberToChinese(parsed.number, { unit: parsed.suffix || '章' });
+                          return (
+                            <ReactBitsErrorBoundary fallback={novel.chapterNum}>
+                              <span style={{ fontFamily: 'var(--zf-font-serif)', animation: 'charReveal 0.6s ease-out 0.2s both' }}>
+                                {chinese}
+                              </span>
+                            </ReactBitsErrorBoundary>
+                          );
+                        }
                         return (
                           <ReactBitsErrorBoundary fallback={novel.chapterNum}>
                             <CountUp to={parsed.number} from={0} duration={1.5} separator="," />
-                            {parsed.suffix}
+                            {parsed.suffix || '章'}
                           </ReactBitsErrorBoundary>
                         );
                       }
