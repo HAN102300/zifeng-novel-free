@@ -663,6 +663,22 @@ const Shelf = () => {
           color:var(--zf-primary-400);
           white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
         }
+        .zf-shelf-list-del{
+          display:grid; place-items:center;
+          width:32px; height:32px; border-radius:50%;
+          border:1px solid var(--zf-glass-border);
+          background:var(--zf-glass-bg);
+          color:var(--zf-text-muted);
+          cursor:pointer; flex-shrink:0;
+          transition:all var(--zf-dur-fast) var(--zf-ease-out);
+        }
+        .zf-shelf-list-del:hover{
+          background:var(--zf-accent-rose);
+          color:#fff;
+          border-color:rgba(244,63,94,.6);
+          box-shadow:0 0 14px rgba(244,63,94,.5);
+          transform:scale(1.1);
+        }
         @keyframes zf-spin{to{transform:rotate(360deg)}}
         .zf-spin{animation:zf-spin 0.8s linear infinite}
       `}</style>
@@ -929,7 +945,7 @@ const Shelf = () => {
                       handleRemoveBook(book.id, 'shelf');
                     }}
                     title="移出书架"
-                    style={{ ...BTN_ICON, flexShrink: 0 }}
+                    className="zf-shelf-list-del"
                   >
                     <DeleteOutlined />
                   </button>
@@ -1157,7 +1173,7 @@ const Shelf = () => {
                     </motion.button>
                     <button
                       onClick={() => handleRemoveBook(book.id, 'singleHistory')}
-                      style={BTN_ICON}
+                      className="zf-shelf-list-del"
                       title="删除此记录"
                     >
                       <DeleteOutlined />
