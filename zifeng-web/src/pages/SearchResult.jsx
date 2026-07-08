@@ -832,6 +832,7 @@ const SearchResult = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {results.map((book, index) => (
                     <motion.div
+                      layout
                       key={`${book.id}-${index}`}
                       initial={{ opacity: 0, y: 16, filter: 'blur(8px)' }}
                       animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -942,6 +943,7 @@ const SearchResult = () => {
                 }}>
                   {results.map((book, index) => (
                     <motion.div
+                      layout
                       key={`${book.id}-${index}`}
                       initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
                       animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
