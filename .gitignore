@@ -86,3 +86,6 @@ skills-lock.json
 
 # Temporary stats / screenshot images not referenced by docs
 *.trae-cn/
+
+# Brainstorm visual companion sessions
+.superpowers/
