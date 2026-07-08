@@ -29,9 +29,26 @@ import { useAuth } from './hooks/useAuth';
 import { useRankData } from './hooks/useRankData';
 import { NovelContext } from './contexts/NovelContext';
 import { ThemeContext } from './contexts/ThemeContext';
+import NovelBackground from './components/NovelBackground';
 import './App.css';
 
 const { Content } = Layout;
+
+const ROUTE_CHAR_MAP = {
+  '/': '阅',
+  '/shelf': '藏',
+  '/category': '寻',
+  '/setting': '韵',
+  '/login': '归',
+  '/user': '己',
+};
+
+const getRouteChar = (pathname) => {
+  if (pathname.startsWith('/novel/')) return '墨';
+  if (pathname.startsWith('/reader/')) return '静';
+  if (pathname.startsWith('/search')) return '寻';
+  return ROUTE_CHAR_MAP[pathname] || '阅';
+};
 
 const NovelDetail = lazy(() => import('./pages/NovelDetail'));
 const RankDetail = lazy(() => import('./pages/RankDetail'));
@@ -104,6 +121,13 @@ const AppLayout = ({ themeState, authState, glassMode }) => {
           }}
         >
           {glassMode && !isReaderPage && <GlassBackground currentThemeConfig={currentThemeConfig} />}
+          {!isReaderPage && !isSearchPage && (
+            <NovelBackground
+              char={getRouteChar(location.pathname)}
+              primaryColor={currentThemeConfig.primaryColor}
+              colors={currentThemeConfig.colors}
+            />
+          )}
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ width: '100%' }}>
               <AnimatePresence mode="wait">
