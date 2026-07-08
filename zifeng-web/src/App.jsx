@@ -158,18 +158,20 @@ const AppLayout = ({ themeState, authState, glassMode }) => {
 
 /* ===== 路由过渡包装 ===== */
 const pageTransition = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -20 },
-  transition: { duration: 0.3 }
+  initial: { opacity: 0, rotateY: -15, x: 30 },
+  animate: { opacity: 1, rotateY: 0, x: 0 },
+  exit: { opacity: 0, rotateY: 15, x: -30 },
+  transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
 };
 
 const PageTransition = ({ children }) => (
-  <motion.div {...pageTransition}>{children}</motion.div>
+  <motion.div {...pageTransition} style={{ transformPerspective: 1000 }}>
+    {children}
+  </motion.div>
 );
 
 const LazyLoadChild = ({ children }) => (
-  <LazyLoad><motion.div {...pageTransition}>{children}</motion.div></LazyLoad>
+  <LazyLoad><motion.div {...pageTransition} style={{ transformPerspective: 1000 }}>{children}</motion.div></LazyLoad>
 );
 
 /* ===== 玻璃背景光晕 ===== */
