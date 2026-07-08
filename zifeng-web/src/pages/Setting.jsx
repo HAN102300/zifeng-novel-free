@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { getBookSources } from '../utils/bookSourceManager';
 import { glassCardStyle } from '../utils/glassStyle';
 import { version } from '../../package.json';
+import { motion } from 'framer-motion';
 
 const { Title, Text } = Typography;
 
@@ -228,10 +229,16 @@ const Setting = () => {
   ];
 
   return (
-    <div style={{ padding: '0 0 40px 0' }}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      style={{ padding: '0 0 40px 0' }}
+    >
       <Row gutter={[24, 24]}>
         {/* 主题设置 */}
         <Col xs={24} lg={12}>
+          <motion.div whileHover={{ x: 4 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
           <Card
             title={
               <Space>
@@ -289,10 +296,12 @@ const Setting = () => {
               </Row>
             </Space>
           </Card>
+          </motion.div>
         </Col>
 
         {/* 深色模式设置 */}
         <Col xs={24} lg={12}>
+          <motion.div whileHover={{ x: 4 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
           <Card
             title={
               <Space>
@@ -383,12 +392,14 @@ const Setting = () => {
               </Card>
             </Space>
           </Card>
+          </motion.div>
         </Col>
 
 
 
         {/* 阅读设置 */}
         <Col xs={24}>
+          <motion.div whileHover={{ x: 4 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
           <Card
             title={
               <Space>
@@ -432,10 +443,12 @@ const Setting = () => {
               )}
             />
           </Card>
+          </motion.div>
         </Col>
 
         {/* 关于我们 */}
         <Col xs={24}>
+          <motion.div whileHover={{ x: 4 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
           <Card
             style={{
               borderRadius: 'var(--zf-r-lg)',
@@ -449,9 +462,10 @@ const Setting = () => {
               <Text type="secondary">为您提供优质的小说阅读体验</Text>
             </Space>
           </Card>
+          </motion.div>
         </Col>
       </Row>
-    </div>
+    </motion.div>
   );
 };
 
