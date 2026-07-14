@@ -5,6 +5,12 @@
 import { AppSpacing, AppRadius } from '../common/DesignSystem'
 import { ThemeManager } from '../service/ThemeManager'
 
+interface ThemeInfo {
+  key: string
+  name: string
+  primary: string
+}
+
 @Component
 export struct ThemeSelector {
   @Prop currentTheme: string
@@ -12,7 +18,7 @@ export struct ThemeSelector {
 
   build() {
     Row() {
-      ForEach(ThemeManager.getAllThemes(), (theme: { key: string; name: string; primary: string }) => {
+      ForEach(ThemeManager.getAllThemes(), (theme: ThemeInfo) => {
         Column() {
           Column()
             .width(36).height(36)

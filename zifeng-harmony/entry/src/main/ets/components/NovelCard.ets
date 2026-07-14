@@ -12,7 +12,7 @@ export struct NovelCard {
   @Prop novel: NovelItem
   @Prop showScore: boolean = true
   @Prop showSummary: boolean = true
-  onClick?: (novel: NovelItem) => void
+  onNovelClick?: (novel: NovelItem) => void
 
   build() {
     Column() {
@@ -65,8 +65,8 @@ export struct NovelCard {
     .borderRadius(AppRadius.R_LG)
     .backgroundColor(ThemeManager.getNeutral('BG_ELEVATED'))
     .onClick(() => {
-      if (this.onClick) {
-        this.onClick(this.novel)
+      if (this.onNovelClick) {
+        this.onNovelClick(this.novel)
       }
     })
   }

@@ -7,7 +7,7 @@
  * - 滚动时自动收缩高度（64vp → 48vp）
  * - 继续上滑完全隐藏，下滑重新出现
  */
-import { uiMaterial } from '@kit.ArkUI'
+import { uiMaterial, router } from '@kit.ArkUI'
 import { AppSpacing, AppRadius, NavBarConfig, AppDuration, AppCurves } from './DesignSystem'
 import { ThemeManager } from '../service/ThemeManager'
 
@@ -30,7 +30,7 @@ export struct GlassNavBar {
       Row() {
         // 左侧：返回按钮或 Logo
         if (this.showBack) {
-          Image($r('sys.media.chevron_left'))
+          Image($r('app.media.chevron_left'))
             .width(24).height(24)
             .fillColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
             .onClick(() => router.back())
@@ -79,7 +79,7 @@ export struct GlassNavBar {
       materialColor: config.materialColor as ResourceColor,
       applyShadow: true,
       interactive: false,
-      lightEffect: false
+      lightEffect: { enable: false }
     } as uiMaterial.ImmersiveOptions)
   }
 }

@@ -19,10 +19,12 @@ export struct GlassSearchBar {
   @Prop voiceEnabled: boolean = false
   /** 是否为输入模式（true=可输入，false=仅展示点击跳转） */
   @Prop editable: boolean = false
-  /** 输入内容双向绑定 */
-  @Link inputValue: string
+  /** 输入内容（单向传递） */
+  @Prop inputValue: string = ''
   /** 点击搜索回调 */
   onSearch?: (keyword: string) => void
+  /** 输入内容变化回调 */
+  onInputChange?: (val: string) => void
   /** 点击语音按钮回调 */
   onVoiceClick?: () => void
   /** 点击搜索栏（非编辑模式）回调 */
@@ -30,7 +32,7 @@ export struct GlassSearchBar {
 
   build() {
     Row() {
-      Image($r('sys.media.search'))
+      Image($r('app.media.search'))
         .width(18).height(18)
         .fillColor(ThemeManager.getNeutral('TEXT_MUTED'))
         .margin({ right: AppSpacing.S2 })
@@ -48,7 +50,9 @@ export struct GlassSearchBar {
             }
           })
           .onChange((val: string) => {
-            this.inputValue = val
+            if (this.onInputChange) {
+              this.onInputChange(val)
+            }
           })
       } else {
         Text(this.placeholder)
@@ -58,7 +62,7 @@ export struct GlassSearchBar {
       }
 
       if (this.voiceEnabled) {
-        Image($r('sys.media.voice'))
+        Image($r('app.media.voice'))
           .width(20).height(20)
           .fillColor(ThemeManager.getPrimaryColor())
           .onClick(() => {
@@ -87,7 +91,7 @@ export struct GlassSearchBar {
       materialColor: config.materialColor as ResourceColor,
       applyShadow: true,
       interactive: false,
-      lightEffect: false
+      lightEffect: { enable: false }
     } as uiMaterial.ImmersiveOptions)
   }
 }

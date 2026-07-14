@@ -14,13 +14,21 @@ export struct GlassCard {
   /** 材质场景：FLOATING | INPUT | CARD | NAV_BAR | MODAL */
   @Prop scene: string = 'CARD'
   /** 内边距 */
-  @Prop padding: number = AppSpacing.S4
+  @Prop cardPadding: number = AppSpacing.S4
   /** 圆角 */
-  @Prop borderRadius: number = AppRadius.R_LG
-  /** 自定义材质色（覆盖主题默认） */
-  @Prop customMaterialColor?: ResourceColor
+  @Prop cardBorderRadius: number = AppRadius.R_LG
+  /** 自定义材质色（覆盖主题默认，空字符串表示不设置） */
+  @Prop customMaterialColor: ResourceColor = ''
   /** 是否禁用交互形变 */
   @Prop disableInteractive: boolean = false
+  /** 外边距 - 左 */
+  @Prop cardMarginLeft: number = 0
+  /** 外边距 - 右 */
+  @Prop cardMarginRight: number = 0
+  /** 外边距 - 下 */
+  @Prop cardMarginBottom: number = 0
+  /** 外边距 - 上 */
+  @Prop cardMarginTop: number = 0
   /** 子内容构建器 */
   @BuilderParam content: () => void = this.defaultContent
 
@@ -34,8 +42,9 @@ export struct GlassCard {
       this.content()
     }
     .width('100%')
-    .padding(this.padding)
-    .borderRadius(this.borderRadius)
+    .padding(this.cardPadding)
+    .borderRadius(this.cardBorderRadius)
+    .margin({ left: this.cardMarginLeft, right: this.cardMarginRight, bottom: this.cardMarginBottom, top: this.cardMarginTop })
     .systemMaterial(this.buildMaterial())
   }
 

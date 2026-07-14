@@ -37,11 +37,11 @@ struct FloatingControl {
     }
   }
 
-  private toggleExpand() {
+  private toggleExpand(): void {
     this.expanded = !this.expanded
   }
 
-  private continueReading() {
+  private continueReading(): void {
     if (this.lastBookUrl.length === 0) return
     router.pushUrl({
       url: 'pages/ReaderPage',
@@ -54,12 +54,12 @@ struct FloatingControl {
     this.expanded = false
   }
 
-  private openShelf() {
+  private openShelf(): void {
     router.pushUrl({ url: 'pages/ShelfPage' })
     this.expanded = false
   }
 
-  private openSearch() {
+  private openSearch(): void {
     router.pushUrl({ url: 'pages/SearchPage' })
     this.expanded = false
   }
@@ -98,7 +98,7 @@ struct FloatingControl {
           // 书架
           this.MenuItem('书架', $r('app.media.ic_shelf'), () => this.openShelf())
           // 搜索
-          this.MenuItem('搜索', $r('app.media.ic_search'), () => this.openSearch())
+          this.MenuItem('搜索', $r('app.media.search'), () => this.openSearch())
         }
         .width(180)
         .padding(AppSpacing.S2)
@@ -134,7 +134,7 @@ struct FloatingControl {
     .position({ x: this.posX, y: this.posY })
   }
 
-  @Builder MenuItem(label: string, icon: Resource, action: () => void) {
+  @Builder MenuItem(label: string, icon: Resource, action: () => void): void {
     Row() {
       Image(icon)
         .width(18).height(18)

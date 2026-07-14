@@ -28,7 +28,7 @@ export struct SectionHeader {
           Text(this.actionText)
             .fontSize(AppTypography.SIZE_BODY_SMALL)
             .fontColor(ThemeManager.getNeutral('TEXT_SECONDARY'))
-          Image($r('sys.media.chevron_right'))
+          Image($r('app.media.chevron_right'))
             .width(14).height(14)
             .fillColor(ThemeManager.getNeutral('TEXT_SECONDARY'))
             .margin({ left: 2 })

@@ -11,7 +11,7 @@ export struct RankItem {
   @Prop rank: number
   @Prop novel: NovelItem
   @Prop accentColor: string
-  onClick?: (novel: NovelItem) => void
+  onNovelClick?: (novel: NovelItem) => void
 
   build() {
     Row() {
@@ -57,8 +57,8 @@ export struct RankItem {
     .width('100%')
     .padding({ top: AppSpacing.S2, bottom: AppSpacing.S2, left: AppSpacing.S4, right: AppSpacing.S4 })
     .onClick(() => {
-      if (this.onClick) {
-        this.onClick(this.novel)
+      if (this.onNovelClick) {
+        this.onNovelClick(this.novel)
       }
     })
   }

@@ -18,7 +18,7 @@ export struct BackButton {
 
   build() {
     Row() {
-      Image($r('sys.media.chevron_left'))
+      Image($r('app.media.chevron_left'))
         .width(22).height(22)
         .fillColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
     }
@@ -29,7 +29,7 @@ export struct BackButton {
       style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
       applyShadow: true,
       interactive: true,
-      lightEffect: true
+      lightEffect: { enable: true }
     } as uiMaterial.ImmersiveOptions))
     .onClick(() => {
       if (this.onBack) {

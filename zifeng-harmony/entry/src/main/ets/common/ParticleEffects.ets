@@ -21,6 +21,8 @@ interface Particle {
 export struct ParticleEffects {
   @State particles: Particle[] = []
   private timerId: number = -1
+  private settings: RenderingContextSettings = new RenderingContextSettings(true)
+  private context: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings)
 
   aboutToAppear() {
     this.initParticles()
@@ -34,10 +36,13 @@ export struct ParticleEffects {
   }
 
   build() {
-    Canvas(this.drawParticles)
+    Canvas(this.context)
       .width('100%')
       .height('100%')
       .hitTestBehavior(HitTestMode.Transparent)
+      .onReady(() => {
+        this.drawParticles()
+      })
   }
 
   private initParticles() {
@@ -58,31 +63,39 @@ export struct ParticleEffects {
 
   private startAnimation() {
     this.timerId = setInterval(() => {
-      this.particles = this.particles.map(p => ({
-        ...p,
-        x: (p.x + p.speedX + 100) % 100,
-        y: (p.y + p.speedY + 100) % 100
-      }))
+      const newParticles: Particle[] = []
+      for (const p of this.particles) {
+        newParticles.push({
+          x: (p.x + p.speedX + 100) % 100,
+          y: (p.y + p.speedY + 100) % 100,
+          size: p.size,
+          opacity: p.opacity,
+          speedX: p.speedX,
+          speedY: p.speedY
+        })
+      }
+      this.particles = newParticles
+      this.drawParticles()
     }, 50)
   }
 
-  private drawParticles = (ctx: CanvasRenderingContext2D) => {
-    const width = ctx.canvas.width
-    const height = ctx.canvas.height
-    ctx.clearRect(0, 0, width, height)
+  private drawParticles() {
+    const width = this.context.width
+    const height = this.context.height
+    this.context.clearRect(0, 0, width, height)
     const primaryColor = ThemeManager.getPrimaryColor()
     for (const p of this.particles) {
-      const gradient = ctx.createRadialGradient(
+      const gradient = this.context.createRadialGradient(
         p.x * width / 100, p.y * height / 100, 0,
         p.x * width / 100, p.y * height / 100, p.size
       )
       // 解析主色为 rgba
       gradient.addColorStop(0, this.hexToRgba(primaryColor, p.opacity))
       gradient.addColorStop(1, this.hexToRgba(primaryColor, 0))
-      ctx.fillStyle = gradient
-      ctx.beginPath()
-      ctx.arc(p.x * width / 100, p.y * height / 100, p.size, 0, Math.PI * 2)
-      ctx.fill()
+      this.context.fillStyle = gradient
+      this.context.beginPath()
+      this.context.arc(p.x * width / 100, p.y * height / 100, p.size, 0, Math.PI * 2)
+      this.context.fill()
     }
   }
 

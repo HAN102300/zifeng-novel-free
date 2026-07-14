@@ -11,13 +11,13 @@ import { ThemeManager } from '../service/ThemeManager'
 @Component
 export struct LoadingSkel {
   @Prop shape: string = 'text'  // 'card' | 'text' | 'circle'
-  @Prop width: number | string = '100%'
-  @Prop height: number = 16
+  @Prop skelWidth: number | string = '100%'
+  @Prop skelHeight: number = 16
 
   build() {
     Column()
-      .width(this.width)
-      .height(this.height)
+      .width(this.skelWidth)
+      .height(this.skelHeight)
       .borderRadius(this.getRadius())
       .backgroundColor(ThemeManager.getNeutral('BORDER_LIGHT'))
       .animation({

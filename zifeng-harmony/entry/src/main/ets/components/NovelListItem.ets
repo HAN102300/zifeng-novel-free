@@ -12,9 +12,9 @@ export struct NovelListItem {
   @Prop showProgress: boolean = false
   @Prop progress: number = 0
   @Prop showActions: boolean = false
-  onClick?: (novel: NovelItem) => void
-  onContinue?: (novel: NovelItem) => void
-  onDelete?: (novel: NovelItem) => void
+  onNovelClick?: (novel: NovelItem) => void
+  onNovelContinue?: (novel: NovelItem) => void
+  onNovelDelete?: (novel: NovelItem) => void
 
   build() {
     Row() {
@@ -71,22 +71,22 @@ export struct NovelListItem {
       // 操作按钮
       if (this.showActions) {
         Column() {
-          if (this.showProgress && this.onContinue) {
+          if (this.showProgress && this.onNovelContinue) {
             Button('继续')
               .height(28)
               .fontSize(AppTypography.SIZE_CAPTION)
               .fontColor('#FFFFFF')
               .backgroundColor(ThemeManager.getPrimaryColor())
-              .onClick(() => this.onContinue!(this.novel))
+              .onClick(() => this.onNovelContinue!(this.novel))
           }
-          if (this.onDelete) {
+          if (this.onNovelDelete) {
             Button('删除')
               .height(28)
               .fontSize(AppTypography.SIZE_CAPTION)
               .fontColor(ThemeManager.getNeutral('TEXT_SECONDARY'))
               .backgroundColor(Color.Transparent)
               .margin({ top: 4 })
-              .onClick(() => this.onDelete!(this.novel))
+              .onClick(() => this.onNovelDelete!(this.novel))
           }
         }
         .margin({ left: AppSpacing.S2 })
@@ -95,8 +95,8 @@ export struct NovelListItem {
     .width('100%')
     .padding(AppSpacing.S3)
     .onClick(() => {
-      if (this.onClick) {
-        this.onClick(this.novel)
+      if (this.onNovelClick) {
+        this.onNovelClick(this.novel)
       }
     })
   }
