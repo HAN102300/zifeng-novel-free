@@ -24,14 +24,35 @@ export interface ReadingHistoryItem extends NovelItem {
   progress: number; // 0-100
 }
 
+/** 别名：书架中的书籍（对齐 UI 层命名） */
+export type ShelfBook = BookshelfItem;
+/** 别名：阅读记录（对齐 UI 层命名） */
+export type ReadingRecord = ReadingHistoryItem;
+
+/** 阅读进度信息 */
+export interface ReadingProgressInfo {
+  chapterIndex: number;
+  percentage: number; // 0-1
+}
+
 export class BookshelfService {
   /** 获取书架列表 */
   static async getBookshelf(): Promise<BookshelfItem[]> {
     return ApiClient.get<BookshelfItem[]>("/api/bookshelf/list");
   }
 
+  /** 获取收藏列表（别名） */
+  static async getFavorites(): Promise<ShelfBook[]> {
+    return BookshelfService.getBookshelf();
+  }
+
   /** 加入书架 */
   static async addToBookshelf(novel: NovelItem): Promise<boolean> {
+    return ApiClient.post<boolean>("/api/bookshelf/add", novel);
+  }
+
+  /** 加入书架（别名，接受部分字段） */
+  static async addToShelf(novel: Partial<NovelItem> & { bookUrl: string; sourceUrl: string }): Promise<boolean> {
     return ApiClient.post<boolean>("/api/bookshelf/add", novel);
   }
 
@@ -42,9 +63,38 @@ export class BookshelfService {
     );
   }
 
+  /** 移出书架（别名） */
+  static async removeFromShelf(bookUrl: string): Promise<boolean> {
+    return BookshelfService.removeFromBookshelf(bookUrl);
+  }
+
+  /** 检查是否在书架中 */
+  static async isInShelf(bookUrl: string): Promise<boolean> {
+    const list = await BookshelfService.getBookshelf();
+    return list.some((b) => b.bookUrl === bookUrl);
+  }
+
   /** 获取阅读历史 */
   static async getReadingHistory(): Promise<ReadingHistoryItem[]> {
     return ApiClient.get<ReadingHistoryItem[]>("/api/bookshelf/history");
+  }
+
+  /** 获取最近阅读（别名） */
+  static async getRecentReading(): Promise<ReadingRecord[]> {
+    return BookshelfService.getReadingHistory();
+  }
+
+  /** 获取指定书籍的阅读进度 */
+  static async getReadingProgress(bookUrl: string): Promise<ReadingProgressInfo> {
+    const history = await BookshelfService.getReadingHistory();
+    const item = history.find((h) => h.bookUrl === bookUrl);
+    if (item) {
+      return {
+        chapterIndex: item.lastChapterIndex,
+        percentage: item.progress / 100,
+      };
+    }
+    return { chapterIndex: 0, percentage: 0 };
   }
 
   /** 清空阅读历史 */
@@ -52,11 +102,21 @@ export class BookshelfService {
     return ApiClient.delete<boolean>("/api/bookshelf/history");
   }
 
+  /** 清空阅读历史（别名） */
+  static async clearAllHistory(): Promise<boolean> {
+    return BookshelfService.clearReadingHistory();
+  }
+
   /** 删除单条阅读历史 */
   static async removeHistoryItem(bookUrl: string): Promise<boolean> {
     return ApiClient.delete<boolean>(
       `/api/bookshelf/history?bookUrl=${encodeURIComponent(bookUrl)}`,
     );
+  }
+
+  /** 删除单条阅读历史（别名） */
+  static async removeHistory(bookUrl: string): Promise<boolean> {
+    return BookshelfService.removeHistoryItem(bookUrl);
   }
 
   /** 保存阅读进度 */
@@ -72,5 +132,32 @@ export class BookshelfService {
       chapterTitle,
       scrollProgress,
     });
+  }
+
+  /** 保存阅读进度（便捷方法） */
+  static async saveReadingProgress(
+    bookUrl: string,
+    chapterIndex: number,
+    totalChapters: number,
+  ): Promise<boolean> {
+    const percentage = totalChapters > 0 ? (chapterIndex + 1) / totalChapters : 0;
+    return BookshelfService.saveProgress(
+      bookUrl,
+      chapterIndex,
+      `第${chapterIndex + 1}章`,
+      percentage,
+    );
+  }
+
+  /** 获取书架数量 */
+  static async getShelfCount(): Promise<number> {
+    const list = await BookshelfService.getBookshelf();
+    return list.length;
+  }
+
+  /** 获取历史数量 */
+  static async getHistoryCount(): Promise<number> {
+    const history = await BookshelfService.getReadingHistory();
+    return history.length;
   }
 }

@@ -21,11 +21,17 @@ export struct GlassCard {
   @Prop customMaterialColor?: ResourceColor
   /** 是否禁用交互形变 */
   @Prop disableInteractive: boolean = false
+  /** 子内容构建器 */
+  @BuilderParam content: () => void = this.defaultContent
+
+  @Builder
+  defaultContent() {
+    Blank()
+  }
 
   build() {
     Column() {
-      // 使用 @BuilderParam 模式时，此处用 Blank 占位，实际使用时通过子组件填充
-      Blank()
+      this.content()
     }
     .width('100%')
     .padding(this.padding)

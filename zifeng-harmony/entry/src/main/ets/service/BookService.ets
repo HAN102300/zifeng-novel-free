@@ -8,7 +8,9 @@
  * - GET /api/book/content
  */
 import { ApiClient } from "./ApiClient";
-import { NovelDetails, ChapterList, NovelContent } from "../model/NovelDetails";
+import { NovelDetails } from "../model/NovelDetails";
+import { Chapter, ChapterList } from "../model/Chapters";
+import { NovelContent } from "../model/NovelContent";
 
 export class BookService {
   /** 获取小说详情 */
@@ -28,6 +30,24 @@ export class BookService {
     sourceUrl: string,
   ): Promise<ChapterList> {
     return ApiClient.get<ChapterList>("/api/book/toc", { bookUrl, sourceUrl });
+  }
+
+  /** 获取章节列表（便捷方法，返回 Chapter[]） */
+  static async getChapterList(
+    bookUrl: string,
+    sourceUrl: string,
+  ): Promise<Chapter[]> {
+    const toc = await BookService.getToc(bookUrl, sourceUrl);
+    return toc.chapters;
+  }
+
+  /** 获取章节总数 */
+  static async getChapterCount(
+    bookUrl: string,
+    sourceUrl: string,
+  ): Promise<number> {
+    const toc = await BookService.getToc(bookUrl, sourceUrl);
+    return toc.total;
   }
 
   /** 获取章节内容 */

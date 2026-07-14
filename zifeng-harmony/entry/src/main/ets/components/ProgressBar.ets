@@ -7,7 +7,7 @@ import { ThemeManager } from '../service/ThemeManager'
 
 @Component
 export struct ProgressBar {
-  @Prop percent: number = 0
+  @Prop progress: number = 0
   @Prop animated: boolean = true
   @State animPercent: number = 0
 
@@ -15,11 +15,11 @@ export struct ProgressBar {
     if (this.animated) {
       setTimeout(() => {
         animateTo({ duration: 600, curve: Curve.EaseOut }, () => {
-          this.animPercent = this.percent
+          this.animPercent = this.progress
         })
       }, 100)
     } else {
-      this.animPercent = this.percent
+      this.animPercent = this.progress
     }
   }
 
