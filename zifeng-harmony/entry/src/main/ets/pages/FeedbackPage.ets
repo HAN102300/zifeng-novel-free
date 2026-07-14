@@ -1,409 +1,241 @@
 /**
- * 意见反馈页面
- * 适配 HarmonyOS 26.0.0：玻璃质感、极光背景、光粒子特效
+ * FeedbackPage - 意见反馈页
+ * 规格：§5.4 意见反馈
+ * 特性：反馈类型选择、内容输入、联系方式、历史反馈列表
  */
 import { router } from '@kit.ArkUI'
-import feedbackService, { SubmitFeedbackData } from '../service/FeedbackService'
-import { Loading } from '../common/LoadingComponent'
-import { AppColors, AppSpacing, AppRadius } from '../common/DesignSystem'
-import { LightOrbs, FloatingParticles } from '../common/ParticleEffects'
+import { AppTypography, AppSpacing, AppRadius } from '../common/DesignSystem'
 import { ThemeManager } from '../service/ThemeManager'
+import { GlassCard } from '../common/GlassCard'
+import { BackButton } from '../common/BackButton'
+import { LoadingSkel } from '../common/LoadingSkel'
+import { FeedbackService, FeedbackWithLabels, FeedbackType } from '../service/FeedbackService'
+import { promptAction } from '@kit.ArkUI'
 
 @Entry
 @Component
 struct FeedbackPage {
-  @State title: string = ''
+  @State feedbackType: FeedbackType = 'suggestion'
   @State content: string = ''
   @State contact: string = ''
   @State isSubmitting: boolean = false
-  @State showSuccessDialog: boolean = false
-  @State isDarkMode: boolean = false
-  @State formOpacity: number = 0
-  @State formTranslateY: number = 30
-  @State logoOpacity: number = 0
-  @State logoScale: number = 0.85
-  topRectHeight: string = AppStorage.get<number>('topRectHeight') + 'px'
-  private themeManager = ThemeManager.getInstance()
+  @State history: FeedbackWithLabels[] = []
+  @State isLoadingHistory: boolean = true
+
+  private types: { key: FeedbackType, label: string }[] = [
+    { key: 'suggestion', label: '功能建议' },
+    { key: 'bug', label: '问题反馈' },
+    { key: 'content', label: '内容问题' },
+    { key: 'other', label: '其他' }
+  ]
 
   aboutToAppear() {
-    this.isDarkMode = this.themeManager.isDarkMode
-
-    // 入场动画
-    animateTo({ duration: 600, curve: Curve.FastOutSlowIn }, () => {
-      this.logoScale = 1
-      this.logoOpacity = 1
-    })
-    setTimeout(() => {
-      animateTo({ duration: 500, curve: Curve.EaseOut }, () => {
-        this.formTranslateY = 0
-        this.formOpacity = 1
-      })
-    }, 200)
+    this.loadHistory()
   }
 
-  async submitFeedback() {
-    if (!this.title.trim()) {
-      AlertDialog.show({
-        title: '提示',
-        message: '请输入反馈标题',
-        confirm: {
-          value: '确定',
-          action: () => {}
-        }
-      })
-      return
-    }
-
-    if (!this.content.trim()) {
-      AlertDialog.show({
-        title: '提示',
-        message: '请输入反馈内容',
-        confirm: {
-          value: '确定',
-          action: () => {}
-        }
-      })
-      return
-    }
-
-    this.isSubmitting = true
-
+  private async loadHistory() {
     try {
-      const result = await feedbackService.submitFeedback({
-        category: 'feedback',
-        title: this.title.trim(),
-        content: this.content.trim()
-      } as SubmitFeedbackData)
+      this.history = await FeedbackService.getMyFeedback()
+    } catch (e) {
+      /* 静默 */
+    } finally {
+      this.isLoadingHistory = false
+    }
+  }
 
-      if (result.success) {
-        this.showSuccessDialog = true
-        AlertDialog.show({
-          title: '提交成功',
-          message: '感谢您的反馈，我们会尽快处理',
-          confirm: {
-            value: '确定',
-            action: () => {
-              this.showSuccessDialog = false
-              router.back()
-            }
-          }
-        })
-      } else {
-        AlertDialog.show({
-          title: '提交失败',
-          message: result.message || '请稍后重试',
-          confirm: {
-            value: '确定',
-            action: () => {}
-          }
-        })
-      }
-    } catch (error) {
-      console.error('提交反馈失败:', error)
-      AlertDialog.show({
-        title: '提交失败',
-        message: '网络错误，请稍后重试',
-        confirm: {
-          value: '确定',
-          action: () => {}
-        }
+  private async submit() {
+    if (this.content.trim().length < 5) {
+      promptAction.showToast({ message: '反馈内容至少 5 个字' })
+      return
+    }
+    this.isSubmitting = true
+    try {
+      await FeedbackService.submit({
+        type: this.feedbackType,
+        content: this.content,
+        contact: this.contact
       })
+      promptAction.showToast({ message: '提交成功，感谢反馈' })
+      this.content = ''
+      this.contact = ''
+      this.loadHistory()
+    } catch (e) {
+      promptAction.showToast({ message: '提交失败，请稍后重试' })
     } finally {
       this.isSubmitting = false
     }
   }
 
   build() {
-    Stack() {
-      // 背景渐变
-      Column()
-        .width('100%')
-        .height('100%')
-        .linearGradient({
-          angle: 180,
-          colors: this.isDarkMode
-            ? [['#1a1a1f', 0.0], ['#25252b', 1.0]]
-            : [['#f7f0ff', 0.0], ['#faf5ff', 0.5], ['#ffffff', 1.0]]
-        })
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
-
-      // 光斑装饰（移除 AuroraBackground 避免三重特效叠加）
-      LightOrbs({
-        count: 2,
-        isDarkMode: this.isDarkMode
-      })
-
-      // 飘浮粒子（减少数量）
-      FloatingParticles({
-        count: 6,
-        isDarkMode: this.isDarkMode,
-        enableAnimation: true
-      })
-
-      Column() {
-        Column()
-          .width('100%')
-          .height(this.topRectHeight)
-        Row() {
-          Image($r('app.media.back'))
-            .width(24)
-            .height(24)
-            .padding(4)
-            .fillColor(this.isDarkMode ? AppColors.DARK_TEXT_PRIMARY : AppColors.PRIMARY)
-            .borderRadius(14)
-            .backgroundColor(this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.7)')
-            .backgroundBlurStyle(BlurStyle.Regular, {
-              adaptiveColor: AdaptiveColor.DEFAULT
-            })
-            .border({
-              width: 1,
-              color: this.isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.5)'
-            })
-            .onClick(() => router.back())
-            .opacity(this.logoOpacity)
-
-          Blank()
-
-          Row() {
-            Text('💬')
-              .fontSize(16)
-              .margin({ right: 6 })
-            Text('意见反馈')
-              .fontSize(17)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_PRIMARY : AppColors.PRIMARY_DARK)
-          }
-          .opacity(this.logoOpacity)
-
-          Blank()
-
-          Column().width(32).height(32).opacity(this.logoOpacity)
-        }
-        .width('100%')
-        .height(56)
-        .padding({ left: AppSpacing.LG, right: AppSpacing.LG })
-        .backgroundColor(this.isDarkMode ? 'rgba(20, 20, 30, 0.88)' : 'rgba(255, 255, 255, 0.88)')
-        .backgroundBlurStyle(BlurStyle.Thick, {
-          adaptiveColor: AdaptiveColor.DEFAULT
-        })
-        .border({
-          width: { bottom: 0.5 },
-          color: this.isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)'
-        })
-
-        Scroll() {
-          Column() {
-            // 顶部图标标题
-            Column() {
-              Stack() {
-                Column()
-                  .width(100)
-                  .height(100)
-                  .borderRadius(50)
-                  .backgroundColor(AppColors.PRIMARY_LIGHT)
-                  .opacity(0.2)
-                  .blur(30)
-
-                Column() {
-                  Text('💌')
-                    .fontSize(40)
-                }
-                .width(80)
-                .height(80)
-                .borderRadius(40)
-                .backgroundColor(this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.95)')
-                .backgroundBlurStyle(BlurStyle.Regular, {
-                  adaptiveColor: AdaptiveColor.DEFAULT
-                })
-                .shadow({
-                  radius: 20,
-                  color: 'rgba(170, 59, 255, 0.3)',
-                  offsetY: 8
-                })
-                .justifyContent(FlexAlign.Center)
-                .alignItems(HorizontalAlign.Center)
-              }
-              .scale({ x: this.logoScale, y: this.logoScale })
-              .opacity(this.logoOpacity)
-              .margin({ top: AppSpacing.XXL })
-
-              Text('您的反馈对我们很重要')
-                .fontSize(20)
-                .fontWeight(FontWeight.Bold)
-                .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_PRIMARY : AppColors.PRIMARY_DARK)
-                .margin({ top: AppSpacing.LG })
-                .opacity(this.logoOpacity)
-
-              Text('我们会在第一时间查看并改进')
-                .fontSize(13)
-                .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_TERTIARY : AppColors.TEXT_SECONDARY)
-                .margin({ top: 6 })
-                .letterSpacing(1)
-                .opacity(this.logoOpacity)
-            }
-            .width('100%')
-            .alignItems(HorizontalAlign.Center)
-
-            // 表单区域（玻璃质感）
-            Column({ space: AppSpacing.MD }) {
-              // 标题输入
-              InputGroupCard({ icon: '📝', label: '反馈标题', isDarkMode: this.isDarkMode }) {
-                TextInput({ text: this.title, placeholder: '请输入反馈标题' })
-                  .width('100%')
-                  .height(50)
-                  .backgroundColor(Color.Transparent)
-                  .placeholderColor(this.isDarkMode ? AppColors.DARK_TEXT_TERTIARY : AppColors.TEXT_TERTIARY)
-                  .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_PRIMARY : AppColors.TEXT_PRIMARY)
-                  .fontSize(15)
-                  .padding({ left: 0, right: 0 })
-                  .onChange((value: string) => {
-                    this.title = value
-                  })
-              }
-
-              // 内容输入
-              InputGroupCard({ icon: '📃', label: '反馈内容', isDarkMode: this.isDarkMode, cardHeight: 160 }) {
-                TextArea({ text: this.content, placeholder: '请详细描述您遇到的问题或建议...' })
-                  .width('100%')
-                  .height(150)
-                  .backgroundColor(Color.Transparent)
-                  .placeholderColor(this.isDarkMode ? AppColors.DARK_TEXT_TERTIARY : AppColors.TEXT_TERTIARY)
-                  .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_PRIMARY : AppColors.TEXT_PRIMARY)
-                  .fontSize(15)
-                  .padding({ left: 0, right: 0, top: 0, bottom: 0 })
-                  .onChange((value: string) => {
-                    this.content = value
-                  })
-              }
-
-              // 联系方式输入
-              InputGroupCard({ icon: '📧', label: '联系方式（选填）', isDarkMode: this.isDarkMode }) {
-                TextInput({ text: this.contact, placeholder: '手机号或邮箱' })
-                  .width('100%')
-                  .height(50)
-                  .backgroundColor(Color.Transparent)
-                  .placeholderColor(this.isDarkMode ? AppColors.DARK_TEXT_TERTIARY : AppColors.TEXT_TERTIARY)
-                  .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_PRIMARY : AppColors.TEXT_PRIMARY)
-                  .fontSize(15)
-                  .padding({ left: 0, right: 0 })
-                  .onChange((value: string) => {
-                    this.contact = value
-                  })
-              }
-
-              // 提交按钮
-              Row() {
-                if (this.isSubmitting) {
-                  Row({ space: 6 }) {
-                    Text('提交中...').fontColor('#ffffff')
-                  }
-                } else {
-                  Row({ space: 6 }) {
-                    Text('提交反馈').fontColor('#ffffff')
-                    Text('→').fontColor('#ffffff')
-                  }
-                }
-              }
-              .width('100%')
-              .height(50)
-              .borderRadius(25)
-              .linearGradient(this.isSubmitting
-                ? {
-                  angle: 90,
-                  colors: [['#cccccc', 0.0], ['#aaaaaa', 1.0]]
-                }
-                : {
-                  angle: 135,
-                  colors: [[AppColors.PRIMARY_LIGHT, 0.0], [AppColors.PRIMARY, 1.0]]
-                })
-              .justifyContent(FlexAlign.Center)
-              .alignItems(VerticalAlign.Center)
-              .shadow({
-                radius: 16,
-                color: this.isSubmitting ? 'rgba(0, 0, 0, 0.1)' : 'rgba(170, 59, 255, 0.4)',
-                offsetY: 6
-              })
-              .enabled(!this.isSubmitting)
-              .onClick(() => {
-                this.submitFeedback()
-              })
-              .margin({ top: AppSpacing.MD })
-            }
-            .width('100%')
-            .padding({ left: AppSpacing.XXL, right: AppSpacing.XXL, top: AppSpacing.XXL, bottom: AppSpacing.XXL })
-            .backgroundColor(this.isDarkMode ? 'rgba(20, 20, 30, 0.65)' : 'rgba(255, 255, 255, 0.65)')
-            .backgroundBlurStyle(BlurStyle.Regular, {
-              adaptiveColor: AdaptiveColor.DEFAULT
-            })
-            .borderRadius(AppRadius.XXLARGE)
-            .border({
-              width: 1,
-              color: this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.5)'
-            })
-            .shadow({
-              radius: 24,
-              color: this.isDarkMode ? 'rgba(0, 0, 0, 0.3)' : 'rgba(170, 59, 255, 0.15)',
-              offsetY: 8
-            })
-            .margin({ left: AppSpacing.LG, right: AppSpacing.LG, top: AppSpacing.LG, bottom: 50 })
-            .translate({ y: this.formTranslateY })
-            .opacity(this.formOpacity)
-          }
-          .width('100%')
-        }
-        .layoutWeight(1)
-        .scrollBar(BarState.Off)
-      }
-      .width('100%')
-      .height('100%')
-    }
-    .width('100%')
-    .height('100%')
-  }
-
-}
-
-/**
- * 输入框组组件（玻璃质感）
- */
-@Component
-struct InputGroupCard {
-  icon: string = ''
-  label: string = ''
-  cardHeight: number = 50
-  isDarkMode: boolean = false
-  @BuilderParam content: () => void
-
-  build() {
     Column() {
+      // 顶部栏
       Row() {
-        Text(this.icon)
-          .fontSize(15)
-          .margin({ right: 6 })
-        Text(this.label)
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_SECONDARY : AppColors.TEXT_SECONDARY)
+        BackButton()
+        Text('意见反馈')
+          .fontSize(AppTypography.SIZE_H2)
+          .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
+          .layoutWeight(1)
+          .margin({ left: AppSpacing.S2 })
       }
       .width('100%')
-      .margin({ bottom: AppSpacing.SM })
+      .padding({ left: AppSpacing.S4, right: AppSpacing.S4, top: AppSpacing.S4, bottom: AppSpacing.S3 })
 
-      Row() {
-        this.content()
+      Scroll() {
+        Column() {
+          // 反馈类型
+          GlassCard({ padding: AppSpacing.S4 }) {
+            Column() {
+              Text('反馈类型')
+                .fontSize(AppTypography.SIZE_H4)
+                .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
+              Flex({ wrap: FlexWrap.Wrap }) {
+                ForEach(this.types, (t: { key: FeedbackType, label: string }) => {
+                  Text(t.label)
+                    .fontSize(AppTypography.SIZE_CAPTION)
+                    .fontColor(this.feedbackType === t.key
+                      ? Color.White
+                      : ThemeManager.getNeutral('TEXT_SECONDARY'))
+                    .padding({ left: AppSpacing.S3, right: AppSpacing.S3, top: 6, bottom: 6 })
+                    .borderRadius(AppRadius.R_FULL)
+                    .backgroundColor(this.feedbackType === t.key
+                      ? ThemeManager.getPrimary(500)
+                      : ThemeManager.getNeutral('BG_ELEVATED'))
+                    .margin({ right: AppSpacing.S2, bottom: AppSpacing.S2, top: AppSpacing.S3 })
+                    .onClick(() => this.feedbackType = t.key)
+                })
+              }
+            }
+            .alignItems(HorizontalAlign.Start)
+          }
+          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S3 })
+
+          // 反馈内容
+          GlassCard({ padding: AppSpacing.S4 }) {
+            Column() {
+              Text('反馈内容')
+                .fontSize(AppTypography.SIZE_H4)
+                .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
+              TextArea({ placeholder: '请详细描述您的反馈（至少 5 个字）', text: this.content })
+                .fontSize(AppTypography.SIZE_BODY)
+                .height(120)
+                .margin({ top: AppSpacing.S3 })
+                .borderRadius(AppRadius.R_MD)
+                .backgroundColor(ThemeManager.getNeutral('BG_ELEVATED'))
+                .onChange((v: string) => this.content = v)
+              Text(`${this.content.length} / 500`)
+                .fontSize(AppTypography.SIZE_TINY)
+                .fontColor(ThemeManager.getNeutral('TEXT_MUTED'))
+                .alignSelf(ItemAlign.End)
+                .margin({ top: AppSpacing.S1 })
+            }
+            .alignItems(HorizontalAlign.Start)
+          }
+          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S3 })
+
+          // 联系方式
+          GlassCard({ padding: AppSpacing.S4 }) {
+            Column() {
+              Text('联系方式（可选）')
+                .fontSize(AppTypography.SIZE_H4)
+                .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
+              TextInput({ placeholder: '邮箱或手机号，方便我们回复', text: this.contact })
+                .fontSize(AppTypography.SIZE_BODY)
+                .margin({ top: AppSpacing.S3 })
+                .borderRadius(AppRadius.R_MD)
+                .backgroundColor(ThemeManager.getNeutral('BG_ELEVATED'))
+                .onChange((v: string) => this.contact = v)
+            }
+            .alignItems(HorizontalAlign.Start)
+          }
+          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S4 })
+
+          // 提交按钮
+          Button(this.isSubmitting ? '提交中...' : '提交反馈')
+            .type(ButtonType.Capsule)
+            .width('90%')
+            .fontSize(AppTypography.SIZE_BODY)
+            .fontColor(Color.White)
+            .backgroundColor(this.isSubmitting
+              ? ThemeManager.getNeutral('TEXT_MUTED')
+              : ThemeManager.getPrimary(500))
+            .enabled(!this.isSubmitting)
+            .onClick(() => this.submit())
+
+          // 历史反馈
+          Text('我的反馈')
+            .fontSize(AppTypography.SIZE_H4)
+            .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
+            .alignSelf(ItemAlign.Start)
+            .margin({ left: AppSpacing.S4, top: AppSpacing.S6, bottom: AppSpacing.S3 })
+
+          if (this.isLoadingHistory) {
+            Column() {
+              ForEach([0, 1], () => { LoadingSkel({ height: 80 }) })
+            }
+            .padding({ left: AppSpacing.S4, right: AppSpacing.S4 })
+          } else if (this.history.length === 0) {
+            Text('暂无反馈记录')
+              .fontSize(AppTypography.SIZE_BODY_SMALL)
+              .fontColor(ThemeManager.getNeutral('TEXT_MUTED'))
+              .margin({ top: AppSpacing.S6, bottom: AppSpacing.S8 })
+          } else {
+            List({ space: AppSpacing.S3 }) {
+              ForEach(this.history, (fb: FeedbackWithLabels) => {
+                ListItem() {
+                  GlassCard({ padding: AppSpacing.S4 }) {
+                    Column() {
+                      Row() {
+                        Text(fb.typeLabel)
+                          .fontSize(AppTypography.SIZE_TINY)
+                          .fontColor(Color.White)
+                          .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+                          .borderRadius(AppRadius.R_SM)
+                          .backgroundColor(ThemeManager.getPrimary(500))
+                        Text(this.formatTime(fb.createdAt))
+                          .fontSize(AppTypography.SIZE_TINY)
+                          .fontColor(ThemeManager.getNeutral('TEXT_MUTED'))
+                          .margin({ left: AppSpacing.S2 })
+                        Text(fb.statusLabel)
+                          .fontSize(AppTypography.SIZE_TINY)
+                          .fontColor(fb.status === 'resolved'
+                            ? ThemeManager.getAccent('Emerald')
+                            : ThemeManager.getAccent('Amber'))
+                          .margin({ left: AppSpacing.S2 })
+                      }
+                      Text(fb.content)
+                        .fontSize(AppTypography.SIZE_BODY_SMALL)
+                        .fontColor(ThemeManager.getNeutral('TEXT_SECONDARY'))
+                        .margin({ top: AppSpacing.S2 })
+                        .maxLines(2)
+                        .textOverflow({ overflow: TextOverflow.Ellipsis })
+                      if (fb.reply && fb.reply.length > 0) {
+                        Text('回复：' + fb.reply)
+                          .fontSize(AppTypography.SIZE_CAPTION)
+                          .fontColor(ThemeManager.getPrimary(500))
+                          .margin({ top: AppSpacing.S2 })
+                      }
+                    }
+                    .alignItems(HorizontalAlign.Start)
+                  }
+                }
+              })
+            }
+            .padding({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S8 })
+          }
+        }
       }
-      .width('100%')
-      .height(this.cardHeight)
-      .padding({ left: AppSpacing.MD, right: AppSpacing.MD })
-      .borderRadius(AppRadius.MEDIUM)
-      .backgroundColor(this.isDarkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.5)')
-      .backgroundBlurStyle(BlurStyle.Regular, {
-        adaptiveColor: AdaptiveColor.DEFAULT
-      })
-      .border({
-        width: 1,
-        color: this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(170, 59, 255, 0.15)'
-      })
+      .layoutWeight(1)
+      .scrollBar(BarState.Auto)
     }
-    .width('100%')
+    .width('100%').height('100%')
+    .backgroundColor(ThemeManager.getNeutral('BG_BASE'))
+  }
+
+  private formatTime(dateStr: string): string {
+    if (!dateStr) return ''
+    const d = new Date(dateStr)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   }
 }
+
+export default FeedbackPage

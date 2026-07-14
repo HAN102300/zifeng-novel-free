@@ -1,409 +1,228 @@
 /**
- * 设置页面
- * 适配 HarmonyOS 26.0.0：玻璃质感、渐变背景、光粒子特效
+ * SettingsPage - 应用设置页
+ * 规格：§5.2 应用设置
+ * 特性：主题色切换、深色模式、字号预览、阅读设置、缓存清理、关于
+ * 约束：启用 prefers-reduced-motion 性能降级策略
  */
 import { router } from '@kit.ArkUI'
-import { preferences } from '@kit.ArkData'
+import { AppTypography, AppSpacing, AppRadius } from '../common/DesignSystem'
 import { ThemeManager } from '../service/ThemeManager'
-import { AppColors, AppSpacing, AppRadius } from '../common/DesignSystem'
-import { LightOrbs, FloatingParticles } from '../common/ParticleEffects'
+import { GlassCard } from '../common/GlassCard'
+import { BackButton } from '../common/BackButton'
+import { ThemeSelector } from '../components/ThemeSelector'
+import { OfflineCacheManager } from '../service/OfflineCacheManager'
+import { promptAction } from '@kit.ArkUI'
 
 @Entry
 @Component
 struct SettingsPage {
-  @State fontSize: number = 18
-  @State lineHeight: number = 1.5
-  @State enableCloudSync: boolean = true
-  @State enableNotification: boolean = true
-  @State autoDownload: boolean = false
+  @State currentTheme: string = 'purple'
   @State isDarkMode: boolean = false
-  @State contentOpacity: number = 0
-  topRectHeight: string = AppStorage.get<number>('topRectHeight') + 'px'
-  private context = getContext(this)
-  private themeManager = ThemeManager.getInstance()
+  @State reduceMotion: boolean = false
+  @State fontSize: number = 18
+  @State lineHeight: number = 1.8
+  @State cacheSize: string = '计算中...'
 
   aboutToAppear() {
     this.loadSettings()
-    this.isDarkMode = this.themeManager.isDarkMode
+    this.calculateCache()
+  }
 
-    // 入场动画
-    animateTo({ duration: 600, curve: Curve.FastOutSlowIn }, () => {
-      this.contentOpacity = 1
+  private loadSettings() {
+    this.currentTheme = AppStorage.get<string>('currentTheme') ?? 'purple'
+    this.isDarkMode = AppStorage.get<boolean>('isDarkMode') ?? false
+    this.reduceMotion = AppStorage.get<boolean>('reduceMotion') ?? false
+    const readerRaw = AppStorage.get<string>('reader_settings')
+    if (readerRaw) {
+      try {
+        const reader = JSON.parse(readerRaw)
+        this.fontSize = reader.fontSize ?? 18
+        this.lineHeight = reader.lineHeight ?? 1.8
+      } catch (e) { /* 默认 */ }
+    }
+  }
+
+  private async calculateCache() {
+    const size = await OfflineCacheManager.getCacheSize()
+    this.cacheSize = size < 1024 * 1024
+      ? `${Math.round(size / 1024)} KB`
+      : `${(size / 1024 / 1024).toFixed(1)} MB`
+  }
+
+  private selectTheme(key: string) {
+    this.currentTheme = key
+    ThemeManager.setTheme(key)
+    AppStorage.setOrCreate<string>('currentTheme', key)
+  }
+
+  private toggleDarkMode(val: boolean) {
+    this.isDarkMode = val
+    ThemeManager.setDarkMode(val)
+    AppStorage.setOrCreate<boolean>('isDarkMode', val)
+  }
+
+  private toggleReduceMotion(val: boolean) {
+    this.reduceMotion = val
+    AppStorage.setOrCreate<boolean>('reduceMotion', val)
+    promptAction.showToast({
+      message: val ? '已开启降级动画（低端设备推荐）' : '已关闭降级动画'
     })
   }
 
-  async loadSettings() {
-    try {
-      const pref = await preferences.getPreferences(this.context, 'settings')
-      this.fontSize = await pref.get('fontSize', 18) as number
-      this.lineHeight = await pref.get('lineHeight', 1.5) as number
-      this.enableCloudSync = await pref.get('enableCloudSync', true) as boolean
-      this.enableNotification = await pref.get('enableNotification', true) as boolean
-      this.autoDownload = await pref.get('autoDownload', false) as boolean
-    } catch (error) {
-      console.error('加载设置失败:', error)
-    }
-  }
-
-  async saveSetting(key: string, value: number | boolean) {
-    try {
-      const pref = await preferences.getPreferences(this.context, 'settings')
-      await pref.put(key, value)
-      await pref.flush()
-    } catch (error) {
-      console.error('保存设置失败:', error)
-    }
-  }
-
-  clearCache() {
-    AlertDialog.show({
-      title: '确认清除',
-      message: '确定要清除所有缓存数据吗？',
-      primaryButton: {
-        value: '取消',
-        action: () => {}
-      },
-      secondaryButton: {
-        value: '确定',
-        action: async () => {
-          try {
-            const pref = await preferences.getPreferences(this.context, 'cache')
-            await pref.clear()
-            await pref.flush()
-            AlertDialog.show({
-              title: '提示',
-              message: '缓存已清除',
-              confirm: {
-                value: '确定',
-                action: () => {}
-              }
-            })
-          } catch (error) {
-            console.error('清除缓存失败:', error)
-          }
-        }
+  private async clearCache() {
+    promptAction.showDialog({
+      title: '清除缓存',
+      message: `当前缓存：${this.cacheSize}，确定清除？`,
+      buttons: [
+        { text: '取消', color: ThemeManager.getNeutral('TEXT_SECONDARY') },
+        { text: '确定', color: ThemeManager.getAccent('Rose') }
+      ]
+    }).then(async (res) => {
+      if (res.index === 1) {
+        await OfflineCacheManager.clearAll()
+        this.calculateCache()
+        promptAction.showToast({ message: '缓存已清除' })
       }
     })
   }
-
-  build() {
-    Stack() {
-      // 背景渐变
-      Column()
-        .width('100%')
-        .height('100%')
-        .linearGradient({
-          angle: 180,
-          colors: this.isDarkMode
-            ? [['#1a1a1f', 0.0], ['#25252b', 1.0]]
-            : [['#fafbff', 0.0], ['#f0f0f5', 1.0]]
-        })
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
-
-      // 背景光斑
-      LightOrbs({
-        count: 2,
-        isDarkMode: this.isDarkMode
-      })
-
-      // 飘浮粒子
-      FloatingParticles({
-        count: 8,
-        isDarkMode: this.isDarkMode,
-        enableAnimation: true
-      })
-
-      Column() {
-        Column()
-          .width('100%')
-          .height(this.topRectHeight)
-        Row() {
-          Image($r('app.media.back'))
-            .width(24)
-            .height(24)
-            .padding(4)
-            .fillColor(this.isDarkMode ? AppColors.DARK_TEXT_PRIMARY : AppColors.TEXT_PRIMARY)
-            .borderRadius(14)
-            .backgroundColor(this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.7)')
-            .backgroundBlurStyle(BlurStyle.Regular, {
-              adaptiveColor: AdaptiveColor.DEFAULT
-            })
-            .border({
-              width: 1,
-              color: this.isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.5)'
-            })
-            .onClick(() => router.back())
-
-          Blank()
-
-          Row() {
-            Text('⚙️')
-              .fontSize(16)
-              .margin({ right: 6 })
-            Text('设置')
-              .fontSize(17)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_PRIMARY : AppColors.TEXT_PRIMARY)
-          }
-
-          Blank()
-
-          Column().width(32).height(32)
-        }
-        .width('100%')
-        .height(56)
-        .padding({ left: AppSpacing.LG, right: AppSpacing.LG })
-        .backgroundColor(this.isDarkMode ? 'rgba(20, 20, 30, 0.88)' : 'rgba(255, 255, 255, 0.88)')
-        .backgroundBlurStyle(BlurStyle.Thick, {
-          adaptiveColor: AdaptiveColor.DEFAULT
-        })
-        .border({
-          width: { bottom: 0.5 },
-          color: this.isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)'
-        })
-
-        Scroll() {
-          Column({ space: AppSpacing.MD }) {
-            // 阅读设置
-            SettingsCard({ icon: '📖', title: '阅读设置', isDarkMode: this.isDarkMode }) {
-              Column() {
-                // 字体大小
-                Column() {
-                  Row() {
-                    Text('字体大小')
-                      .fontSize(15)
-                      .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_PRIMARY : AppColors.TEXT_PRIMARY)
-                      .layoutWeight(1)
-
-                    Text(`${this.fontSize}`)
-                      .fontSize(15)
-                      .fontColor(AppColors.PRIMARY_LIGHT)
-                      .fontWeight(FontWeight.Medium)
-                      .margin({ right: AppSpacing.SM })
-                  }
-                  .width('100%')
-                  .padding({ left: AppSpacing.LG, right: AppSpacing.LG, top: AppSpacing.MD })
-
-                  Slider({
-                    value: this.fontSize,
-                    min: 12,
-                    max: 28,
-                    step: 1
-                  })
-                    .blockColor(AppColors.PRIMARY_LIGHT)
-                    .trackColor(this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#f0f0f0')
-                    .selectedColor(AppColors.PRIMARY)
-                    .padding({ left: AppSpacing.LG, right: AppSpacing.LG })
-                    .onChange((value: number) => {
-                      this.fontSize = Math.round(value)
-                      this.saveSetting('fontSize', this.fontSize)
-                    })
-
-                  this.divider()
-
-                  // 行间距
-                  Row() {
-                    Text('行间距')
-                      .fontSize(15)
-                      .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_PRIMARY : AppColors.TEXT_PRIMARY)
-                      .layoutWeight(1)
-
-                    Text(`${this.lineHeight.toFixed(1)}`)
-                      .fontSize(15)
-                      .fontColor(AppColors.PRIMARY_LIGHT)
-                      .fontWeight(FontWeight.Medium)
-                      .margin({ right: AppSpacing.SM })
-                  }
-                  .width('100%')
-                  .padding({ left: AppSpacing.LG, right: AppSpacing.LG, top: AppSpacing.MD })
-
-                  Slider({
-                    value: this.lineHeight,
-                    min: 1.0,
-                    max: 2.5,
-                    step: 0.1
-                  })
-                    .blockColor(AppColors.PRIMARY_LIGHT)
-                    .trackColor(this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : '#f0f0f0')
-                    .selectedColor(AppColors.PRIMARY)
-                    .padding({ left: AppSpacing.LG, right: AppSpacing.LG, bottom: AppSpacing.MD })
-                    .onChange((value: number) => {
-                      this.lineHeight = Math.round(value * 10) / 10
-                      this.saveSetting('lineHeight', this.lineHeight)
-                    })
-                }
-              }
-            }
-
-            // 显示设置
-            SettingsCard({ icon: '🎨', title: '显示设置', isDarkMode: this.isDarkMode }) {
-              this.settingItem('深色模式', this.isDarkMode, AppColors.ACCENT_MINT, async (value: boolean) => {
-                this.isDarkMode = value
-                await this.themeManager.toggleDarkMode()
-              })
-            }
-
-            // 账号设置
-            SettingsCard({ icon: '👤', title: '账号设置', isDarkMode: this.isDarkMode }) {
-              this.settingItem('云端同步', this.enableCloudSync, AppColors.PRIMARY_LIGHT, (value: boolean) => {
-                this.enableCloudSync = value
-                this.saveSetting('enableCloudSync', value)
-              })
-
-              this.divider()
-
-              this.settingItem('消息通知', this.enableNotification, AppColors.ACCENT_GOLD, (value: boolean) => {
-                this.enableNotification = value
-                this.saveSetting('enableNotification', value)
-              })
-
-              this.divider()
-
-              this.settingItem('自动下载', this.autoDownload, AppColors.ACCENT_MINT, (value: boolean) => {
-                this.autoDownload = value
-                this.saveSetting('autoDownload', value)
-              })
-            }
-
-            // 其他设置
-            SettingsCard({ icon: '🛠', title: '其他', isDarkMode: this.isDarkMode }) {
-              this.settingAction('清除缓存', '🗑', () => {
-                this.clearCache()
-              })
-
-              this.divider()
-
-              this.settingAction('关于我们', 'v1.0.0', () => {
-                AlertDialog.show({
-                  title: '关于紫枫免费小说',
-                  message: '版本：v1.0.0\n海量书源 · 聚合搜索 · 永久免费',
-                  confirm: {
-                    value: '确定',
-                    action: () => {}
-                  }
-                })
-              })
-            }
-          }
-          .width('100%')
-          .padding({ left: AppSpacing.LG, right: AppSpacing.LG, top: AppSpacing.MD, bottom: 40 })
-          .opacity(this.contentOpacity)
-        }
-        .layoutWeight(1)
-        .scrollBar(BarState.Off)
-      }
-      .width('100%')
-      .height('100%')
-    }
-    .width('100%')
-    .height('100%')
-  }
-
-  /**
-   * 开关项
-   */
-  @Builder
-  settingItem(label: string, value: boolean, color: string, onChange: (val: boolean) => void) {
-    Row() {
-      Text(label)
-        .fontSize(15)
-        .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_PRIMARY : AppColors.TEXT_PRIMARY)
-        .layoutWeight(1)
-
-      Toggle({ type: ToggleType.Switch, isOn: value })
-        .selectedColor(color)
-        .onChange((isOn: boolean) => {
-          onChange(isOn)
-        })
-    }
-    .width('100%')
-    .padding({ left: AppSpacing.LG, right: AppSpacing.LG, top: AppSpacing.MD, bottom: AppSpacing.MD })
-  }
-
-  /**
-   * 操作项
-   */
-  @Builder
-  settingAction(label: string, rightText: string, onClick: () => void) {
-    Row() {
-      Text(label)
-        .fontSize(15)
-        .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_PRIMARY : AppColors.TEXT_PRIMARY)
-        .layoutWeight(1)
-
-      if (rightText) {
-        Text(rightText)
-          .fontSize(13)
-          .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_TERTIARY : AppColors.TEXT_TERTIARY)
-          .margin({ right: 6 })
-      }
-
-      Text('›')
-        .fontSize(18)
-        .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_TERTIARY : AppColors.TEXT_TERTIARY)
-    }
-    .width('100%')
-    .padding({ left: AppSpacing.LG, right: AppSpacing.LG, top: AppSpacing.MD, bottom: AppSpacing.MD })
-    .onClick(() => onClick())
-  }
-
-  /**
-   * 分割线
-   */
-  @Builder
-  divider() {
-    Column()
-      .width('100%')
-      .height(0.5)
-      .backgroundColor(this.isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)')
-      .margin({ left: AppSpacing.LG, right: AppSpacing.LG })
-  }
-}
-
-/**
- * 设置卡片组件（玻璃质感卡片）
- */
-@Component
-struct SettingsCard {
-  icon: string = ''
-  title: string = ''
-  isDarkMode: boolean = false
-  @BuilderParam content: () => void
 
   build() {
     Column() {
+      // 顶部栏
       Row() {
-        Text(this.icon)
-          .fontSize(14)
-          .margin({ right: 6 })
-        Text(this.title)
-          .fontSize(13)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_TERTIARY : AppColors.TEXT_TERTIARY)
-          .letterSpacing(1)
+        BackButton()
+        Text('应用设置')
+          .fontSize(AppTypography.SIZE_H2)
+          .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
+          .layoutWeight(1)
+          .margin({ left: AppSpacing.S2 })
       }
       .width('100%')
-      .padding({ left: AppSpacing.XS, bottom: AppSpacing.SM })
+      .padding({ left: AppSpacing.S4, right: AppSpacing.S4, top: AppSpacing.S4, bottom: AppSpacing.S3 })
 
-      Column() {
-        this.content()
+      Scroll() {
+        Column() {
+          // 主题色选择
+          GlassCard({ padding: AppSpacing.S4 }) {
+            Column() {
+              Text('主题色彩')
+                .fontSize(AppTypography.SIZE_H4)
+                .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
+              ThemeSelector({
+                currentTheme: this.currentTheme,
+                onSelect: (key: string) => this.selectTheme(key)
+              })
+            }
+            .alignItems(HorizontalAlign.Start)
+          }
+          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S3 })
+
+          // 显示设置
+          GlassCard({ padding: AppSpacing.S4 }) {
+            Column() {
+              Text('显示设置')
+                .fontSize(AppTypography.SIZE_H4)
+                .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
+              this.SettingRow('深色模式', this.isDarkMode, (v: boolean) => this.toggleDarkMode(v))
+              this.SettingRow('动画降级（低端设备）', this.reduceMotion, (v: boolean) => this.toggleReduceMotion(v))
+            }
+            .alignItems(HorizontalAlign.Start)
+          }
+          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S3 })
+
+          // 阅读设置预览
+          GlassCard({ padding: AppSpacing.S4 }) {
+            Column() {
+              Text('阅读设置预览')
+                .fontSize(AppTypography.SIZE_H4)
+                .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
+              Text('字号 ' + this.fontSize + 'vp · 行距 ' + this.lineHeight.toFixed(1))
+                .fontSize(this.fontSize)
+                .lineHeight(this.fontSize * this.lineHeight)
+                .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
+                .margin({ top: AppSpacing.S3, bottom: AppSpacing.S3 })
+                .backgroundColor(ThemeManager.getNeutral('BG_ELEVATED'))
+                .padding(AppSpacing.S4)
+                .borderRadius(AppRadius.R_MD)
+              Text('在阅读页可调整字号、行距和背景主题')
+                .fontSize(AppTypography.SIZE_CAPTION)
+                .fontColor(ThemeManager.getNeutral('TEXT_MUTED'))
+            }
+            .alignItems(HorizontalAlign.Start)
+          }
+          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S3 })
+
+          // 存储管理
+          GlassCard({ padding: AppSpacing.S4 }) {
+            Row() {
+              Column() {
+                Text('清除缓存')
+                  .fontSize(AppTypography.SIZE_BODY)
+                  .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
+                Text(`当前：${this.cacheSize}`)
+                  .fontSize(AppTypography.SIZE_CAPTION)
+                  .fontColor(ThemeManager.getNeutral('TEXT_MUTED'))
+                  .margin({ top: AppSpacing.S1 })
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+              Text('清除')
+                .fontSize(AppTypography.SIZE_BODY_SMALL)
+                .fontColor(ThemeManager.getAccent('Rose'))
+                .onClick(() => this.clearCache())
+            }
+          }
+          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S3 })
+
+          // 关于
+          GlassCard({ padding: AppSpacing.S4 }) {
+            Column() {
+              Text('关于')
+                .fontSize(AppTypography.SIZE_H4)
+                .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
+              this.AboutRow('版本', 'v1.0.0')
+              this.AboutRow('HarmonyOS', 'API 26')
+              this.AboutRow('沉浸光感', '已启用')
+            }
+            .alignItems(HorizontalAlign.Start)
+          }
+          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S8 })
+        }
       }
-      .width('100%')
-      .borderRadius(AppRadius.LARGE)
-      .backgroundColor(this.isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.65)')
-      .backgroundBlurStyle(BlurStyle.Regular, {
-        adaptiveColor: AdaptiveColor.DEFAULT
-      })
-      .border({
-        width: 1,
-        color: this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.5)'
-      })
-      .shadow({
-        radius: 12,
-        color: this.isDarkMode ? 'rgba(0, 0, 0, 0.3)' : 'rgba(114, 46, 209, 0.06)',
-        offsetY: 4
-      })
+      .layoutWeight(1)
+      .scrollBar(BarState.Auto)
+    }
+    .width('100%').height('100%')
+    .backgroundColor(ThemeManager.getNeutral('BG_BASE'))
+  }
+
+  @Builder SettingRow(label: string, value: boolean, onChange: (v: boolean) => void) {
+    Row() {
+      Text(label)
+        .fontSize(AppTypography.SIZE_BODY)
+        .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
+        .layoutWeight(1)
+      Toggle({ type: ToggleType.Switch, isOn: value })
+        .selectedColor(ThemeManager.getPrimary(500))
+        .onChange(onChange)
     }
     .width('100%')
+    .padding({ top: AppSpacing.S3, bottom: AppSpacing.S3 })
+  }
+
+  @Builder AboutRow(label: string, value: string) {
+    Row() {
+      Text(label)
+        .fontSize(AppTypography.SIZE_BODY)
+        .fontColor(ThemeManager.getNeutral('TEXT_SECONDARY'))
+        .layoutWeight(1)
+      Text(value)
+        .fontSize(AppTypography.SIZE_BODY_SMALL)
+        .fontColor(ThemeManager.getNeutral('TEXT_MUTED'))
+    }
+    .width('100%')
+    .padding({ top: AppSpacing.S3, bottom: AppSpacing.S3 })
   }
 }
+
+export default SettingsPage
