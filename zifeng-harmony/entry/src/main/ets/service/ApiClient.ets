@@ -1,224 +1,163 @@
 /**
- * API 客户端基础架构
- * 封装 HTTP 请求，提供统一的请求拦截、响应拦截和错误处理
+ * ApiClient - HTTP 请求封装
+ * 规格：§服务层 ApiClient
+ *
+ * 基于鸿蒙 @ohos.net.http 实现，支持：
+ * - GET/POST 请求
+ * - 自动携带认证 Token
+ * - 请求超时处理
+ * - 统一错误处理
+ * - 响应数据解析
  */
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from '@ohos/axios';
-import { promptAction } from '@kit.ArkUI';
+import http from "@ohos.net.http";
+import preference from "@ohos.data.preferences";
 
-/**
- * API 响应数据结构
- * 与后端 ApiResponse<T> 格式一致：{ success: boolean, message: string, data: T }
- */
+const BASE_URL_KEY = "api_base_url";
+const TOKEN_KEY = "auth_token";
+const DEFAULT_TIMEOUT = 15000;
+
 export interface ApiResponse<T> {
-  success: boolean;
+  code: number;
   message: string;
   data: T;
 }
 
-/**
- * API 客户端单例类
- * 负责管理 HTTP 请求的基础配置、拦截器和错误处理
- */
-class ApiClient {
-  private static instance: ApiClient;
-  private axiosInstance: AxiosInstance;
+export class ApiClient {
+  private static baseUrl: string = "http://192.168.1.100:8080";
 
-  // 基础配置
-  private static readonly BASE_URL = 'http://localhost:8080/api';
-  private static readonly TIMEOUT = 15000;
-
-  private constructor() {
-    // 创建 axios 实例
-    this.axiosInstance = axios.create({
-      baseURL: ApiClient.BASE_URL,
-      timeout: ApiClient.TIMEOUT,
-      headers: {
-        'Content-Type': 'application/json'
+  /** 初始化 baseUrl（从 Preferences 读取） */
+  static async init(): Promise<void> {
+    try {
+      const pref = await preference.getPreferences(
+        globalThis.context,
+        "app_config",
+      );
+      const url = (await pref.get(BASE_URL_KEY, "")) as string;
+      if (url) {
+        this.baseUrl = url;
       }
-    });
-
-    // 配置请求拦截器
-    this.setupRequestInterceptor();
-
-    // 配置响应拦截器
-    this.setupResponseInterceptor();
-  }
-
-  /**
-   * 获取 ApiClient 单例实例
-   */
-  public static getInstance(): ApiClient {
-    if (!ApiClient.instance) {
-      ApiClient.instance = new ApiClient();
+    } catch (e) {
+      console.warn("ApiClient init: using default baseUrl");
     }
-    return ApiClient.instance;
   }
 
-  /**
-   * 配置请求拦截器
-   * 从 AppStorage 获取 token 并添加到请求头
-   */
-  private setupRequestInterceptor(): void {
-    this.axiosInstance.interceptors.request.use(
-      (config: InternalAxiosRequestConfig) => {
-        // 从 AppStorage 获取 token
-        const token = AppStorage.get<string>('zifeng_token');
-
-        // 如果 token 存在，添加到请求头
-        if (token && config.headers) {
-          config.headers['zifeng_token'] = token;
-        }
-
-        return config;
-      },
-      (error: AxiosError) => {
-        return Promise.reject(error);
-      }
+  /** 设置 baseUrl */
+  static async setBaseUrl(url: string): Promise<void> {
+    this.baseUrl = url;
+    const pref = await preference.getPreferences(
+      globalThis.context,
+      "app_config",
     );
+    await pref.put(BASE_URL_KEY, url);
+    await pref.flush();
   }
 
-  /**
-   * 配置响应拦截器
-   * 处理 401 未授权错误和统一错误提示
-   */
-  private setupResponseInterceptor(): void {
-    this.axiosInstance.interceptors.response.use(
-      (response: AxiosResponse) => {
-        // 检查业务状态码
-        const resData = response.data as ApiResponse<object>;
+  /** 获取认证 Token */
+  static async getToken(): Promise<string> {
+    try {
+      const pref = await preference.getPreferences(globalThis.context, "auth");
+      return (await pref.get(TOKEN_KEY, "")) as string;
+    } catch {
+      return "";
+    }
+  }
 
-        // 如果业务状态不是成功（后端返回 success: false）
-        if (!resData.success) {
-          // 显示业务错误提示
-          this.showError(resData.message || '业务处理失败');
-          return Promise.reject(new Error(resData.message || '业务处理失败'));
+  /** 设置认证 Token */
+  static async setToken(token: string): Promise<void> {
+    const pref = await preference.getPreferences(globalThis.context, "auth");
+    await pref.put(TOKEN_KEY, token);
+    await pref.flush();
+  }
+
+  /** 清除 Token */
+  static async clearToken(): Promise<void> {
+    const pref = await preference.getPreferences(globalThis.context, "auth");
+    await pref.delete(TOKEN_KEY);
+    await pref.flush();
+  }
+
+  /** GET 请求 */
+  static async get<T>(
+    path: string,
+    params?: Record<string, string>,
+  ): Promise<T> {
+    const url = this.buildUrl(path, params);
+    return this.request<T>("GET", url);
+  }
+
+  /** POST 请求 */
+  static async post<T>(path: string, body?: object): Promise<T> {
+    const url = this.buildUrl(path);
+    return this.request<T>("POST", url, body);
+  }
+
+  /** PUT 请求 */
+  static async put<T>(path: string, body?: object): Promise<T> {
+    const url = this.buildUrl(path);
+    return this.request<T>("PUT", url, body);
+  }
+
+  /** DELETE 请求 */
+  static async delete<T>(path: string): Promise<T> {
+    const url = this.buildUrl(path);
+    return this.request<T>("DELETE", url);
+  }
+
+  /** 核心请求方法 */
+  private static async request<T>(
+    method: string,
+    url: string,
+    body?: object,
+  ): Promise<T> {
+    const httpReq = http.createHttp();
+    const token = await this.getToken();
+
+    const header: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      header["Authorization"] = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await httpReq.request(url, {
+        method: method as http.RequestMethod,
+        header,
+        extraData: body ? JSON.stringify(body) : undefined,
+        connectTimeout: DEFAULT_TIMEOUT,
+        readTimeout: DEFAULT_TIMEOUT,
+        expectDataType: http.HttpDataType.STRING,
+      });
+
+      if (response.responseCode >= 200 && response.responseCode < 300) {
+        const result = JSON.parse(response.result as string) as ApiResponse<T>;
+        if (result.code === 200 || result.code === 0) {
+          return result.data;
         }
-
-        return response;
-      },
-      (error: AxiosError) => {
-        // 处理 HTTP 错误
-        if (error.response) {
-          const status = error.response.status;
-
-          switch (status) {
-            case 401:
-              // 未授权错误：清除 token 和用户信息
-              this.handleUnauthorized();
-              break;
-            case 403:
-              this.showError('拒绝访问');
-              break;
-            case 404:
-              this.showError('请求资源不存在');
-              break;
-            case 500:
-              this.showError('服务器错误');
-              break;
-            case 502:
-              this.showError('网关错误');
-              break;
-            case 503:
-              this.showError('服务不可用');
-              break;
-            default:
-              this.showError(`请求失败 (${status})`);
-          }
-        } else if (error.request) {
-          // 网络错误
-          this.showError('网络连接失败，请检查网络设置');
-        } else {
-          // 其他错误
-          this.showError('请求发生错误');
-        }
-
-        return Promise.reject(error);
+        throw new Error(result.message || "请求失败");
+      } else if (response.responseCode === 401) {
+        await this.clearToken();
+        throw new Error("登录已过期，请重新登录");
+      } else {
+        throw new Error(`HTTP ${response.responseCode}`);
       }
-    );
+    } finally {
+      httpReq.destroy();
+    }
   }
 
-  /**
-   * 处理 401 未授权错误
-   * 清除 token 和用户信息，触发登出逻辑
-   */
-  private handleUnauthorized(): void {
-    // 清除 token
-    AppStorage.delete('zifeng_token');
-
-    // 清除用户信息
-    AppStorage.delete('zifeng_user');
-
-    // 显示错误提示
-    this.showError('登录已过期，请重新登录');
-
-    // 触发登出逻辑（可以通过 AppStorage 中的状态来通知页面）
-    AppStorage.setOrCreate('zifeng_logout_event', Date.now());
-  }
-
-  /**
-   * 显示错误提示
-   * @param message 错误信息
-   */
-  private showError(message: string): void {
-    promptAction.showToast({
-      message: message,
-      duration: 2000
-    });
-  }
-
-  /**
-   * GET 请求
-   * @param url 请求 URL
-   * @param config 请求配置
-   */
-  public get<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    return this.axiosInstance.get(url, config).then((response: AxiosResponse) => {
-      return response.data as ApiResponse<T>;
-    });
-  }
-
-  /**
-   * POST 请求
-   * @param url 请求 URL
-   * @param data 请求数据
-   * @param config 请求配置
-   */
-  public post<T>(url: string, data?: object, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    return this.axiosInstance.post(url, data, config).then((response: AxiosResponse) => {
-      return response.data as ApiResponse<T>;
-    });
-  }
-
-  /**
-   * PUT 请求
-   * @param url 请求 URL
-   * @param data 请求数据
-   * @param config 请求配置
-   */
-  public put<T>(url: string, data?: object, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    return this.axiosInstance.put(url, data, config).then((response: AxiosResponse) => {
-      return response.data as ApiResponse<T>;
-    });
-  }
-
-  /**
-   * DELETE 请求
-   * @param url 请求 URL
-   * @param config 请求配置
-   */
-  public delete<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    return this.axiosInstance.delete(url, config).then((response: AxiosResponse) => {
-      return response.data as ApiResponse<T>;
-    });
-  }
-
-  /**
-   * 获取 axios 实例（用于特殊需求）
-   */
-  public getAxiosInstance(): AxiosInstance {
-    return this.axiosInstance;
+  /** 构建完整 URL */
+  private static buildUrl(
+    path: string,
+    params?: Record<string, string>,
+  ): string {
+    let url = `${this.baseUrl}${path}`;
+    if (params) {
+      const query = Object.entries(params)
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+        .join("&");
+      url += `?${query}`;
+    }
+    return url;
   }
 }
-
-// 导出单例实例
-export default ApiClient.getInstance();

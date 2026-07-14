@@ -1,56 +1,34 @@
 /**
- * 小说数据模型
- * 仅保留数据接口和 Novel 类定义
- * 旧 API 方法（getNovelRec、getNovelMale）已迁移至 RankService
+ * 小说列表项数据模型
+ * 用于首页推荐、搜索结果、书架列表等
  */
-
-export interface INovel {
-  type: string
-  bookId: string | number
-  title: string
-  imgUrl: string
-  author: string
-  intro: string
-  wordNum: string
-}
-
-export class Novel implements INovel {
-  bookId: string
-  title: string
-  imgUrl: string
-  author: string
-  intro: string
-  type: string
-  wordNum: string
-  // 书架相关字段
-  bookUrl: string
-  source: string
-  tocUrl: string
-  chaptersId?: string
-
-  constructor(
-    bookId: string,
-    title: string,
-    imgUrl: string,
-    author: string,
-    intro: string,
-    type: string,
-    wordNum: string,
-    bookUrl: string = '',
-    source: string = '',
-    tocUrl: string = '',
-    chaptersId: string = ''
-  ) {
-    this.bookId = bookId
-    this.title = title
-    this.imgUrl = imgUrl
-    this.author = author
-    this.intro = intro
-    this.type = type
-    this.wordNum = wordNum
-    this.bookUrl = bookUrl
-    this.source = source
-    this.tocUrl = tocUrl
-    this.chaptersId = chaptersId
-  }
+export interface NovelItem {
+  /** 小说唯一标识（通常为 bookUrl） */
+  id: string;
+  /** 书名 */
+  title: string;
+  /** 作者 */
+  author: string;
+  /** 封面图 URL */
+  cover: string;
+  /** 简介 */
+  summary?: string;
+  /** 分类标签 */
+  category?: string;
+  /** 来源书源名称 */
+  sourceName?: string;
+  /** 来源书源 URL */
+  sourceUrl?: string;
+  /** 书籍详情页 URL */
+  bookUrl: string;
+  /** 评分（0-10） */
+  score?: number;
+  /** 阅读量 */
+  viewCount?: number;
+  /** 字数 */
+  wordCount?: string;
+  /** 更新状态（连载中/已完结） */
+  status?: string;
+  /** 最新章节 */
+  latestChapter?: string;
 }

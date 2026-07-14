@@ -1,167 +1,76 @@
 /**
- * 书架服务
- * 提供云端书架的增删查功能
+ * BookshelfService - 书架管理服务
+ * 规格：§4.3 书架页
+ *
+ * 接口对齐 zifeng-server module-user：
+ * - GET  /api/bookshelf/list
+ * - POST /api/bookshelf/add
+ * - DELETE /api/bookshelf/remove
+ * - GET  /api/bookshelf/history
+ * - DELETE /api/bookshelf/history
+ * - POST /api/bookshelf/progress
  */
-import apiClient from './ApiClient';
-import { Novel } from '../model/NovelItem';
+import { ApiClient } from "./ApiClient";
+import { NovelItem } from "../model/NovelItem";
 
-interface BookshelfListResult {
-  success: boolean;
-  data: Novel[];
+export interface BookshelfItem extends NovelItem {
+  addedAt: string;
 }
 
-interface BookshelfOpResult {
-  success: boolean;
-  message: string;
+export interface ReadingHistoryItem extends NovelItem {
+  lastChapterIndex: number;
+  lastChapterTitle: string;
+  lastReadTime: string;
+  progress: number; // 0-100
 }
 
-interface BookshelfCheckResult {
-  success: boolean;
-  data: boolean;
-}
-
-/**
- * 添加书籍到书架请求参数
- * 字段名与后端 BookshelfRequest 一致
- */
-interface AddToBookshelfParams {
-  bookUrl: string;
-  bookName: string;
-  author: string;
-  coverUrl: string;
-  summary: string;
-  lastChapter: string;
-  sourceUrl: string;
-  sourceName: string;
-  category: string;
-}
-
-/**
- * 删除书籍请求参数
- */
-interface RemoveFromBookshelfParams {
-  bookUrl: string;
-}
-
-/**
- * 书架服务类
- * 负责与后端 API 交互，管理用户的云端书架
- */
-class BookshelfService {
-  private static instance: BookshelfService;
-
-  private constructor() {}
-
-  /**
-   * 获取 BookshelfService 单例实例
-   */
-  public static getInstance(): BookshelfService {
-    if (!BookshelfService.instance) {
-      BookshelfService.instance = new BookshelfService();
-    }
-    return BookshelfService.instance;
+export class BookshelfService {
+  /** 获取书架列表 */
+  static async getBookshelf(): Promise<BookshelfItem[]> {
+    return ApiClient.get<BookshelfItem[]>("/api/bookshelf/list");
   }
 
-  /**
-   * 获取云端书架列表
-   * @returns 包含书架书籍列表的响应
-   */
-  public async getBookshelf(): Promise<BookshelfListResult> {
-    try {
-      const response = await apiClient.get<Novel[]>('/bookshelf');
-      return {
-        success: true,
-        data: response.data || []
-      } as BookshelfListResult;
-    } catch (error) {
-      console.error('获取书架列表失败:', error);
-      return {
-        success: false,
-        data: []
-      } as BookshelfListResult;
-    }
+  /** 加入书架 */
+  static async addToBookshelf(novel: NovelItem): Promise<boolean> {
+    return ApiClient.post<boolean>("/api/bookshelf/add", novel);
   }
 
-  /**
-   * 添加书籍到书架
-   * @param bookData 书籍信息
-   * @returns 操作结果
-   */
-  public async addToBookshelf(bookData: Novel): Promise<BookshelfOpResult> {
-    try {
-      const requestData: AddToBookshelfParams = {
-        bookUrl: bookData.bookUrl,
-        bookName: bookData.title,
-        author: bookData.author,
-        coverUrl: bookData.imgUrl,
-        summary: bookData.intro,
-        lastChapter: '',
-        sourceUrl: bookData.tocUrl,
-        sourceName: bookData.source,
-        category: bookData.type || ''
-      };
-
-      await apiClient.post<void>('/bookshelf', requestData);
-      return {
-        success: true,
-        message: '添加成功'
-      } as BookshelfOpResult;
-    } catch (error) {
-      console.error('添加到书架失败:', error);
-      return {
-        success: false,
-        message: '添加失败'
-      } as BookshelfOpResult;
-    }
+  /** 移出书架 */
+  static async removeFromBookshelf(bookUrl: string): Promise<boolean> {
+    return ApiClient.delete<boolean>(
+      `/api/bookshelf/remove?bookUrl=${encodeURIComponent(bookUrl)}`,
+    );
   }
 
-  /**
-   * 从书架删除书籍
-   * @param bookUrl 书籍 URL
-   * @returns 操作结果
-   */
-  public async removeFromBookshelf(bookUrl: string): Promise<BookshelfOpResult> {
-    try {
-      const params: RemoveFromBookshelfParams = { bookUrl };
-      await apiClient.delete<void>('/bookshelf', {
-        data: params
-      });
-      return {
-        success: true,
-        message: '删除成功'
-      } as BookshelfOpResult;
-    } catch (error) {
-      console.error('从书架删除失败:', error);
-      return {
-        success: false,
-        message: '删除失败'
-      } as BookshelfOpResult;
-    }
+  /** 获取阅读历史 */
+  static async getReadingHistory(): Promise<ReadingHistoryItem[]> {
+    return ApiClient.get<ReadingHistoryItem[]>("/api/bookshelf/history");
   }
 
-  /**
-   * 检查书籍是否在书架中
-   * @param bookUrl 书籍 URL
-   * @returns 检查结果
-   */
-  public async checkBookInShelf(bookUrl: string): Promise<BookshelfCheckResult> {
-    try {
-      const response = await apiClient.get<boolean>('/bookshelf/check', {
-        params: { bookUrl }
-      });
-      return {
-        success: true,
-        data: response.data
-      } as BookshelfCheckResult;
-    } catch (error) {
-      console.error('检查书架状态失败:', error);
-      return {
-        success: false,
-        data: false
-      } as BookshelfCheckResult;
-    }
+  /** 清空阅读历史 */
+  static async clearReadingHistory(): Promise<boolean> {
+    return ApiClient.delete<boolean>("/api/bookshelf/history");
+  }
+
+  /** 删除单条阅读历史 */
+  static async removeHistoryItem(bookUrl: string): Promise<boolean> {
+    return ApiClient.delete<boolean>(
+      `/api/bookshelf/history?bookUrl=${encodeURIComponent(bookUrl)}`,
+    );
+  }
+
+  /** 保存阅读进度 */
+  static async saveProgress(
+    bookUrl: string,
+    chapterIndex: number,
+    chapterTitle: string,
+    scrollProgress: number,
+  ): Promise<boolean> {
+    return ApiClient.post<boolean>("/api/bookshelf/progress", {
+      bookUrl,
+      chapterIndex,
+      chapterTitle,
+      scrollProgress,
+    });
   }
 }
-
-// 导出单例实例
-export default BookshelfService.getInstance();

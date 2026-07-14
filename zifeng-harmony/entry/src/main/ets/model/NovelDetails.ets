@@ -1,17 +1,25 @@
 /**
  * 小说详情数据模型
- * 仅保留数据接口定义
- * 旧 NovelDetail 类和 getNovelDetail 方法已迁移至 BookService.getBookInfo
  */
-
-export interface LastChapter {
-  chapterId: string
-  chapterName: string
-  chapterNumber: number
-  decTime: string
-}
-
-export interface BookDetails {
-  novelId: string
-  lastChapter: LastChapter
+export interface NovelDetails {
+  id: string;
+  title: string;
+  author: string;
+  cover: string;
+  summary: string;
+  category: string;
+  tags: string[];
+  status: string;
+  wordCount: string;
+  latestChapter: string;
+  updateTime: string;
+  bookUrl: string;
+  sourceUrl: string;
+  sourceName: string;
+  /** 是否已加入书架 */
+  inBookshelf: boolean;
+  /** 已缓存章节数 */
+  cachedChapters: number;
+  /** 总章节数 */
+  totalChapters: number;
 }

@@ -1,90 +1,111 @@
 /**
- * 搜索服务
- * 提供聚合搜索和单书源搜索功能
- * 单例模式
+ * SearchService - 搜索服务
+ * 规格：§3.5 搜索页（聚合搜索 + 单书源）
+ *
+ * 接口对齐 zifeng-parser：
+ * - GET /api/search
+ * - GET /api/search/single
  */
-import apiClient from './ApiClient';
-import { Novel } from '../model/NovelItem';
+import { ApiClient } from "./ApiClient";
+import { NovelItem } from "../model/NovelItem";
 
-/**
- * 聚合搜索结果
- */
-export interface AggregatedSearchResult {
-  list: Novel[];
+export interface SearchResult {
+  sourceName: string;
+  sourceUrl: string;
+  novels: NovelItem[];
+}
+
+export interface BatchSearchProgress {
+  completed: number;
   total: number;
+  results: SearchResult[];
+  isFinished: boolean;
 }
 
-/**
- * 聚合搜索请求参数
- */
-interface AggregatedSearchParams {
-  keyword: string;
-  page: number;
-}
+/** 搜索历史存储键 */
+const HISTORY_KEY = "search_history";
+const MAX_HISTORY = 10;
 
-/**
- * 单书源搜索请求参数
- */
-interface SearchParams {
-  source: string;
-  keyword: string;
-  page: number;
-}
-
-/**
- * 搜索服务类
- * 封装搜索相关的 API 调用
- */
-class SearchService {
-  private static instance: SearchService | null = null;
-
-  constructor() {}
-
-  /**
-   * 获取单例实例
-   */
-  static getInstance(): SearchService {
-    if (!SearchService.instance) {
-      SearchService.instance = new SearchService();
-    }
-    return SearchService.instance;
+export class SearchService {
+  /** 单书源搜索 */
+  static async searchSingle(
+    keyword: string,
+    sourceUrl: string,
+  ): Promise<SearchResult> {
+    return ApiClient.get<SearchResult>("/api/search/single", {
+      keyword,
+      sourceUrl,
+    });
   }
 
   /**
-   * 聚合搜索（跨多个书源）
-   * @param keyword 搜索关键词
-   * @param page 页码，默认为 1
-   * @returns 搜索结果，包含小说列表和总数
+   * 聚合搜索（流式返回结果）
+   * 使用回调模式，每完成一个书源即返回结果
    */
-  public async aggregatedSearch(keyword: string, page: number = 1): Promise<AggregatedSearchResult> {
-    try {
-      const params: AggregatedSearchParams = { keyword, page };
-      const response = await apiClient.post<AggregatedSearchResult>('/parse/search/aggregated', params);
-      return response.data;
-    } catch (error) {
-      console.error('[SearchService] aggregatedSearch failed:', JSON.stringify(error));
-      return { list: [], total: 0 };
+  static async batchSearch(
+    keyword: string,
+    sourceUrls: string[],
+    onProgress: (progress: BatchSearchProgress) => void,
+    abortSignal?: { aborted: boolean },
+  ): Promise<void> {
+    const results: SearchResult[] = [];
+    let completed = 0;
+    const total = sourceUrls.length;
+
+    for (const sourceUrl of sourceUrls) {
+      if (abortSignal?.aborted) {
+        break;
+      }
+      try {
+        const result = await this.searchSingle(keyword, sourceUrl);
+        results.push(result);
+      } catch (e) {
+        // 单源失败不阻塞整体
+        console.warn(
+          `SearchService: source ${sourceUrl} failed: ${(e as Error).message}`,
+        );
+      }
+      completed++;
+      onProgress({
+        completed,
+        total,
+        results: [...results],
+        isFinished: completed >= total,
+      });
     }
   }
 
-  /**
-   * 单书源搜索
-   * @param source 书源标识
-   * @param keyword 搜索关键词
-   * @param page 页码，默认为 1
-   * @returns 搜索结果小说列表
-   */
-  public async searchBooks(source: string, keyword: string, page: number = 1): Promise<Novel[]> {
+  /** 获取搜索历史 */
+  static getHistory(): string[] {
     try {
-      const params: SearchParams = { source, keyword, page };
-      const response = await apiClient.post<Novel[]>('/search', params);
-      return response.data;
-    } catch (error) {
-      console.error('[SearchService] searchBooks failed:', JSON.stringify(error));
+      const raw = AppStorage.get<string>(HISTORY_KEY) || "[]";
+      return JSON.parse(raw) as string[];
+    } catch {
       return [];
     }
   }
-}
 
-// 导出单例实例（兼容现有导入方式）
-export default new SearchService();
+  /** 添加搜索历史 */
+  static addHistory(keyword: string): void {
+    let history = this.getHistory();
+    // 去重
+    history = history.filter((h) => h !== keyword);
+    history.unshift(keyword);
+    // 限制数量
+    if (history.length > MAX_HISTORY) {
+      history = history.slice(0, MAX_HISTORY);
+    }
+    AppStorage.setOrCreate(HISTORY_KEY, JSON.stringify(history));
+  }
+
+  /** 清空搜索历史 */
+  static clearHistory(): void {
+    AppStorage.setOrCreate(HISTORY_KEY, "[]");
+  }
+
+  /** 删除单条历史 */
+  static removeHistoryItem(keyword: string): void {
+    const history = this.getHistory().filter((h) => h !== keyword);
+    AppStorage.setOrCreate(HISTORY_KEY, JSON.stringify(history));
+  }
+}
