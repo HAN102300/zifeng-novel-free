@@ -100,4 +100,19 @@ export class AuthService {
     const token = await ApiClient.getToken();
     return !!token;
   }
+
+  /** 获取当前登录用户信息 */
+  static async getCurrentUser(): Promise<{ username: string; avatar: string }> {
+    const token = await ApiClient.getToken();
+    if (!token) {
+      return { username: '', avatar: '' };
+    }
+    try {
+      return await ApiClient.get<{ username: string; avatar: string }>("/api/user/info");
+    } catch (e) {
+      const username = AppStorage.get<string>("username") ?? "";
+      const avatar = AppStorage.get<string>("avatar") ?? "";
+      return { username, avatar };
+    }
+  }
 }

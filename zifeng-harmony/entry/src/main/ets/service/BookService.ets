@@ -12,6 +12,15 @@ import { NovelDetails } from "../model/NovelDetails";
 import { Chapter, ChapterList } from "../model/Chapters";
 import { NovelContent } from "../model/NovelContent";
 
+/** 书源信息 */
+export interface BookSource {
+  id: string;
+  name: string;
+  apiUrl: string;
+  enabled: boolean;
+  sort?: number;
+}
+
 export class BookService {
   /** 获取小说详情 */
   static async getBookInfo(
@@ -61,5 +70,33 @@ export class BookService {
       sourceUrl,
       chapterIndex: chapterIndex.toString(),
     });
+  }
+
+  // ==================== 书源管理 ====================
+
+  /** 获取书源列表 */
+  static async getBookSources(): Promise<BookSource[]> {
+    return ApiClient.get<BookSource[]>("/api/book/sources");
+  }
+
+  /** 更新书源 */
+  static async updateBookSource(source: BookSource): Promise<boolean> {
+    return ApiClient.post<boolean>("/api/book/sources/update", source);
+  }
+
+  /** 删除书源 */
+  static async deleteBookSource(id: string): Promise<boolean> {
+    return ApiClient.delete<boolean>(
+      `/api/book/sources/delete?id=${encodeURIComponent(id)}`,
+    );
+  }
+
+  /** 添加书源 */
+  static async addBookSource(data: {
+    name: string;
+    apiUrl: string;
+    enabled: boolean;
+  }): Promise<boolean> {
+    return ApiClient.post<boolean>("/api/book/sources/add", data);
   }
 }

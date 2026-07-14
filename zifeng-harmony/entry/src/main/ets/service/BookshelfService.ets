@@ -160,4 +160,21 @@ export class BookshelfService {
     const history = await BookshelfService.getReadingHistory();
     return history.length;
   }
+
+  /** 获取全部阅读历史（别名） */
+  static async getAllHistory(): Promise<ReadingRecord[]> {
+    return BookshelfService.getReadingHistory();
+  }
+
+  /** 获取阅读天数（去重日期） */
+  static async getReadingDays(): Promise<number> {
+    const history = await BookshelfService.getReadingHistory();
+    const days = new Set<string>();
+    for (const h of history) {
+      if (h.lastReadTime) {
+        days.add(h.lastReadTime.slice(0, 10));
+      }
+    }
+    return days.size;
+  }
 }

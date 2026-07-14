@@ -35,6 +35,11 @@ export class OfflineCacheManager {
     // Phase 7 将实现
   }
 
+  /** 清除所有缓存（别名） */
+  static async clearAll(): Promise<void> {
+    return OfflineCacheManager.clearAllCache();
+  }
+
   /** 获取缓存大小（字节） */
   static async getCacheSize(): Promise<number> {
     return 0
