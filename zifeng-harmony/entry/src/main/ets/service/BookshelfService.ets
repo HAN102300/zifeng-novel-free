@@ -177,4 +177,35 @@ export class BookshelfService {
     }
     return days.size;
   }
+
+  /** 更新书架书籍的最新章节字段 */
+  static async updateLastChapter(
+    bookUrl: string,
+    lastChapter: string,
+  ): Promise<boolean> {
+    try {
+      return await ApiClient.post<boolean>("/api/bookshelf/updateLastChapter", {
+        bookUrl,
+        lastChapter,
+      });
+    } catch (e) {
+      /* 服务端不支持时静默失败，保留本地标记 */
+      return false;
+    }
+  }
+
+  /** 获取书架中未读/待续读的书籍（基于阅读历史比对） */
+  static async getUnreadBooks(): Promise<BookshelfItem[]> {
+    const shelf = await BookshelfService.getBookshelf();
+    const history = await BookshelfService.getReadingHistory();
+    const readUrls = new Set(history.map((h) => h.bookUrl));
+    const unread = shelf.filter((b) => !readUrls.has(b.bookUrl));
+    if (unread.length > 0) return unread;
+    /* 若全部已在历史中，则取最近阅读的第一本作为「待续读」 */
+    if (history.length > 0) {
+      const first = history[0];
+      return shelf.filter((b) => b.bookUrl === first.bookUrl);
+    }
+    return shelf;
+  }
 }
