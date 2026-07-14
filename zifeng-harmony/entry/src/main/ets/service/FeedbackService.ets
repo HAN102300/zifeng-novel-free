@@ -74,12 +74,12 @@ export class FeedbackService {
     } else {
       data = typeOrData;
     }
-    return ApiClient.post<boolean>("/api/feedback/submit", data);
+    return ApiClient.post<boolean>("/api/feedback", data);
   }
 
   /** 获取反馈历史 */
   static async getHistory(): Promise<FeedbackItem[]> {
-    return ApiClient.get<FeedbackItem[]>("/api/feedback/list");
+    return ApiClient.get<FeedbackItem[]>("/api/feedback/mine");
   }
 
   /** 获取我的反馈（别名，附带标签字段） */

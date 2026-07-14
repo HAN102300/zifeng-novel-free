@@ -17,13 +17,13 @@ const TOKEN_KEY = "auth_token";
 const DEFAULT_TIMEOUT = 15000;
 
 export interface ApiResponse<T> {
-  code: number;
+  success: boolean;
   message: string;
   data: T;
 }
 
 export class ApiClient {
-  private static baseUrl: string = "http://192.168.1.100:8080";
+  private static baseUrl: string = "http://10.0.2.2:8088";
 
   /** 初始化 baseUrl（从 Preferences 读取） */
   static async init(): Promise<void> {
@@ -39,6 +39,11 @@ export class ApiClient {
     } catch (e) {
       console.warn("ApiClient init: using default baseUrl");
     }
+  }
+
+  /** 获取当前 baseUrl */
+  static getBaseUrl(): string {
+    return ApiClient.baseUrl
   }
 
   /** 设置 baseUrl */
@@ -98,9 +103,9 @@ export class ApiClient {
   }
 
   /** DELETE 请求 */
-  static async delete<T>(path: string): Promise<T> {
+  static async delete<T>(path: string, body?: Object): Promise<T> {
     const url = ApiClient.buildUrl(path);
-    return ApiClient.request<T>("DELETE", url);
+    return ApiClient.request<T>("DELETE", url, body);
   }
 
   /** 核心请求方法 */
@@ -128,7 +133,7 @@ export class ApiClient {
 
       if (response.responseCode >= 200 && response.responseCode < 300) {
         const result = JSON.parse(response.result as string) as ApiResponse<T>;
-        if (result.code === 200 || result.code === 0) {
+        if (result.success === true) {
           return result.data;
         }
         throw new Error(result.message || "请求失败");

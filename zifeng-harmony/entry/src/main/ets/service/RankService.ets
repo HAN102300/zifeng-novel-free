@@ -39,11 +39,7 @@ export const RANK_CONFIGS: RankConfig[] = [
 export class RankService {
   /** 获取排行榜数据 */
   static async getRank(type: RankType, page: number = 1): Promise<NovelItem[]> {
-    const params: RankParams = {
-      type: type,
-      page: page.toString(),
-    };
-    return ApiClient.get<NovelItem[]>("/api/rank", params);
+    return ApiClient.get<NovelItem[]>(`/api/rank/${type}`);
   }
 
   /** 获取首页排行榜（精简版，每榜 5 条） */

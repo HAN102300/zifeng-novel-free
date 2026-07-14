@@ -2,10 +2,11 @@
  * BookService - 小说信息服务
  * 规格：§4.1 详情页 + §4.2 阅读器
  *
- * 接口对齐 zifeng-parser：
- * - GET /api/book/info
- * - GET /api/book/toc
- * - GET /api/book/content
+ * 接口对齐 zifeng-server ParseController：
+ * - POST /api/parse/book-info
+ * - POST /api/parse/toc
+ * - POST /api/parse/content
+ * - GET  /api/sources (书源列表)
  */
 import { ApiClient } from "./ApiClient";
 import { NovelDetails } from "../model/NovelDetails";
@@ -27,20 +28,31 @@ export interface AddBookSourceData {
   enabled: boolean;
 }
 
-interface BookInfoParams {
-  bookUrl: string;
-  sourceUrl: string;
+interface ParseSource {
+  bookSourceUrl: string;
+  bookSourceName?: string;
 }
 
-interface TocParams {
+interface BookInfoBody {
+  source: ParseSource;
   bookUrl: string;
-  sourceUrl: string;
 }
 
-interface ContentParams {
+interface TocBody {
+  source: ParseSource;
   bookUrl: string;
-  sourceUrl: string;
-  chapterIndex: string;
+  tocUrl?: string;
+}
+
+interface ChapterRef {
+  index: number;
+}
+
+interface ContentBody {
+  source: ParseSource;
+  bookUrl: string;
+  chapterUrl?: string;
+  chapter?: ChapterRef;
 }
 
 export class BookService {
@@ -49,11 +61,11 @@ export class BookService {
     bookUrl: string,
     sourceUrl: string,
   ): Promise<NovelDetails> {
-    const params: BookInfoParams = {
+    const body: BookInfoBody = {
+      source: { bookSourceUrl: sourceUrl },
       bookUrl: bookUrl,
-      sourceUrl: sourceUrl,
     };
-    return ApiClient.get<NovelDetails>("/api/book/info", params);
+    return ApiClient.post<NovelDetails>("/api/parse/book-info", body);
   }
 
   /** 获取章节目录 */
@@ -61,8 +73,11 @@ export class BookService {
     bookUrl: string,
     sourceUrl: string,
   ): Promise<ChapterList> {
-    const params: TocParams = { bookUrl: bookUrl, sourceUrl: sourceUrl };
-    return ApiClient.get<ChapterList>("/api/book/toc", params);
+    const body: TocBody = {
+      source: { bookSourceUrl: sourceUrl },
+      bookUrl: bookUrl,
+    };
+    return ApiClient.post<ChapterList>("/api/parse/toc", body);
   }
 
   /** 获取章节列表（便捷方法，返回 Chapter[]） */
@@ -89,35 +104,37 @@ export class BookService {
     sourceUrl: string,
     chapterIndex: number,
   ): Promise<NovelContent> {
-    const params: ContentParams = {
+    const chapter: ChapterRef = { index: chapterIndex };
+    const body: ContentBody = {
+      source: { bookSourceUrl: sourceUrl },
       bookUrl: bookUrl,
-      sourceUrl: sourceUrl,
-      chapterIndex: chapterIndex.toString(),
+      chapterUrl: undefined,
+      chapter: chapter,
     };
-    return ApiClient.get<NovelContent>("/api/book/content", params);
+    return ApiClient.post<NovelContent>("/api/parse/content", body);
   }
 
   // ==================== 书源管理 ====================
 
   /** 获取书源列表 */
   static async getBookSources(): Promise<BookSource[]> {
-    return ApiClient.get<BookSource[]>("/api/book/sources");
+    return ApiClient.get<BookSource[]>("/api/sources");
   }
 
   /** 更新书源 */
   static async updateBookSource(source: BookSource): Promise<boolean> {
-    return ApiClient.post<boolean>("/api/book/sources/update", source);
+    return ApiClient.put<boolean>("/api/sources", source);
   }
 
   /** 删除书源 */
   static async deleteBookSource(id: string): Promise<boolean> {
     return ApiClient.delete<boolean>(
-      `/api/book/sources/delete?id=${encodeURIComponent(id)}`,
+      `/api/sources?id=${encodeURIComponent(id)}`,
     );
   }
 
   /** 添加书源 */
   static async addBookSource(data: AddBookSourceData): Promise<boolean> {
-    return ApiClient.post<boolean>("/api/book/sources/add", data);
+    return ApiClient.post<boolean>("/api/sources", data);
   }
 }

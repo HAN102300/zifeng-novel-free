@@ -2,12 +2,13 @@
  * AuthService - 认证服务
  * 规格：§2.2 登录 + §2.3 注册 + §2.4 重置密码
  *
- * 接口对齐 zifeng-server module-user：
- * - POST /api/user/login
- * - POST /api/user/register
- * - POST /api/user/resetPasswordDev
- * - GET  /api/user/verifyUserForReset
- * - GET  /api/user/captcha
+ * 接口对齐 zifeng-server AuthController：
+ * - POST /api/auth/register
+ * - POST /api/auth/login
+ * - POST /api/auth/reset-password-dev
+ * - POST /api/auth/verify-email
+ * - GET  /api/auth/captcha
+ * - GET  /api/auth/info
  */
 import { ApiClient } from "./ApiClient";
 
@@ -20,7 +21,7 @@ export interface LoginResult {
 
 export interface CaptchaResult {
   captchaId: string;
-  captchaImage: string;
+  image: string;
 }
 
 export interface VerifyUserResult {
@@ -49,7 +50,7 @@ interface RegisterBody {
   captchaCode: string;
 }
 
-interface VerifyUserParams {
+interface VerifyEmailBody {
   username: string;
   email: string;
 }
@@ -63,7 +64,7 @@ interface ResetPasswordBody {
 export class AuthService {
   /** 获取验证码 */
   static async getCaptcha(): Promise<CaptchaResult> {
-    return ApiClient.get<CaptchaResult>("/api/user/captcha");
+    return ApiClient.get<CaptchaResult>("/api/auth/captcha");
   }
 
   /** 登录 */
@@ -81,7 +82,7 @@ export class AuthService {
       captchaId: captchaId,
       captchaCode: captchaCode,
     };
-    const result = await ApiClient.post<LoginResult>("/api/user/login", body);
+    const result = await ApiClient.post<LoginResult>("/api/auth/login", body);
     await ApiClient.setToken(result.token);
     return result;
   }
@@ -101,7 +102,7 @@ export class AuthService {
       captchaId: captchaId,
       captchaCode: captchaCode,
     };
-    return ApiClient.post<boolean>("/api/user/register", body);
+    return ApiClient.post<boolean>("/api/auth/register", body);
   }
 
   /** 验证用户身份（重置密码 Step 0） */
@@ -109,8 +110,8 @@ export class AuthService {
     username: string,
     email: string,
   ): Promise<VerifyUserResult> {
-    const params: VerifyUserParams = { username: username, email: email };
-    return ApiClient.get<VerifyUserResult>("/api/user/verifyUserForReset", params);
+    const body: VerifyEmailBody = { username: username, email: email };
+    return ApiClient.post<VerifyUserResult>("/api/auth/verify-email", body);
   }
 
   /** 重置密码（重置密码 Step 1） */
@@ -124,16 +125,12 @@ export class AuthService {
       email: email,
       newPassword: newPassword,
     };
-    return ApiClient.post<boolean>("/api/user/resetPasswordDev", body);
+    return ApiClient.post<boolean>("/api/auth/reset-password-dev", body);
   }
 
   /** 退出登录 */
   static async logout(): Promise<void> {
-    try {
-      await ApiClient.post<void>("/api/user/logout");
-    } finally {
-      await ApiClient.clearToken();
-    }
+    await ApiClient.clearToken();
   }
 
   /** 检查登录状态 */
@@ -149,7 +146,7 @@ export class AuthService {
       return { username: '', avatar: '' } as CurrentUserResult;
     }
     try {
-      return await ApiClient.get<CurrentUserResult>("/api/user/info");
+      return await ApiClient.get<CurrentUserResult>("/api/auth/info");
     } catch (e) {
       const username = AppStorage.get<string>("username") ?? "";
       const avatar = AppStorage.get<string>("avatar") ?? "";

@@ -2,13 +2,13 @@
  * BookshelfService - 书架管理服务
  * 规格：§4.3 书架页
  *
- * 接口对齐 zifeng-server module-user：
- * - GET  /api/bookshelf/list
- * - POST /api/bookshelf/add
- * - DELETE /api/bookshelf/remove
- * - GET  /api/bookshelf/history
- * - DELETE /api/bookshelf/history
- * - POST /api/bookshelf/progress
+ * 接口对齐 zifeng-server：
+ * - GET    /api/bookshelf        书架列表
+ * - POST   /api/bookshelf        加入书架
+ * - DELETE /api/bookshelf        移出书架（body: bookUrl）
+ * - GET    /api/reading/history  阅读历史
+ * - DELETE /api/reading/history  删除历史（body: bookUrl）
+ * - POST   /api/reading/progress 保存进度
  */
 import { ApiClient } from "./ApiClient";
 import { NovelItem } from "../model/NovelItem";
@@ -64,10 +64,14 @@ interface UpdateLastChapterBody {
   lastChapter: string;
 }
 
+interface DeleteBody {
+  bookUrl: string;
+}
+
 export class BookshelfService {
   /** 获取书架列表 */
   static async getBookshelf(): Promise<BookshelfItem[]> {
-    return ApiClient.get<BookshelfItem[]>("/api/bookshelf/list");
+    return ApiClient.get<BookshelfItem[]>("/api/bookshelf");
   }
 
   /** 获取收藏列表（别名） */
@@ -77,19 +81,18 @@ export class BookshelfService {
 
   /** 加入书架 */
   static async addToBookshelf(novel: NovelItem): Promise<boolean> {
-    return ApiClient.post<boolean>("/api/bookshelf/add", novel);
+    return ApiClient.post<boolean>("/api/bookshelf", novel);
   }
 
   /** 加入书架（别名，接受部分字段） */
   static async addToShelf(novel: ShelfAddData): Promise<boolean> {
-    return ApiClient.post<boolean>("/api/bookshelf/add", novel);
+    return ApiClient.post<boolean>("/api/bookshelf", novel);
   }
 
   /** 移出书架 */
   static async removeFromBookshelf(bookUrl: string): Promise<boolean> {
-    return ApiClient.delete<boolean>(
-      `/api/bookshelf/remove?bookUrl=${encodeURIComponent(bookUrl)}`,
-    );
+    const body: DeleteBody = { bookUrl: bookUrl };
+    return ApiClient.delete<boolean>("/api/bookshelf", body);
   }
 
   /** 移出书架（别名） */
@@ -105,7 +108,7 @@ export class BookshelfService {
 
   /** 获取阅读历史 */
   static async getReadingHistory(): Promise<ReadingHistoryItem[]> {
-    return ApiClient.get<ReadingHistoryItem[]>("/api/bookshelf/history");
+    return ApiClient.get<ReadingHistoryItem[]>("/api/reading/history");
   }
 
   /** 获取最近阅读（别名） */
@@ -130,7 +133,7 @@ export class BookshelfService {
 
   /** 清空阅读历史 */
   static async clearReadingHistory(): Promise<boolean> {
-    return ApiClient.delete<boolean>("/api/bookshelf/history");
+    return ApiClient.delete<boolean>("/api/reading/history");
   }
 
   /** 清空阅读历史（别名） */
@@ -140,9 +143,8 @@ export class BookshelfService {
 
   /** 删除单条阅读历史 */
   static async removeHistoryItem(bookUrl: string): Promise<boolean> {
-    return ApiClient.delete<boolean>(
-      `/api/bookshelf/history?bookUrl=${encodeURIComponent(bookUrl)}`,
-    );
+    const body: DeleteBody = { bookUrl: bookUrl };
+    return ApiClient.delete<boolean>("/api/reading/history", body);
   }
 
   /** 删除单条阅读历史（别名） */
@@ -163,7 +165,7 @@ export class BookshelfService {
       chapterTitle: chapterTitle,
       scrollProgress: scrollProgress,
     };
-    return ApiClient.post<boolean>("/api/bookshelf/progress", body);
+    return ApiClient.post<boolean>("/api/reading/progress", body);
   }
 
   /** 保存阅读进度（便捷方法） */

@@ -2,7 +2,9 @@
  * CategoryService - 分类服务
  * 规格：§3.2 分类页 + §3.3 分类详情页
  *
- * 接口对齐 zifeng-parser /api/category
+ * 接口对齐 zifeng-server CategoryController：
+ * - GET /api/categories/{channel}
+ * - GET /api/categories/{channel}/{categoryId}
  */
 import { ApiClient } from "./ApiClient";
 import { NovelItem } from "../model/NovelItem";
@@ -25,7 +27,7 @@ interface CategoryNovelsParams {
 export class CategoryService {
   /** 获取所有分类 */
   static async getCategories(): Promise<Category[]> {
-    return ApiClient.get<Category[]>("/api/category/list");
+    return ApiClient.get<Category[]>("/api/categories/xuanhuan");
   }
 
   /** 获取分类下小说列表 */
@@ -39,6 +41,9 @@ export class CategoryService {
       page: page.toString(),
       sort: sort,
     };
-    return ApiClient.get<NovelItem[]>("/api/category/novels", params);
+    return ApiClient.get<NovelItem[]>(
+      `/api/categories/xuanhuan/${categoryId}`,
+      params,
+    );
   }
 }

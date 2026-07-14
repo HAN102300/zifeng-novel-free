@@ -2,9 +2,8 @@
  * SearchService - 搜索服务
  * 规格：§3.5 搜索页（聚合搜索 + 单书源）
  *
- * 接口对齐 zifeng-parser：
- * - GET /api/search
- * - GET /api/search/single
+ * 接口对齐 zifeng-server ParseController：
+ * - POST /api/parse/search
  */
 import { ApiClient } from "./ApiClient";
 import { NovelItem } from "../model/NovelItem";
@@ -26,9 +25,14 @@ export interface AbortSignal {
   aborted: boolean;
 }
 
-interface SearchSingleParams {
+interface SearchSource {
+  bookSourceUrl: string;
+}
+
+interface SearchBody {
+  source: SearchSource;
   keyword: string;
-  sourceUrl: string;
+  page?: number;
 }
 
 /** 搜索历史存储键 */
@@ -41,11 +45,13 @@ export class SearchService {
     keyword: string,
     sourceUrl: string,
   ): Promise<SearchResult> {
-    const params: SearchSingleParams = {
+    const source: SearchSource = { bookSourceUrl: sourceUrl };
+    const body: SearchBody = {
+      source: source,
       keyword: keyword,
-      sourceUrl: sourceUrl,
+      page: 1,
     };
-    return ApiClient.get<SearchResult>("/api/search/single", params);
+    return ApiClient.post<SearchResult>("/api/parse/search", body);
   }
 
   /**
