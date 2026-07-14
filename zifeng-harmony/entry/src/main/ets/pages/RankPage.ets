@@ -71,7 +71,7 @@ struct RankPage {
               }
             } else {
               List() {
-                ForEach(this.rankList.toArray(), (novel: NovelItem, idx: number) => {
+                ForEach(this.rankList, (novel: NovelItem, idx: number) => {
                   ListItem() {
                     RankItem({
                       rank: idx + 1,

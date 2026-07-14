@@ -208,7 +208,7 @@ struct HomePage {
 
           // 榜单列表
           Column() {
-            ForEach(this.rankList.toArray(), (novel: NovelItem, index: number) => {
+            ForEach(this.rankList, (novel: NovelItem, index: number) => {
               RankItem({
                 rank: index + 1,
                 novel: novel,
