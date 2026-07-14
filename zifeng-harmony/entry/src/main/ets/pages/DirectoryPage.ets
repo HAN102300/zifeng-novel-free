@@ -1,347 +1,158 @@
 /**
- * 紫枫免费小说鸿蒙应用 - 目录页面
- * 适配 HarmonyOS 26.0.0 新特性：
- * - 渐变 Hero 区
- * - 玻璃质感信息卡片
- * - 玻璃质感章节列表
- * - 背景光斑/光粒子特效
+ * DirectoryPage - 章节目录页
+ * 规格：§4.4 章节目录
+ * 特性：正序/倒序切换、章节搜索、当前章节高亮、跳转阅读
  */
 import { router } from '@kit.ArkUI'
-import { Chapter } from '../model/Chapters'
-import { Loading } from '../common/LoadingComponent'
-import { DbUtil } from '@abner/datastore'
-import { Novel } from '../model/NovelItem'
-import bookService from '../service/BookService'
-import { ApiResponse } from '../service/ApiClient'
-import { AppColors, AppSpacing, AppRadius } from '../common/DesignSystem'
-import { LightOrbs, GlowPulse } from '../common/ParticleEffects'
+import { AppTypography, AppSpacing, AppRadius } from '../common/DesignSystem'
 import { ThemeManager } from '../service/ThemeManager'
+import { BackButton } from '../common/BackButton'
+import { LoadingSkel } from '../common/LoadingSkel'
+import { Chapter } from '../model/NovelModels'
+import { BookService } from '../service/BookService'
+import { promptAction } from '@kit.ArkUI'
 
 @Entry
 @Component
 struct DirectoryPage {
-  @State chapter: Chapter[] = []
-  @State novelInfo: Novel = router.getParams() as Novel
+  @State chapters: Chapter[] = []
+  @State displayChapters: Chapter[] = []
   @State isLoading: boolean = true
-  @State isAscending: boolean = true
-  @State isDarkMode: boolean = false
-  @State heroOpacity: number = 0
-  @State listOpacity: number = 0
-  @State db: DbUtil = DbUtil.getInstance()
-  private themeManager = ThemeManager.getInstance()
+  @State isReversed: boolean = false
+  @State keyword: string = ''
+  @State currentChapterIndex: number = -1
+  private bookUrl: string = ''
+  private sourceUrl: string = ''
 
-  async aboutToAppear() {
-    this.isDarkMode = this.themeManager.isDarkMode
+  aboutToAppear() {
+    const params = router.getParams() as Record<string, string | number>
+    this.bookUrl = (params?.bookUrl as string) ?? ''
+    this.sourceUrl = (params?.sourceUrl as string) ?? ''
+    this.currentChapterIndex = (params?.currentIndex as number) ?? -1
+    this.loadChapters()
+  }
 
-    // 入场动画
-    animateTo({ duration: 600, curve: Curve.FastOutSlowIn }, () => {
-      this.heroOpacity = 1
-    })
-    setTimeout(() => {
-      animateTo({ duration: 500, curve: Curve.EaseOut }, () => {
-        this.listOpacity = 1
-      })
-    }, 150)
-
-    this.isLoading = true
-
+  private async loadChapters() {
     try {
-      // 优先使用 BookService 获取目录
-      if (this.novelInfo.source && this.novelInfo.tocUrl) {
-        const tocResult: ApiResponse<Chapter[]> = await bookService.getToc(
-          this.novelInfo.source,
-          this.novelInfo.tocUrl,
-          this.novelInfo
-        )
-
-        if (tocResult.data && tocResult.data.length > 0) {
-          this.chapter = tocResult.data
-        } else {
-          // 降级到本地数据库
-          await this.loadFromLocal()
-        }
-      } else {
-        // 没有书源信息，直接从本地加载
-        await this.loadFromLocal()
-      }
-    } catch (error) {
-      console.error('加载目录失败:', JSON.stringify(error))
-      // 降级到本地
-      await this.loadFromLocal()
+      this.chapters = await BookService.getChapterList(this.bookUrl, this.sourceUrl)
+      this.applyFilter()
+    } catch (e) {
+      promptAction.showToast({ message: '加载目录失败' })
     } finally {
       this.isLoading = false
     }
   }
 
-  async loadFromLocal() {
-    return new Promise<void>((resolve) => {
-      this.db.filterRdbPredicates({
-        equalTo: {
-          'novelId': this.novelInfo.bookId
-        }
-      }).queryAllBean<Chapter>('tb_chapters', (data) => {
-        this.chapter = data
-        resolve()
-      })
+  private applyFilter() {
+    let list = [...this.chapters]
+    if (this.keyword.length > 0) {
+      list = list.filter(c => c.title.includes(this.keyword))
+    }
+    if (this.isReversed) {
+      list.reverse()
+    }
+    this.displayChapters = list
+  }
+
+  private toggleOrder() {
+    this.isReversed = !this.isReversed
+    this.applyFilter()
+  }
+
+  private onSearchInput(val: string) {
+    this.keyword = val
+    this.applyFilter()
+  }
+
+  private jumpToChapter(idx: number) {
+    router.replaceUrl({
+      url: 'pages/ReaderPage',
+      params: {
+        bookUrl: this.bookUrl,
+        sourceUrl: this.sourceUrl,
+        chapterIndex: idx
+      }
     })
   }
 
-  toggleOrder() {
-    this.isAscending = !this.isAscending
-    this.chapter = this.chapter.reverse()
-  }
-
   build() {
-    Stack() {
-      // 背景渐变
-      Column()
-        .width('100%')
-        .height('100%')
-        .linearGradient({
-          angle: 180,
-          colors: this.isDarkMode
-            ? [['#1a1a1f', 0.0], ['#25252b', 1.0]]
-            : [['#fafbff', 0.0], ['#f0f0f5', 1.0]]
-        })
-
-      // 背景光斑
-      LightOrbs({
-        count: 2,
-        isDarkMode: this.isDarkMode
-      })
-
-      Column() {
-        // 头部区域（渐变 + 玻璃质感）
-        Stack() {
-          // 渐变背景
-          Column()
-            .width('100%')
-            .height(160)
-            .linearGradient({
-              angle: 135,
-              colors: [
-                [AppColors.PRIMARY_GRADIENT_START, 0.0],
-                [AppColors.PRIMARY, 0.5],
-                [AppColors.PRIMARY_DARK, 1.0]
-              ]
-            })
-
-          // 装饰光晕（缩小尺寸，避免遮挡封面）
-          GlowPulse({
-            x: '75%',
-            y: '20%',
-            pulseSize: 80,
-            color: 'rgba(212, 165, 255, 0.25)',
-            intensity: 0.15
-          })
-
-          // 顶部导航栏
-          Row() {
-            Image($r('app.media.back'))
-              .width(26)
-              .height(26)
-              .padding(4)
-              .fillColor(Color.White)
-              .borderRadius(14)
-              .backgroundColor('rgba(255, 255, 255, 0.18)')
-              .backgroundBlurStyle(BlurStyle.Regular, {
-                adaptiveColor: AdaptiveColor.DEFAULT
-              })
-              .onClick(() => router.back())
-
-            Blank()
-
-            Text('目录')
-              .fontSize(17)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(Color.White)
-
-            Blank()
-
-            // 排序按钮
-            Row() {
-              Text(this.isAscending ? '正序' : '倒序')
-                .fontSize(12)
-                .fontColor(Color.White)
-                .margin({ right: 4 })
-              Image($r('app.media.down_up'))
-                .width(18)
-                .height(18)
-                .fillColor(Color.White)
-            }
-            .padding({ left: 10, right: 10, top: 6, bottom: 6 })
-            .borderRadius(14)
-            .backgroundColor('rgba(255, 255, 255, 0.18)')
-            .backgroundBlurStyle(BlurStyle.Regular, {
-              adaptiveColor: AdaptiveColor.DEFAULT
-            })
-            .onClick(() => this.toggleOrder())
-          }
-          .width('100%')
-          .padding({ left: AppSpacing.LG, right: AppSpacing.LG, top: 40 })
-          .position({ x: 0, y: 0 })
-
-          // 书籍信息
-          Row() {
-            Stack() {
-              Column()
-                .width(60)
-                .height(80)
-                .borderRadius(6)
-                .backgroundColor('rgba(0, 0, 0, 0.3)')
-                .blur(16)
-                .position({ x: 3, y: 4 })
-
-              Image(this.novelInfo.imgUrl || $r('app.media.img'))
-                .width(60)
-                .height(80)
-                .borderRadius(6)
-                .objectFit(ImageFit.Cover)
-                .shadow({
-                  radius: 12,
-                  color: 'rgba(0, 0, 0, 0.4)',
-                  offsetY: 4
-                })
-            }
-            .margin({ right: AppSpacing.MD })
-
-            Column() {
-              Text(this.novelInfo.title)
-                .fontSize(17)
-                .fontWeight(FontWeight.Bold)
-                .fontColor(Color.White)
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-              Text(this.novelInfo.author || '未知作者')
-                .fontSize(13)
-                .fontColor('rgba(255, 255, 255, 0.85)')
-                .margin({ top: 4 })
-
-              Row() {
-                Text('📚')
-                  .fontSize(12)
-                  .margin({ right: 4 })
-                Text(`共 ${this.chapter.length} 章`)
-                  .fontSize(12)
-                  .fontColor('rgba(255, 255, 255, 0.85)')
-              }
-              .margin({ top: 4 })
-            }
-            .layoutWeight(1)
-            .alignItems(HorizontalAlign.Start)
-            .justifyContent(FlexAlign.Center)
-          }
-          .width('100%')
-          .padding({ left: AppSpacing.XL, right: AppSpacing.XL, top: 80 })
-          .alignItems(VerticalAlign.Center)
-        }
-        .width('100%')
-        .height(160)
-        .opacity(this.heroOpacity)
-
-        // 目录列表区域
-        if (this.isLoading) {
-          Column() {
-            Loading()
-            Text('加载目录中...')
-              .fontSize(14)
-              .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_TERTIARY : AppColors.TEXT_TERTIARY)
-              .margin({ top: 12 })
-          }
+    Column() {
+      // 顶部栏
+      Row() {
+        BackButton()
+        Text('目录')
+          .fontSize(AppTypography.SIZE_H2)
+          .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
           .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
-          .alignItems(HorizontalAlign.Center)
-          .width('100%')
-        } else if (this.chapter.length === 0) {
-          Column() {
-            Text('📭')
-              .fontSize(56)
-              .margin({ bottom: 12 })
-            Text('暂无目录数据')
-              .fontSize(16)
-              .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_TERTIARY : AppColors.TEXT_TERTIARY)
-          }
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
-          .alignItems(HorizontalAlign.Center)
-          .width('100%')
-        } else {
-          List() {
-            ForEach(this.chapter, (item: Chapter, index: number) => {
-              ListItem() {
-                Row() {
-                  // 章节序号
-                  Column() {
-                    Text(`${index + 1}`)
-                      .fontSize(12)
-                      .fontWeight(FontWeight.Medium)
-                      .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_TERTIARY : AppColors.TEXT_TERTIARY)
-                  }
-                  .width(36)
-                  .height(36)
-                  .borderRadius(18)
-                  .backgroundColor(this.isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(170, 59, 255, 0.1)')
-                  .justifyContent(FlexAlign.Center)
-                  .alignItems(HorizontalAlign.Center)
-                  .margin({ right: AppSpacing.MD })
-
-                  Column() {
-                    Text(item.chapterName)
-                      .fontSize(15)
-                      .fontWeight(FontWeight.Medium)
-                      .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_PRIMARY : AppColors.TEXT_PRIMARY)
-                      .maxLines(2)
-                      .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-                    if (item.updatedAt) {
-                      Text(item.updatedAt)
-                        .fontSize(11)
-                        .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_TERTIARY : AppColors.TEXT_TERTIARY)
-                        .margin({ top: 4 })
-                    }
-                  }
-                  .alignItems(HorizontalAlign.Start)
-                  .layoutWeight(1)
-
-                  Text('›')
-                    .fontSize(20)
-                    .fontColor(this.isDarkMode ? AppColors.DARK_TEXT_TERTIARY : AppColors.TEXT_TERTIARY)
-                }
-                .width('100%')
-                .padding({ left: AppSpacing.LG, right: AppSpacing.LG, top: 14, bottom: 14 })
-                .backgroundColor(this.isDarkMode ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.6)')
-                .backgroundBlurStyle(BlurStyle.Regular, {
-                  adaptiveColor: AdaptiveColor.DEFAULT
-                })
-                .border({
-                  width: { bottom: 0.5 },
-                  color: this.isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)'
-                })
-              }
-              .onClick(() => {
-                router.pushUrl({
-                  url: 'pages/ContentPage',
-                  params: {
-                    chapter: item,
-                    novelInfo: this.novelInfo
-                  }
-                })
-              })
-            })
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .scrollBar(BarState.Off)
-          .edgeEffect(EdgeEffect.Spring)
-          .backgroundColor(Color.Transparent)
-          .opacity(this.listOpacity)
-        }
+          .margin({ left: AppSpacing.S2 })
+        Text(this.isReversed ? '正序' : '倒序')
+          .fontSize(AppTypography.SIZE_CAPTION)
+          .fontColor(ThemeManager.getPrimary(500))
+          .onClick(() => this.toggleOrder())
       }
       .width('100%')
-      .height('100%')
+      .padding({ left: AppSpacing.S4, right: AppSpacing.S4, top: AppSpacing.S4, bottom: AppSpacing.S3 })
+
+      // 搜索框
+      Row() {
+        TextInput({ placeholder: '搜索章节', text: this.keyword })
+          .fontSize(AppTypography.SIZE_BODY)
+          .backgroundColor(Color.Transparent)
+          .onChange((val: string) => this.onSearchInput(val))
+          .layoutWeight(1)
+      }
+      .width('90%')
+      .padding({ left: AppSpacing.S3, right: AppSpacing.S3 })
+      .borderRadius(AppRadius.R_FULL)
+      .backgroundColor(ThemeManager.getNeutral('BG_ELEVATED'))
+      .margin({ bottom: AppSpacing.S3 })
+
+      // 章节列表
+      if (this.isLoading) {
+        Column() {
+          ForEach([0, 1, 2, 3, 4, 5], () => { LoadingSkel({ height: 48 }) })
+        }
+        .padding(AppSpacing.S4)
+      } else {
+        List({ space: AppSpacing.S1 }) {
+          ForEach(this.displayChapters, (ch: Chapter, idx: number) => {
+            ListItem() {
+              Row() {
+                Text(ch.title)
+                  .fontSize(AppTypography.SIZE_BODY)
+                  .fontColor(this.currentChapterIndex === ch.index
+                    ? ThemeManager.getPrimary(500)
+                    : ThemeManager.getNeutral('TEXT_PRIMARY'))
+                  .layoutWeight(1)
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                if (this.currentChapterIndex === ch.index) {
+                  Text('当前')
+                    .fontSize(AppTypography.SIZE_TINY)
+                    .fontColor(Color.White)
+                    .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+                    .borderRadius(AppRadius.R_SM)
+                    .backgroundColor(ThemeManager.getPrimary(500))
+                }
+              }
+              .width('100%')
+              .padding({ top: AppSpacing.S3, bottom: AppSpacing.S3, left: AppSpacing.S4, right: AppSpacing.S4 })
+              .borderRadius(AppRadius.R_MD)
+              .backgroundColor(this.currentChapterIndex === ch.index
+                ? ThemeManager.getPrimary(50)
+                : Color.Transparent)
+              .onClick(() => this.jumpToChapter(ch.index))
+            }
+          })
+        }
+        .layoutWeight(1)
+        .scrollBar(BarState.Auto)
+        .padding({ left: AppSpacing.S2, right: AppSpacing.S2 })
+      }
     }
-    .width('100%')
-    .height('100%')
+    .width('100%').height('100%')
+    .backgroundColor(ThemeManager.getNeutral('BG_BASE'))
   }
 }
+
+export default DirectoryPage
