@@ -28,6 +28,28 @@ const getCacheKey = (categoryId, sort, page) =>
 const MAX_PAGES = 10;
 const PAGE_SIZE = 15;
 
+/** 从 localStorage 恢复用户上次浏览的页码 */
+const getSavedPage = (categoryId, sortNum) => {
+  try {
+    const key = `category_page_${categoryId}_sort${sortNum}`;
+    const saved = localStorage.getItem(key);
+    const page = saved ? Number(saved) : 1;
+    return page >= 1 && page <= MAX_PAGES ? page : 1;
+  } catch {
+    return 1;
+  }
+};
+
+/** 保存当前页码到 localStorage */
+const savePage = (categoryId, sortNum, page) => {
+  try {
+    const key = `category_page_${categoryId}_sort${sortNum}`;
+    localStorage.setItem(key, String(page));
+  } catch {
+    /* 忽略存储错误 */
+  }
+};
+
 function parseHeaders(headerStr) {
   try {
     return headerStr ? JSON.parse(headerStr.replace(/'/g, '"')) : {};
@@ -160,6 +182,7 @@ const CategoryDetail = () => {
   const [maxKnownPage, setMaxKnownPage] = useState(1);
 
   const fetchingRef = useRef(false);
+  const isInitialMount = useRef(true);
   const channelNum = Number(channel);
 
   /* —— 保留原 fetchCategoryData 逻辑 —— */
@@ -249,7 +272,7 @@ const CategoryDetail = () => {
       isInitialMount.current = false;
       return; // 首次挂载时跳过重置，使用 sessionStorage 中保存的页码
     }
-    goToPage(1);
+    setCurrentPage(1);
     setMaxKnownPage(1);
     setTotal(0);
     setNovels([]);
@@ -446,7 +469,10 @@ const CategoryDetail = () => {
           current={currentPage}
           total={total}
           pageSize={PAGE_SIZE}
-          onChange={setCurrentPage}
+          onChange={(page) => {
+            setCurrentPage(page);
+            savePage(categoryId, sortNum, page);
+          }}
         />
       )}
     </div>

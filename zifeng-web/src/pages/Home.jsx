@@ -5,6 +5,7 @@ import { NovelContext, ThemeContext } from '../App';
 import { getDefaultSource, saveNovelCache } from '../utils/novelConfig';
 import NovelCard from '../components/NovelCard';
 import SectionHeader from '../components/SectionHeader';
+import CalligraphyWatermark from '../components/CalligraphyWatermark';
 
 /* ============================================================
    紫枫免费小说 · 首页（Task 8 重构）
@@ -127,10 +128,16 @@ const Home = () => {
         @media (max-width:880px){
           .zf-rank-layout{grid-template-columns:1fr}
           .zf-rank-grid{grid-template-columns:repeat(2,1fr)}
+          .zf-hero-books{display:none!important}
         }
+        @keyframes zfParticleFloat{
+          0%,100%{transform:translateY(0) translateX(0);opacity:.2}
+          50%{transform:translateY(-18px) translateX(8px);opacity:.7}
+        }
+        .zf-hero-particle{animation:zfParticleFloat ease-in-out infinite}
       `}</style>
 
-      {/* ============== Hero 区 ============== */}
+      {/* ============== Hero 区（左右分栏：文字 + 浮动书本） ============== */}
       <section
         style={{
           padding: 'var(--zf-s12)',
@@ -143,44 +150,206 @@ const Home = () => {
           marginBottom: 'var(--zf-s8)',
           position: 'relative',
           overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--zf-s6)',
+          minHeight: 220,
         }}
       >
-        <h2
+        {/* —— 背景层：水墨墨团浮动 —— */}
+        <div
           style={{
-            fontFamily: 'var(--zf-font-serif)',
-            fontSize: 'var(--zf-fs-3xl)',
-            fontWeight: 900,
-            lineHeight: 1.1,
-            margin: 0,
-            marginBottom: 12,
+            position: 'absolute',
+            top: '8%',
+            right: '3%',
+            width: 280,
+            height: 280,
+            borderRadius: '50%',
+            background: `radial-gradient(circle, ${primaryColor}20 0%, transparent 70%)`,
+            filter: 'blur(55px)',
+            animation: 'inkFlow 25s ease-in-out infinite',
+            pointerEvents: 'none',
+            zIndex: 0,
           }}
-        >
-          <span
+        />
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '5%',
+            left: '2%',
+            width: 220,
+            height: 220,
+            borderRadius: '50%',
+            background: `radial-gradient(circle, ${(colors[2] || primaryColor)}18 0%, transparent 70%)`,
+            filter: 'blur(45px)',
+            animation: 'inkFlow 30s ease-in-out infinite reverse',
+            pointerEvents: 'none',
+            zIndex: 0,
+          }}
+        />
+
+        {/* —— 书法水印"阅" —— */}
+        <CalligraphyWatermark
+          char="阅"
+          position={{ top: '2%', right: '2%' }}
+          size={180}
+          color={`${primaryColor}0a`}
+        />
+
+        {/* —— 粒子飘动 —— */}
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+          <div
+            key={i}
+            className="zf-hero-particle"
             style={{
-              background:
-                'linear-gradient(120deg, var(--zf-primary-400), var(--zf-accent-magenta), var(--zf-accent-cyan))',
-              backgroundSize: '200% auto',
-              WebkitBackgroundClip: 'text',
-              backgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              color: 'transparent',
-              animation: 'gradFlow 4s linear infinite',
-              display: 'inline-block',
+              position: 'absolute',
+              width: 3 + (i % 3) * 2,
+              height: 3 + (i % 3) * 2,
+              borderRadius: '50%',
+              background: i % 2 === 0 ? primaryColor : (colors[1] || primaryColor),
+              left: `${8 + i * 11}%`,
+              top: `${15 + (i * 9) % 65}%`,
+              animationDelay: `${i * 0.6}s`,
+              animationDuration: `${4 + (i % 3) * 1.5}s`,
+              pointerEvents: 'none',
+              zIndex: 0,
+            }}
+          />
+        ))}
+
+        {/* —— 左侧：标题 + 副标题 + 装饰线 —— */}
+        <div style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: 1 }}>
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: REVEAL_EASE }}
+            style={{
+              fontFamily: 'var(--zf-font-serif)',
+              fontSize: 'var(--zf-fs-4xl)',
+              fontWeight: 900,
+              lineHeight: 1.1,
+              margin: 0,
+              marginBottom: 14,
             }}
           >
-            紫枫免费小说
-          </span>
-        </h2>
-        <p
+            <span
+              style={{
+                background:
+                  'linear-gradient(120deg, var(--zf-primary-400), var(--zf-accent-magenta), var(--zf-accent-cyan))',
+                backgroundSize: '200% auto',
+                WebkitBackgroundClip: 'text',
+                backgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                color: 'transparent',
+                animation: 'gradFlow 4s linear infinite',
+                display: 'inline-block',
+              }}
+            >
+              紫枫免费小说
+            </span>
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.15, ease: REVEAL_EASE }}
+            style={{
+              color: 'var(--zf-text-secondary)',
+              maxWidth: 480,
+              margin: 0,
+              fontSize: 'var(--zf-fs-lg)',
+            }}
+          >
+            海量书源 · 免费阅读 · 极致体验
+          </motion.p>
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 80, opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.4, ease: REVEAL_EASE }}
+            style={{
+              height: 4,
+              borderRadius: 2,
+              marginTop: 18,
+              background:
+                'linear-gradient(90deg, var(--zf-primary-500), var(--zf-accent-magenta))',
+            }}
+          />
+        </div>
+
+        {/* —— 右侧：浮动书本图标群 —— */}
+        <div
+          className="zf-hero-books"
           style={{
-            color: 'var(--zf-text-secondary)',
-            maxWidth: 560,
-            margin: 0,
-            fontSize: 'var(--zf-fs-md)',
+            flex: '0 0 220px',
+            height: 200,
+            position: 'relative',
+            zIndex: 1,
           }}
         >
-          海量书源 · 免费阅读 · 极致体验
-        </p>
+          {[
+            { x: 10, y: 15, rotate: -10, delay: 0, grad: 'linear-gradient(135deg, #8B5CF6, #6D28D9)', z: 3, label: '紫' },
+            { x: 85, y: 5, rotate: 8, delay: 0.2, grad: 'linear-gradient(135deg, #EC4899, #BE123C)', z: 2, label: '枫' },
+            { x: 48, y: 70, rotate: -4, delay: 0.4, grad: 'linear-gradient(135deg, #06B6D4, #0891B2)', z: 1, label: '阅' },
+          ].map((book, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, scale: 0.5, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: book.y }}
+              transition={{ duration: 0.6, delay: 0.3 + book.delay, ease: REVEAL_EASE }}
+              style={{
+                position: 'absolute',
+                left: book.x,
+                top: 0,
+                width: 72,
+                height: 100,
+                borderRadius: '4px 10px 10px 4px',
+                background: book.grad,
+                boxShadow:
+                  '0 10px 30px rgba(0,0,0,.28), inset 5px 0 0 rgba(0,0,0,.18), inset 0 0 20px rgba(255,255,255,.08)',
+                zIndex: book.z,
+                overflow: 'hidden',
+              }}
+            >
+              {/* 书本封面光泽 */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 5,
+                  right: 0,
+                  bottom: 0,
+                  background:
+                    'linear-gradient(105deg, transparent 40%, rgba(255,255,255,.12) 50%, transparent 60%)',
+                  pointerEvents: 'none',
+                }}
+              />
+              {/* 浮动动画层 */}
+              <motion.div
+                animate={{ y: [0, -8, 0], rotate: [book.rotate, book.rotate + 2, book.rotate] }}
+                transition={{ duration: 3.5 + i * 0.5, repeat: Infinity, ease: 'easeInOut' }}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transform: `rotate(${book.rotate}deg)`,
+                }}
+              >
+                <span
+                  style={{
+                    color: 'rgba(255,255,255,.75)',
+                    fontSize: 28,
+                    fontWeight: 900,
+                    fontFamily: 'var(--zf-font-serif), serif',
+                    textShadow: '0 2px 4px rgba(0,0,0,.3)',
+                  }}
+                >
+                  {book.label}
+                </span>
+              </motion.div>
+            </motion.div>
+          ))}
+        </div>
       </section>
 
       {/* ============== 六大榜单分区 ============== */}
