@@ -1,19 +1,23 @@
 {
   "src": [
-    "pages/Index",
     "pages/StartPage",
-    "pages/DetailPage",
-    "pages/DirectoryPage",
-    "pages/ContentPage",
     "pages/LoginPage",
     "pages/RegisterPage",
     "pages/ResetPasswordPage",
-    "pages/UserInfoPage",
-    "pages/SearchResultPage",
-    "pages/RankPage",
+    "pages/Index",
+    "pages/HomePage",
+    "pages/CategoryPage",
     "pages/CategoryDetailPage",
-    "pages/ReadingHistoryPage",
+    "pages/RankPage",
+    "pages/SearchPage",
+    "pages/NovelDetailPage",
+    "pages/ReaderPage",
+    "pages/ShelfPage",
+    "pages/DirectoryPage",
+    "pages/UserCenterPage",
+    "pages/SettingsPage",
+    "pages/BookSourcePage",
     "pages/FeedbackPage",
-    "pages/SettingsPage"
+    "pages/ReadingHistoryPage"
   ]
 }

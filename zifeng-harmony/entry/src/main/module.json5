@@ -56,6 +56,22 @@
       {
         "name": "ohos.permission.INTERNET",
         "reason": "$string:reason",
+      },
+      {
+        "name": "ohos.permission.MICROPHONE",
+        "reason": "$string:reason_mic",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
+      },
+      {
+        "name": "ohos.permission.NOTIFICATION_CONTROLLER",
+        "reason": "$string:reason_notification",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
       }
     ],
     "metadata": [{
