@@ -2,25 +2,20 @@
  * NotificationService - 系统通知推送服务
  * 规格：移动端增强-2 系统通知推送
  * 特性：章节更新通知、阅读提醒、通知渠道管理
- * 实现：基于 @ohos.notificationManager
+ * 实现：基于 @kit.NotificationKit
  */
-import notificationManager from "@ohos.notificationManager";
-import { BookshelfService } from "./BookshelfService";
+import { notificationManager } from '@kit.NotificationKit';
+import { BookshelfService } from './BookshelfService';
+import { Chapter } from '../model/Chapters';
 
-const CHANNEL_UPDATE = "novel_update";
-const CHANNEL_REMINDER = "reading_reminder";
+const CHANNEL_UPDATE = 'novel_update';
+const CHANNEL_REMINDER = 'reading_reminder';
 
 export class NotificationService {
   static async init(): Promise<void> {
     try {
-      await notificationManager.addSlot({
-        type: notificationManager.SlotType.CONTENT_INFORMATION,
-        id: CHANNEL_UPDATE,
-      } as notificationManager.NotificationSlot);
-      await notificationManager.addSlot({
-        type: notificationManager.SlotType.SOCIAL_COMMUNICATION,
-        id: CHANNEL_REMINDER,
-      } as notificationManager.NotificationSlot);
+      await notificationManager.addSlot(notificationManager.SlotType.CONTENT_INFORMATION);
+      await notificationManager.addSlot(notificationManager.SlotType.SOCIAL_COMMUNICATION);
     } catch (e) {
       /* 槽位可能已存在 */
     }
@@ -30,12 +25,12 @@ export class NotificationService {
     try {
       const shelf = await BookshelfService.getFavorites();
       for (const book of shelf) {
-        const latest = await this.fetchLatestChapter(
+        const latest = await NotificationService.fetchLatestChapter(
           book.bookUrl,
-          book.sourceUrl ?? "",
+          book.sourceUrl ?? '',
         );
         if (latest && latest.title !== book.latestChapter) {
-          await this.sendUpdateNotification(
+          await NotificationService.sendUpdateNotification(
             book.title,
             latest.title,
             book.bookUrl,
@@ -48,8 +43,9 @@ export class NotificationService {
     }
   }
 
-  private static async fetchLatestChapter(bookUrl: string, sourceUrl: string) {
-    const { BookService } = await import("./BookService");
+  private static async fetchLatestChapter(bookUrl: string, sourceUrl: string): Promise<Chapter | undefined> {
+    const mod = await import('./BookService');
+    const BookService = mod.BookService;
     const chapters = await BookService.getChapterList(bookUrl, sourceUrl);
     return chapters[chapters.length - 1];
   }
@@ -59,41 +55,40 @@ export class NotificationService {
     chapterTitle: string,
     bookUrl: string,
   ): Promise<void> {
-    await notificationManager.publish({
+    const request: notificationManager.NotificationRequest = {
       id: Math.floor(Math.random() * 100000),
+      notificationSlotType: notificationManager.SlotType.CONTENT_INFORMATION,
+      label: CHANNEL_UPDATE,
       content: {
-        contentType:
-          notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
+        notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
         normal: {
           title: `${bookTitle} 更新了`,
           text: chapterTitle,
-          additionalText: "紫枫免费小说",
+          additionalText: '紫枫免费小说',
         },
-      } as notificationManager.NotificationBasicContent,
-      slotType: notificationManager.SlotType.CONTENT_INFORMATION,
-      label: CHANNEL_UPDATE,
-      actionButtons: [{ title: "立即阅读", actionName: "READ_NOW" }],
-    } as notificationManager.NotificationRequest);
+      } as notificationManager.NotificationContent,
+    };
+    await notificationManager.publish(request);
   }
 
   static async sendReadingReminder(): Promise<void> {
     const unread = await BookshelfService.getUnreadBooks();
     if (unread.length === 0) return;
     const book = unread[0];
-    await notificationManager.publish({
+    const request: notificationManager.NotificationRequest = {
       id: 999001,
-      content: {
-        contentType:
-          notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
-        normal: {
-          title: "继续阅读",
-          text: `《${book.title}》等 ${unread.length} 本书待续读`,
-          additionalText: "点击继续阅读",
-        },
-      } as notificationManager.NotificationBasicContent,
-      slotType: notificationManager.SlotType.SOCIAL_COMMUNICATION,
+      notificationSlotType: notificationManager.SlotType.SOCIAL_COMMUNICATION,
       label: CHANNEL_REMINDER,
-    } as notificationManager.NotificationRequest);
+      content: {
+        notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
+        normal: {
+          title: '继续阅读',
+          text: `《${book.title}》等 ${unread.length} 本书待续读`,
+          additionalText: '点击继续阅读',
+        },
+      } as notificationManager.NotificationContent,
+    };
+    await notificationManager.publish(request);
   }
 
   static async cancelAll(): Promise<void> {

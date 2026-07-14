@@ -22,6 +22,15 @@ export interface BatchSearchProgress {
   isFinished: boolean;
 }
 
+export interface AbortSignal {
+  aborted: boolean;
+}
+
+interface SearchSingleParams {
+  keyword: string;
+  sourceUrl: string;
+}
+
 /** 搜索历史存储键 */
 const HISTORY_KEY = "search_history";
 const MAX_HISTORY = 10;
@@ -32,10 +41,11 @@ export class SearchService {
     keyword: string,
     sourceUrl: string,
   ): Promise<SearchResult> {
-    return ApiClient.get<SearchResult>("/api/search/single", {
-      keyword,
-      sourceUrl,
-    });
+    const params: SearchSingleParams = {
+      keyword: keyword,
+      sourceUrl: sourceUrl,
+    };
+    return ApiClient.get<SearchResult>("/api/search/single", params);
   }
 
   /**
@@ -46,7 +56,7 @@ export class SearchService {
     keyword: string,
     sourceUrls: string[],
     onProgress: (progress: BatchSearchProgress) => void,
-    abortSignal?: { aborted: boolean },
+    abortSignal?: AbortSignal,
   ): Promise<void> {
     const results: SearchResult[] = [];
     let completed = 0;
@@ -57,7 +67,7 @@ export class SearchService {
         break;
       }
       try {
-        const result = await this.searchSingle(keyword, sourceUrl);
+        const result = await SearchService.searchSingle(keyword, sourceUrl);
         results.push(result);
       } catch (e) {
         // 单源失败不阻塞整体
@@ -67,8 +77,8 @@ export class SearchService {
       }
       completed++;
       onProgress({
-        completed,
-        total,
+        completed: completed,
+        total: total,
         results: [...results],
         isFinished: completed >= total,
       });
@@ -87,7 +97,7 @@ export class SearchService {
 
   /** 添加搜索历史 */
   static addHistory(keyword: string): void {
-    let history = this.getHistory();
+    let history = SearchService.getHistory();
     // 去重
     history = history.filter((h) => h !== keyword);
     history.unshift(keyword);
@@ -105,7 +115,7 @@ export class SearchService {
 
   /** 删除单条历史 */
   static removeHistoryItem(keyword: string): void {
-    const history = this.getHistory().filter((h) => h !== keyword);
+    const history = SearchService.getHistory().filter((h) => h !== keyword);
     AppStorage.setOrCreate(HISTORY_KEY, JSON.stringify(history));
   }
 }

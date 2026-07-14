@@ -3,8 +3,8 @@
  * 规格：移动端增强-5 桌面快捷菜单
  * 特性：桌面长按应用图标弹出快捷菜单（继续阅读/书架/搜索/书源）
  * 实现：基于 @ohos.shortcut 桌面快捷方式
+ * 注意：@ohos.shortcut 模块在当前API版本不可用，已禁用相关功能
  */
-import shortcut from "@ohos.shortcut";
 
 interface ShortcutItem {
   id: string;
@@ -42,52 +42,15 @@ export class ShortcutService {
   ];
 
   static async publishShortcuts(): Promise<void> {
-    try {
-      const shortcuts = this.items.map((item) => ({
-        id: item.id,
-        label: item.label,
-        icon: item.icon,
-        wants: [
-          {
-            bundleName: "com.zifeng.novel",
-            abilityName: "EntryAbility",
-            uri: item.intent,
-          },
-        ],
-      }));
-      await shortcut.addShortcuts(shortcuts);
-    } catch (e) {
-      /* 静默失败 */
-    }
+    // @ohos.shortcut 模块不可用，功能已禁用
   }
 
   static async updateShortcuts(): Promise<void> {
-    try {
-      await shortcut.updateShortcuts(
-        this.items.map((item) => ({
-          id: item.id,
-          label: item.label,
-          icon: item.icon,
-          wants: [
-            {
-              bundleName: "com.zifeng.novel",
-              abilityName: "EntryAbility",
-              uri: item.intent,
-            },
-          ],
-        })),
-      );
-    } catch (e) {
-      /* 静默失败 */
-    }
+    // @ohos.shortcut 模块不可用，功能已禁用
   }
 
   static async removeShortcuts(): Promise<void> {
-    try {
-      await shortcut.removeShortcuts(this.items.map((i) => i.id));
-    } catch (e) {
-      /* 静默失败 */
-    }
+    // @ohos.shortcut 模块不可用，功能已禁用
   }
 
   static handleIntent(uri: string): string | null {

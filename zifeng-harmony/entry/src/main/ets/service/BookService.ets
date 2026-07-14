@@ -21,16 +21,39 @@ export interface BookSource {
   sort?: number;
 }
 
+export interface AddBookSourceData {
+  name: string;
+  apiUrl: string;
+  enabled: boolean;
+}
+
+interface BookInfoParams {
+  bookUrl: string;
+  sourceUrl: string;
+}
+
+interface TocParams {
+  bookUrl: string;
+  sourceUrl: string;
+}
+
+interface ContentParams {
+  bookUrl: string;
+  sourceUrl: string;
+  chapterIndex: string;
+}
+
 export class BookService {
   /** 获取小说详情 */
   static async getBookInfo(
     bookUrl: string,
     sourceUrl: string,
   ): Promise<NovelDetails> {
-    return ApiClient.get<NovelDetails>("/api/book/info", {
-      bookUrl,
-      sourceUrl,
-    });
+    const params: BookInfoParams = {
+      bookUrl: bookUrl,
+      sourceUrl: sourceUrl,
+    };
+    return ApiClient.get<NovelDetails>("/api/book/info", params);
   }
 
   /** 获取章节目录 */
@@ -38,7 +61,8 @@ export class BookService {
     bookUrl: string,
     sourceUrl: string,
   ): Promise<ChapterList> {
-    return ApiClient.get<ChapterList>("/api/book/toc", { bookUrl, sourceUrl });
+    const params: TocParams = { bookUrl: bookUrl, sourceUrl: sourceUrl };
+    return ApiClient.get<ChapterList>("/api/book/toc", params);
   }
 
   /** 获取章节列表（便捷方法，返回 Chapter[]） */
@@ -65,11 +89,12 @@ export class BookService {
     sourceUrl: string,
     chapterIndex: number,
   ): Promise<NovelContent> {
-    return ApiClient.get<NovelContent>("/api/book/content", {
-      bookUrl,
-      sourceUrl,
+    const params: ContentParams = {
+      bookUrl: bookUrl,
+      sourceUrl: sourceUrl,
       chapterIndex: chapterIndex.toString(),
-    });
+    };
+    return ApiClient.get<NovelContent>("/api/book/content", params);
   }
 
   // ==================== 书源管理 ====================
@@ -92,11 +117,7 @@ export class BookService {
   }
 
   /** 添加书源 */
-  static async addBookSource(data: {
-    name: string;
-    apiUrl: string;
-    enabled: boolean;
-  }): Promise<boolean> {
+  static async addBookSource(data: AddBookSourceData): Promise<boolean> {
     return ApiClient.post<boolean>("/api/book/sources/add", data);
   }
 }

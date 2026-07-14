@@ -20,7 +20,44 @@ export interface LoginResult {
 
 export interface CaptchaResult {
   captchaId: string;
-  captchaImage: string; // base64
+  captchaImage: string;
+}
+
+export interface VerifyUserResult {
+  username: string;
+  email: string;
+}
+
+export interface CurrentUserResult {
+  username: string;
+  avatar: string;
+}
+
+interface LoginBody {
+  username: string;
+  password: string;
+  rememberMe: boolean;
+  captchaId: string;
+  captchaCode: string;
+}
+
+interface RegisterBody {
+  username: string;
+  password: string;
+  email: string;
+  captchaId: string;
+  captchaCode: string;
+}
+
+interface VerifyUserParams {
+  username: string;
+  email: string;
+}
+
+interface ResetPasswordBody {
+  username: string;
+  email: string;
+  newPassword: string;
 }
 
 export class AuthService {
@@ -37,13 +74,14 @@ export class AuthService {
     captchaId: string,
     captchaCode: string,
   ): Promise<LoginResult> {
-    const result = await ApiClient.post<LoginResult>("/api/user/login", {
-      username,
-      password,
-      rememberMe,
-      captchaId,
-      captchaCode,
-    });
+    const body: LoginBody = {
+      username: username,
+      password: password,
+      rememberMe: rememberMe,
+      captchaId: captchaId,
+      captchaCode: captchaCode,
+    };
+    const result = await ApiClient.post<LoginResult>("/api/user/login", body);
     await ApiClient.setToken(result.token);
     return result;
   }
@@ -56,21 +94,23 @@ export class AuthService {
     captchaId: string,
     captchaCode: string,
   ): Promise<boolean> {
-    return ApiClient.post<boolean>("/api/user/register", {
-      username,
-      password,
-      email,
-      captchaId,
-      captchaCode,
-    });
+    const body: RegisterBody = {
+      username: username,
+      password: password,
+      email: email,
+      captchaId: captchaId,
+      captchaCode: captchaCode,
+    };
+    return ApiClient.post<boolean>("/api/user/register", body);
   }
 
   /** 验证用户身份（重置密码 Step 0） */
   static async verifyUserForReset(
     username: string,
     email: string,
-  ): Promise<{ username: string; email: string }> {
-    return ApiClient.get("/api/user/verifyUserForReset", { username, email });
+  ): Promise<VerifyUserResult> {
+    const params: VerifyUserParams = { username: username, email: email };
+    return ApiClient.get<VerifyUserResult>("/api/user/verifyUserForReset", params);
   }
 
   /** 重置密码（重置密码 Step 1） */
@@ -79,17 +119,18 @@ export class AuthService {
     email: string,
     newPassword: string,
   ): Promise<boolean> {
-    return ApiClient.post<boolean>("/api/user/resetPasswordDev", {
-      username,
-      email,
-      newPassword,
-    });
+    const body: ResetPasswordBody = {
+      username: username,
+      email: email,
+      newPassword: newPassword,
+    };
+    return ApiClient.post<boolean>("/api/user/resetPasswordDev", body);
   }
 
   /** 退出登录 */
   static async logout(): Promise<void> {
     try {
-      await ApiClient.post("/api/user/logout");
+      await ApiClient.post<void>("/api/user/logout");
     } finally {
       await ApiClient.clearToken();
     }
@@ -102,17 +143,17 @@ export class AuthService {
   }
 
   /** 获取当前登录用户信息 */
-  static async getCurrentUser(): Promise<{ username: string; avatar: string }> {
+  static async getCurrentUser(): Promise<CurrentUserResult> {
     const token = await ApiClient.getToken();
     if (!token) {
-      return { username: '', avatar: '' };
+      return { username: '', avatar: '' } as CurrentUserResult;
     }
     try {
-      return await ApiClient.get<{ username: string; avatar: string }>("/api/user/info");
+      return await ApiClient.get<CurrentUserResult>("/api/user/info");
     } catch (e) {
       const username = AppStorage.get<string>("username") ?? "";
       const avatar = AppStorage.get<string>("avatar") ?? "";
-      return { username, avatar };
+      return { username: username, avatar: avatar } as CurrentUserResult;
     }
   }
 }

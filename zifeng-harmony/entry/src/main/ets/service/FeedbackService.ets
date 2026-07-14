@@ -19,17 +19,31 @@ export interface FeedbackItem {
   createdAt: string;
 }
 
+interface FeedbackTypeLabels {
+  suggestion: string;
+  bug: string;
+  content: string;
+  other: string;
+}
+
+interface FeedbackStatusLabels {
+  pending: string;
+  processing: string;
+  resolved: string;
+  closed: string;
+}
+
 /** 别名：反馈项（对齐 UI 层命名） */
 export type Feedback = FeedbackItem;
 
-const TYPE_LABELS: Record<FeedbackType, string> = {
+const TYPE_LABELS: FeedbackTypeLabels = {
   suggestion: "功能建议",
   bug: "问题反馈",
   content: "内容问题",
   other: "其他",
 };
 
-const STATUS_LABELS: Record<FeedbackStatus, string> = {
+const STATUS_LABELS: FeedbackStatusLabels = {
   pending: "待处理",
   processing: "处理中",
   resolved: "已解决",
@@ -42,16 +56,21 @@ export interface FeedbackWithLabels extends FeedbackItem {
   statusLabel: string;
 }
 
+export interface FeedbackSubmitData {
+  type: FeedbackType;
+  content: string;
+  contact?: string;
+}
+
 export class FeedbackService {
-  /** 提交反馈（支持对象参数） */
   static async submit(
-    typeOrData: FeedbackType | { type: FeedbackType; content: string; contact?: string },
+    typeOrData: FeedbackType | FeedbackSubmitData,
     content?: string,
     contact?: string,
   ): Promise<boolean> {
-    let data: { type: FeedbackType; content: string; contact?: string };
+    let data: FeedbackSubmitData;
     if (typeof typeOrData === "string") {
-      data = { type: typeOrData, content: content ?? "", contact };
+      data = { type: typeOrData, content: content ?? "", contact: contact } as FeedbackSubmitData;
     } else {
       data = typeOrData;
     }
@@ -66,10 +85,33 @@ export class FeedbackService {
   /** 获取我的反馈（别名，附带标签字段） */
   static async getMyFeedback(): Promise<FeedbackWithLabels[]> {
     const list = await FeedbackService.getHistory();
-    return list.map((item) => ({
-      ...item,
-      typeLabel: TYPE_LABELS[item.type] ?? item.type,
-      statusLabel: STATUS_LABELS[item.status] ?? item.status,
-    }));
+    const result: FeedbackWithLabels[] = [];
+    for (const item of list) {
+      let typeLabel: string = item.type;
+      if (item.type === 'suggestion') typeLabel = TYPE_LABELS.suggestion;
+      else if (item.type === 'bug') typeLabel = TYPE_LABELS.bug;
+      else if (item.type === 'content') typeLabel = TYPE_LABELS.content;
+      else if (item.type === 'other') typeLabel = TYPE_LABELS.other;
+
+      let statusLabel: string = item.status;
+      if (item.status === 'pending') statusLabel = STATUS_LABELS.pending;
+      else if (item.status === 'processing') statusLabel = STATUS_LABELS.processing;
+      else if (item.status === 'resolved') statusLabel = STATUS_LABELS.resolved;
+      else if (item.status === 'closed') statusLabel = STATUS_LABELS.closed;
+
+      const labeled: FeedbackWithLabels = {
+        id: item.id,
+        type: item.type,
+        content: item.content,
+        contact: item.contact,
+        status: item.status,
+        reply: item.reply,
+        createdAt: item.createdAt,
+        typeLabel: typeLabel,
+        statusLabel: statusLabel,
+      };
+      result.push(labeled);
+    }
+    return result;
   }
 }

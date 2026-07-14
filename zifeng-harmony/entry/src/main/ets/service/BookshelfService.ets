@@ -32,7 +32,36 @@ export type ReadingRecord = ReadingHistoryItem;
 /** 阅读进度信息 */
 export interface ReadingProgressInfo {
   chapterIndex: number;
-  percentage: number; // 0-1
+  percentage: number;
+}
+
+export interface ShelfAddData {
+  bookUrl: string;
+  sourceUrl: string;
+  title?: string;
+  author?: string;
+  cover?: string;
+  summary?: string;
+  category?: string;
+  sourceName?: string;
+  score?: number;
+  viewCount?: number;
+  wordCount?: string;
+  status?: string;
+  latestChapter?: string;
+  id?: string;
+}
+
+interface SaveProgressBody {
+  bookUrl: string;
+  chapterIndex: number;
+  chapterTitle: string;
+  scrollProgress: number;
+}
+
+interface UpdateLastChapterBody {
+  bookUrl: string;
+  lastChapter: string;
 }
 
 export class BookshelfService {
@@ -52,7 +81,7 @@ export class BookshelfService {
   }
 
   /** 加入书架（别名，接受部分字段） */
-  static async addToShelf(novel: Partial<NovelItem> & { bookUrl: string; sourceUrl: string }): Promise<boolean> {
+  static async addToShelf(novel: ShelfAddData): Promise<boolean> {
     return ApiClient.post<boolean>("/api/bookshelf/add", novel);
   }
 
@@ -89,12 +118,14 @@ export class BookshelfService {
     const history = await BookshelfService.getReadingHistory();
     const item = history.find((h) => h.bookUrl === bookUrl);
     if (item) {
-      return {
+      const info: ReadingProgressInfo = {
         chapterIndex: item.lastChapterIndex,
         percentage: item.progress / 100,
       };
+      return info;
     }
-    return { chapterIndex: 0, percentage: 0 };
+    const defaultInfo: ReadingProgressInfo = { chapterIndex: 0, percentage: 0 };
+    return defaultInfo;
   }
 
   /** 清空阅读历史 */
@@ -126,12 +157,13 @@ export class BookshelfService {
     chapterTitle: string,
     scrollProgress: number,
   ): Promise<boolean> {
-    return ApiClient.post<boolean>("/api/bookshelf/progress", {
-      bookUrl,
-      chapterIndex,
-      chapterTitle,
-      scrollProgress,
-    });
+    const body: SaveProgressBody = {
+      bookUrl: bookUrl,
+      chapterIndex: chapterIndex,
+      chapterTitle: chapterTitle,
+      scrollProgress: scrollProgress,
+    };
+    return ApiClient.post<boolean>("/api/bookshelf/progress", body);
   }
 
   /** 保存阅读进度（便捷方法） */
@@ -184,10 +216,11 @@ export class BookshelfService {
     lastChapter: string,
   ): Promise<boolean> {
     try {
-      return await ApiClient.post<boolean>("/api/bookshelf/updateLastChapter", {
-        bookUrl,
-        lastChapter,
-      });
+      const body: UpdateLastChapterBody = {
+        bookUrl: bookUrl,
+        lastChapter: lastChapter,
+      };
+      return await ApiClient.post<boolean>("/api/bookshelf/updateLastChapter", body);
     } catch (e) {
       /* 服务端不支持时静默失败，保留本地标记 */
       return false;

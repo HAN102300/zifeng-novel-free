@@ -16,6 +16,12 @@ export interface Category {
 
 export type SortType = "hot" | "new" | "completed";
 
+interface CategoryNovelsParams {
+  categoryId: string;
+  page: string;
+  sort: SortType;
+}
+
 export class CategoryService {
   /** 获取所有分类 */
   static async getCategories(): Promise<Category[]> {
@@ -28,10 +34,11 @@ export class CategoryService {
     page: number = 1,
     sort: SortType = "hot",
   ): Promise<NovelItem[]> {
-    return ApiClient.get<NovelItem[]>("/api/category/novels", {
-      categoryId,
+    const params: CategoryNovelsParams = {
+      categoryId: categoryId,
       page: page.toString(),
-      sort,
-    });
+      sort: sort,
+    };
+    return ApiClient.get<NovelItem[]>("/api/category/novels", params);
   }
 }

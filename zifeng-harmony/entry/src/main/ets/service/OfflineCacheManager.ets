@@ -5,6 +5,7 @@
  * 实现：基于 @ohos.file.fs 文件系统 + JSON 序列化
  */
 import fs from "@ohos.file.fs";
+import { util } from "@kit.ArkTS";
 import { NovelContent } from "../model/NovelModels";
 
 interface CacheIndex {
@@ -17,18 +18,18 @@ export class OfflineCacheManager {
   private static cacheDir: string = "";
 
   private static async ensureDir(): Promise<string> {
-    if (this.cacheDir.length > 0) return this.cacheDir;
-    const context = getContext(this);
-    this.cacheDir = `${context.cacheDir}/novel_cache`;
-    if (!fs.accessSync(this.cacheDir)) {
-      fs.mkdirSync(this.cacheDir, true);
+    if (OfflineCacheManager.cacheDir.length > 0) return OfflineCacheManager.cacheDir;
+    const context = getContext(OfflineCacheManager);
+    OfflineCacheManager.cacheDir = `${context.cacheDir}/novel_cache`;
+    if (!fs.accessSync(OfflineCacheManager.cacheDir)) {
+      fs.mkdirSync(OfflineCacheManager.cacheDir, true);
     }
-    return this.cacheDir;
+    return OfflineCacheManager.cacheDir;
   }
 
   private static chapterKey(bookUrl: string, chapterIndex: number): string {
     // 简单 hash 避免文件名非法字符
-    const safe = bookUrl.replace(/[^a-zA-Z0-9]/g, "_");
+    const safe = bookUrl.replace(new RegExp("[^a-zA-Z0-9]", "g"), "_");
     return `${safe}_${chapterIndex}`;
   }
 
@@ -37,8 +38,8 @@ export class OfflineCacheManager {
     chapterIndex: number,
     content: NovelContent,
   ): Promise<void> {
-    const dir = await this.ensureDir();
-    const filePath = `${dir}/${this.chapterKey(bookUrl, chapterIndex)}.json`;
+    const dir = await OfflineCacheManager.ensureDir();
+    const filePath = `${dir}/${OfflineCacheManager.chapterKey(bookUrl, chapterIndex)}.json`;
     const file = fs.openSync(
       filePath,
       fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE,
@@ -49,23 +50,22 @@ export class OfflineCacheManager {
     } finally {
       fs.closeSync(file);
     }
-    // 更新索引
-    await this.updateIndex(bookUrl, chapterIndex);
+    await OfflineCacheManager.updateIndex(bookUrl, chapterIndex);
   }
 
   static async getCachedContent(
     bookUrl: string,
     chapterIndex: number,
   ): Promise<NovelContent | null> {
-    const dir = await this.ensureDir();
-    const filePath = `${dir}/${this.chapterKey(bookUrl, chapterIndex)}.json`;
+    const dir = await OfflineCacheManager.ensureDir();
+    const filePath = `${dir}/${OfflineCacheManager.chapterKey(bookUrl, chapterIndex)}.json`;
     if (!fs.accessSync(filePath)) return null;
     const file = fs.openSync(filePath, fs.OpenMode.READ_ONLY);
     try {
       const stat = fs.statSync(filePath);
       const buf = new ArrayBuffer(stat.size);
       fs.readSync(file.fd, buf);
-      const text = new TextDecoder().decode(buf);
+      const text = util.TextDecoder.create('utf-8').decodeWithStream(new Uint8Array(buf));
       return JSON.parse(text) as NovelContent;
     } catch (e) {
       return null;
@@ -80,24 +80,25 @@ export class OfflineCacheManager {
     currentIndex: number,
   ): Promise<void> {
     const nextIndex = currentIndex + 1;
-    const cached = await this.getCachedContent(bookUrl, nextIndex);
+    const cached = await OfflineCacheManager.getCachedContent(bookUrl, nextIndex);
     if (cached) return;
     try {
-      const { BookService } = await import("./BookService");
+      const mod = await import("./BookService");
+      const BookService = mod.BookService;
       const content = await BookService.getChapterContent(
         bookUrl,
         sourceUrl,
         nextIndex,
       );
-      if (content) await this.cacheContent(bookUrl, nextIndex, content);
+      if (content) await OfflineCacheManager.cacheContent(bookUrl, nextIndex, content);
     } catch (e) {
       /* 静默失败 */
     }
   }
 
   static async getCacheSize(): Promise<number> {
-    const dir = await this.ensureDir();
-    return this.calcDirSize(dir);
+    const dir = await OfflineCacheManager.ensureDir();
+    return OfflineCacheManager.calcDirSize(dir);
   }
 
   private static calcDirSize(dir: string): number {
@@ -108,7 +109,7 @@ export class OfflineCacheManager {
       const full = `${dir}/${name}`;
       const stat = fs.statSync(full);
       if (stat.isDirectory()) {
-        total += this.calcDirSize(full);
+        total += OfflineCacheManager.calcDirSize(full);
       } else {
         total += stat.size;
       }
@@ -117,7 +118,7 @@ export class OfflineCacheManager {
   }
 
   static async clearAll(): Promise<void> {
-    const dir = await this.ensureDir();
+    const dir = await OfflineCacheManager.ensureDir();
     if (!fs.accessSync(dir)) return;
     const entries = fs.listFileSync(dir);
     for (const name of entries) {
@@ -130,8 +131,8 @@ export class OfflineCacheManager {
   }
 
   static async clearBook(bookUrl: string): Promise<void> {
-    const dir = await this.ensureDir();
-    const safe = bookUrl.replace(/[^a-zA-Z0-9]/g, "_");
+    const dir = await OfflineCacheManager.ensureDir();
+    const safe = bookUrl.replace(new RegExp("[^a-zA-Z0-9]", "g"), "_");
     const entries = fs.listFileSync(dir);
     for (const name of entries) {
       if (name.startsWith(safe)) {
@@ -148,7 +149,7 @@ export class OfflineCacheManager {
     bookUrl: string,
     chapterIndex: number,
   ): Promise<void> {
-    const dir = await this.ensureDir();
+    const dir = await OfflineCacheManager.ensureDir();
     const indexPath = `${dir}/_index.json`;
     let indexes: CacheIndex[] = [];
     if (fs.accessSync(indexPath)) {
@@ -158,14 +159,14 @@ export class OfflineCacheManager {
         const buf = new ArrayBuffer(stat.size);
         fs.readSync(file.fd, buf);
         fs.closeSync(file);
-        indexes = JSON.parse(new TextDecoder().decode(buf)) as CacheIndex[];
+        indexes = JSON.parse(util.TextDecoder.create('utf-8').decodeWithStream(new Uint8Array(buf))) as CacheIndex[];
       } catch (e) {
         /* 忽略 */
       }
     }
     let entry = indexes.find((i) => i.bookUrl === bookUrl);
     if (!entry) {
-      entry = { bookUrl, chapters: [], updatedAt: Date.now() };
+      entry = { bookUrl: bookUrl, chapters: [], updatedAt: Date.now() } as CacheIndex;
       indexes.push(entry);
     }
     if (!entry.chapters.includes(chapterIndex)) {
@@ -184,7 +185,7 @@ export class OfflineCacheManager {
   }
 
   static async getCachedChapters(bookUrl: string): Promise<number[]> {
-    const dir = await this.ensureDir();
+    const dir = await OfflineCacheManager.ensureDir();
     const indexPath = `${dir}/_index.json`;
     if (!fs.accessSync(indexPath)) return [];
     try {
@@ -193,7 +194,7 @@ export class OfflineCacheManager {
       const buf = new ArrayBuffer(stat.size);
       fs.readSync(file.fd, buf);
       fs.closeSync(file);
-      const indexes = JSON.parse(new TextDecoder().decode(buf)) as CacheIndex[];
+      const indexes = JSON.parse(util.TextDecoder.create('utf-8').decodeWithStream(new Uint8Array(buf))) as CacheIndex[];
       return indexes.find((i) => i.bookUrl === bookUrl)?.chapters ?? [];
     } catch (e) {
       return [];

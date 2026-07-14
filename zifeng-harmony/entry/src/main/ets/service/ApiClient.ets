@@ -34,7 +34,7 @@ export class ApiClient {
       );
       const url = (await pref.get(BASE_URL_KEY, "")) as string;
       if (url) {
-        this.baseUrl = url;
+        ApiClient.baseUrl = url;
       }
     } catch (e) {
       console.warn("ApiClient init: using default baseUrl");
@@ -43,7 +43,7 @@ export class ApiClient {
 
   /** 设置 baseUrl */
   static async setBaseUrl(url: string): Promise<void> {
-    this.baseUrl = url;
+    ApiClient.baseUrl = url;
     const pref = await preference.getPreferences(
       globalThis.context,
       "app_config",
@@ -79,55 +79,52 @@ export class ApiClient {
   /** GET 请求 */
   static async get<T>(
     path: string,
-    params?: Record<string, string>,
+    params?: Object,
   ): Promise<T> {
-    const url = this.buildUrl(path, params);
-    return this.request<T>("GET", url);
+    const url = ApiClient.buildUrl(path, params);
+    return ApiClient.request<T>("GET", url);
   }
 
   /** POST 请求 */
-  static async post<T>(path: string, body?: object): Promise<T> {
-    const url = this.buildUrl(path);
-    return this.request<T>("POST", url, body);
+  static async post<T>(path: string, body?: Object): Promise<T> {
+    const url = ApiClient.buildUrl(path);
+    return ApiClient.request<T>("POST", url, body);
   }
 
   /** PUT 请求 */
-  static async put<T>(path: string, body?: object): Promise<T> {
-    const url = this.buildUrl(path);
-    return this.request<T>("PUT", url, body);
+  static async put<T>(path: string, body?: Object): Promise<T> {
+    const url = ApiClient.buildUrl(path);
+    return ApiClient.request<T>("PUT", url, body);
   }
 
   /** DELETE 请求 */
   static async delete<T>(path: string): Promise<T> {
-    const url = this.buildUrl(path);
-    return this.request<T>("DELETE", url);
+    const url = ApiClient.buildUrl(path);
+    return ApiClient.request<T>("DELETE", url);
   }
 
   /** 核心请求方法 */
   private static async request<T>(
     method: string,
     url: string,
-    body?: object,
+    body?: Object,
   ): Promise<T> {
     const httpReq = http.createHttp();
-    const token = await this.getToken();
-
-    const header: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (token) {
-      header["Authorization"] = `Bearer ${token}`;
-    }
+    const token = await ApiClient.getToken();
 
     try {
-      const response = await httpReq.request(url, {
+      const options: http.HttpRequestOptions = {
         method: method as http.RequestMethod,
-        header,
+        header: {
+          "Content-Type": "application/json",
+          "Authorization": token ? `Bearer ${token}` : "",
+        },
         extraData: body ? JSON.stringify(body) : undefined,
         connectTimeout: DEFAULT_TIMEOUT,
         readTimeout: DEFAULT_TIMEOUT,
         expectDataType: http.HttpDataType.STRING,
-      });
+      };
+      const response = await httpReq.request(url, options);
 
       if (response.responseCode >= 200 && response.responseCode < 300) {
         const result = JSON.parse(response.result as string) as ApiResponse<T>;
@@ -136,7 +133,7 @@ export class ApiClient {
         }
         throw new Error(result.message || "请求失败");
       } else if (response.responseCode === 401) {
-        await this.clearToken();
+        await ApiClient.clearToken();
         throw new Error("登录已过期，请重新登录");
       } else {
         throw new Error(`HTTP ${response.responseCode}`);
@@ -149,14 +146,17 @@ export class ApiClient {
   /** 构建完整 URL */
   private static buildUrl(
     path: string,
-    params?: Record<string, string>,
+    params?: Object,
   ): string {
-    let url = `${this.baseUrl}${path}`;
+    let url = `${ApiClient.baseUrl}${path}`;
     if (params) {
-      const query = Object.entries(params)
-        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+      const entries = Object.entries(params as Record<string, string>);
+      const query = entries
+        .map((entry: [string, string]) => `${encodeURIComponent(entry[0])}=${encodeURIComponent(entry[1])}`)
         .join("&");
-      url += `?${query}`;
+      if (query.length > 0) {
+        url += `?${query}`;
+      }
     }
     return url;
   }
