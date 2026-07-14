@@ -18,6 +18,9 @@ export default class EntryAbility extends UIAbility {
   async onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): Promise<void> {
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onCreate');
 
+    // 设置全局 context（供 ApiClient 偏好存储使用）
+    globalThis.context = this.context;
+
     // 1. 初始化主题（从 AppStorage 恢复用户偏好）
     ThemeManager.init();
 

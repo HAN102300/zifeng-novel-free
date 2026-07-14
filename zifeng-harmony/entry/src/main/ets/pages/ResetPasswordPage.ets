@@ -11,6 +11,9 @@ import { ThemeManager } from '../service/ThemeManager'
 import { AuthService, VerifyUserResult } from '../service/AuthService'
 import { BackButton } from '../common/BackButton'
 import { promptAction } from '@kit.ArkUI'
+import { fileIo, fileUri } from '@kit.CoreFileKit'
+import { common } from '@kit.AbilityKit'
+import { buffer } from '@kit.ArkTS'
 
 @Entry
 @Component
@@ -34,9 +37,25 @@ struct ResetPasswordPage {
     try {
       const result = await AuthService.getCaptcha()
       this.captchaId = result.captchaId
-      this.captchaImage = result.captchaImage
+      this.captchaImage = await this.base64ToFileUri(result.image)
     } catch (e) {
       promptAction.showToast({ message: '验证码加载失败' })
+    }
+  }
+
+  private async base64ToFileUri(dataUrl: string): Promise<string> {
+    try {
+      const base64Str = dataUrl.substring(dataUrl.indexOf(',') + 1)
+      const dataBuffer = buffer.from(base64Str, 'base64')
+      const context = getContext(this) as common.UIAbilityContext
+      const filePath = context.filesDir + '/captcha.png'
+      const file = fileIo.openSync(filePath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
+      fileIo.writeSync(file.fd, dataBuffer.buffer)
+      fileIo.closeSync(file)
+      return fileUri.getUriFromPath(filePath)
+    } catch (e) {
+      console.warn('captcha save file failed:', (e as Error).message)
+      return ''
     }
   }
 
@@ -124,7 +143,11 @@ struct ResetPasswordPage {
               .height(48).layoutWeight(1)
               .onChange((val) => { this.captchaCode = val })
             Image(this.captchaImage)
-              .width(100).height(48).margin({ left: AppSpacing.S2 })
+              .width(120).height(44)
+              .borderRadius(AppRadius.R_SM)
+              .objectFit(ImageFit.Cover)
+              .backgroundColor('#FFFFFF')
+              .margin({ left: AppSpacing.S2 })
               .onClick(() => this.refreshCaptcha())
           }
           .margin({ bottom: AppSpacing.S4 })

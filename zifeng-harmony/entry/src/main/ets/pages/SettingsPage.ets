@@ -11,6 +11,7 @@ import { GlassCard } from '../common/GlassCard'
 import { BackButton } from '../common/BackButton'
 import { ThemeSelector } from '../components/ThemeSelector'
 import { OfflineCacheManager } from '../service/OfflineCacheManager'
+import { ApiClient } from '../service/ApiClient'
 import { promptAction } from '@kit.ArkUI'
 
 @Entry
@@ -22,10 +23,18 @@ struct SettingsPage {
   @State fontSize: number = 18
   @State lineHeight: number = 1.8
   @State cacheSize: string = '计算中...'
+  @State serverUrl: string = ''
+  @State showServerDialog: boolean = false
+  @State serverInput: string = ''
 
   aboutToAppear() {
     this.loadSettings()
     this.calculateCache()
+    this.loadServerUrl()
+  }
+
+  private async loadServerUrl() {
+    this.serverUrl = ApiClient.getBaseUrl()
   }
 
   private loadSettings() {
@@ -47,6 +56,20 @@ struct SettingsPage {
     this.cacheSize = size < 1024 * 1024
       ? `${Math.round(size / 1024)} KB`
       : `${(size / 1024 / 1024).toFixed(1)} MB`
+  }
+
+  private editServerUrl() {
+    this.serverInput = this.serverUrl
+    this.showServerDialog = true
+  }
+
+  private async saveServerUrl() {
+    const url = this.serverInput.trim()
+    if (url.length === 0) return
+    await ApiClient.setBaseUrl(url)
+    this.serverUrl = url
+    this.showServerDialog = false
+    promptAction.showToast({ message: '服务器地址已更新' })
   }
 
   private selectTheme(key: string) {
@@ -168,6 +191,55 @@ struct SettingsPage {
                 .fontColor(ThemeManager.getAccent('Rose'))
                 .onClick(() => this.clearCache())
             }
+          }
+
+          // 服务器地址
+          GlassCard({ cardPadding: AppSpacing.S4, cardMarginLeft: AppSpacing.S4, cardMarginRight: AppSpacing.S4, cardMarginBottom: AppSpacing.S3 }) {
+            Column() {
+              Row() {
+                Text('服务器地址')
+                  .fontSize(AppTypography.SIZE_BODY)
+                  .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
+                  .layoutWeight(1)
+                if (!this.showServerDialog) {
+                  Text('修改')
+                    .fontSize(AppTypography.SIZE_BODY_SMALL)
+                    .fontColor(ThemeManager.getPrimaryColor())
+                    .onClick(() => this.editServerUrl())
+                }
+              }
+              if (this.showServerDialog) {
+                TextInput({ placeholder: 'http://10.0.2.2:8088', text: this.serverInput })
+                  .height(44)
+                  .fontSize(AppTypography.SIZE_BODY)
+                  .margin({ top: AppSpacing.S3 })
+                  .onChange((val: string) => { this.serverInput = val })
+                Row() {
+                  Button('取消')
+                    .height(36)
+                    .layoutWeight(1)
+                    .backgroundColor(ThemeManager.getNeutral('BG_ELEVATED'))
+                    .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
+                    .onClick(() => { this.showServerDialog = false })
+                  Button('保存')
+                    .height(36)
+                    .layoutWeight(1)
+                    .margin({ left: AppSpacing.S3 })
+                    .backgroundColor(ThemeManager.getPrimaryColor())
+                    .fontColor('#FFFFFF')
+                    .onClick(() => this.saveServerUrl())
+                }
+                .margin({ top: AppSpacing.S3 })
+              } else {
+                Text(this.serverUrl)
+                  .fontSize(AppTypography.SIZE_CAPTION)
+                  .fontColor(ThemeManager.getNeutral('TEXT_MUTED'))
+                  .margin({ top: AppSpacing.S1 })
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+              }
+            }
+            .alignItems(HorizontalAlign.Start)
           }
 
           // 关于

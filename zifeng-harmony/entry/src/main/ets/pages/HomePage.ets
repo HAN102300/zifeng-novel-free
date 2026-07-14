@@ -36,6 +36,23 @@ struct HomePage {
   @State isLoggedIn: boolean = false
   private searchInput: string = ''
 
+  @Builder UserAvatar() {
+    Row() {
+      Text('我')
+        .fontSize(13)
+        .fontColor(Color.White)
+        .fontWeight(FontWeight.Bold)
+        .textAlign(TextAlign.Center)
+        .width(28).height(28)
+        .borderRadius(14)
+        .backgroundColor(ThemeManager.getPrimaryColor())
+    }
+    .justifyContent(FlexAlign.Center)
+    .onClick(() => {
+      router.pushUrl({ url: 'pages/UserCenterPage' })
+    })
+  }
+
   aboutToAppear() {
     this.loadData()
   }
@@ -87,12 +104,7 @@ struct HomePage {
         scrollOffset: this.scrollOffset,
         showBack: false,
         rightContent: () => {
-          Image($r('app.media.user'))
-            .width(28).height(28)
-            .borderRadius(14)
-            .onClick(() => {
-              router.pushUrl({ url: 'pages/UserCenterPage' })
-            })
+          this.UserAvatar()
         }
       })
 
