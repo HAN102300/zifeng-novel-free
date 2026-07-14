@@ -13,6 +13,7 @@ import { ThemeManager } from '../service/ThemeManager'
 import { AuthService } from '../service/AuthService'
 import { ParticleEffects } from '../common/ParticleEffects'
 import { promptAction } from '@kit.ArkUI'
+import TextLogo from '../components/TextLogo'
 
 @Entry
 @Component
@@ -99,7 +100,7 @@ struct RegisterPage {
       Column() {
         Blank().layoutWeight(0.3)
 
-        Image($r('app.media.yan')).width(72).height(72)
+        TextLogo({ mode: 'nav' })
         Text('创建账号')
           .fontSize(AppTypography.SIZE_H2)
           .fontWeight(FontWeight.Medium)

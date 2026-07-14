@@ -9,7 +9,7 @@ import { ThemeManager } from '../service/ThemeManager'
 import { BackButton } from '../common/BackButton'
 import { RankItem } from '../components/RankItem'
 import { LoadingSkel } from '../common/LoadingSkel'
-import { RankService, RANK_CONFIGS, RankType } from '../service/RankService'
+import { RankService, RANK_CONFIGS, RankType, RankConfig } from '../service/RankService'
 import { NovelItem } from '../model/NovelItem'
 import { promptAction } from '@kit.ArkUI'
 
@@ -60,12 +60,12 @@ struct RankPage {
 
       // 榜单 Tab
       Tabs({ index: this.currentTab }) {
-        ForEach(RANK_CONFIGS, (config, index) => {
+        ForEach(RANK_CONFIGS, (config: RankConfig, index: number) => {
           TabContent() {
             if (this.isLoading) {
               Column() {
                 ForEach([0, 1, 2, 3, 4], () => {
-                  LoadingSkel({ shape: 'card', height: 80 })
+                  LoadingSkel({ shape: 'card', skelHeight: 80 })
                     .margin({ bottom: AppSpacing.S3, left: AppSpacing.S4, right: AppSpacing.S4 })
                 })
               }
@@ -77,7 +77,7 @@ struct RankPage {
                       rank: idx + 1,
                       novel: novel,
                       accentColor: config.accentColor,
-                      onClick: (n) => this.navigateToDetail(n)
+                       onNovelClick: (n: NovelItem): void => this.navigateToDetail(n)
                     })
                   }
                 })

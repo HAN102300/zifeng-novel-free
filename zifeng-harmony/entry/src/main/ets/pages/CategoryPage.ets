@@ -50,7 +50,7 @@ struct CategoryPage {
         Grid() {
           ForEach([0, 1, 2, 3, 4, 5, 6, 7], () => {
             GridItem() {
-              LoadingSkel({ shape: 'card', height: 100 })
+              LoadingSkel({ shape: 'card', skelHeight: 100 })
             }
           })
         }

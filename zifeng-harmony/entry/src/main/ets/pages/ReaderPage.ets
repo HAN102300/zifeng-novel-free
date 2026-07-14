@@ -4,7 +4,7 @@
  * 特性：字号/行距/主题可调、上下章切换、阅读进度自动保存、沉浸式工具栏
  */
 import { router } from '@kit.ArkUI'
-import { uiMaterial, curves } from '@kit.ArkUI'
+import { uiMaterial } from '@kit.ArkUI'
 import { AppTypography, AppSpacing, AppRadius, AppAnimation } from '../common/DesignSystem'
 import { ThemeManager } from '../service/ThemeManager'
 import { NovelContent } from '../model/NovelModels'
@@ -22,13 +22,27 @@ interface ReaderSettings {
   fontFamily: string
 }
 
-const READER_THEME_BG: Record<ReaderTheme, string> = {
+interface ReaderThemeBg {
+  light: string
+  sepia: string
+  dark: string
+  green: string
+}
+
+interface ReaderThemeText {
+  light: string
+  sepia: string
+  dark: string
+  green: string
+}
+
+const READER_THEME_BG: ReaderThemeBg = {
   light: '#FFFFFF',
   sepia: '#F5EDD8',
   dark: '#1A1A1A',
   green: '#C7EDCC'
 }
-const READER_THEME_TEXT: Record<ReaderTheme, string> = {
+const READER_THEME_TEXT: ReaderThemeText = {
   light: '#1E1B2E',
   sepia: '#5B4636',
   dark: '#E0E0E0',
@@ -151,6 +165,27 @@ struct ReaderPage {
     })
   }
 
+  private themeBg(): string {
+    if (this.settings.theme === 'sepia') return READER_THEME_BG.sepia
+    if (this.settings.theme === 'dark') return READER_THEME_BG.dark
+    if (this.settings.theme === 'green') return READER_THEME_BG.green
+    return READER_THEME_BG.light
+  }
+
+  private themeText(): string {
+    if (this.settings.theme === 'sepia') return READER_THEME_TEXT.sepia
+    if (this.settings.theme === 'dark') return READER_THEME_TEXT.dark
+    if (this.settings.theme === 'green') return READER_THEME_TEXT.green
+    return READER_THEME_TEXT.light
+  }
+
+  private getThemeBg(t: ReaderTheme): string {
+    if (t === 'sepia') return READER_THEME_BG.sepia
+    if (t === 'dark') return READER_THEME_BG.dark
+    if (t === 'green') return READER_THEME_BG.green
+    return READER_THEME_BG.light
+  }
+
   build() {
     Stack({ alignContent: Alignment.Bottom }) {
       // 阅读内容
@@ -158,10 +193,10 @@ struct ReaderPage {
         Column() {
           if (this.isLoading) {
             Column() {
-              LoadingProgress().color(READER_THEME_TEXT[this.settings.theme])
+              LoadingProgress().color(this.themeText())
               Text('加载中...')
                 .fontSize(AppTypography.SIZE_CAPTION)
-                .fontColor(READER_THEME_TEXT[this.settings.theme])
+                .fontColor(this.themeText())
                 .margin({ top: AppSpacing.S2 })
             }
             .width('100%')
@@ -170,26 +205,26 @@ struct ReaderPage {
             Text(this.content.title)
               .fontSize(24)
               .fontWeight(FontWeight.Medium)
-              .fontColor(READER_THEME_TEXT[this.settings.theme])
+              .fontColor(this.themeText())
               .margin({ bottom: AppSpacing.S6 })
             // CORRECTED: content is string[], join with double newlines
             Text(this.content.content.join('\n\n'))
               .fontSize(this.settings.fontSize)
               .lineHeight(this.settings.fontSize * this.settings.lineHeight)
-              .fontColor(READER_THEME_TEXT[this.settings.theme])
+              .fontColor(this.themeText())
               .fontFamily(this.settings.fontFamily)
             // 章节底部翻页
             Row() {
               Button('上一章')
                 .fontSize(AppTypography.SIZE_BODY_SMALL)
-                .fontColor(READER_THEME_TEXT[this.settings.theme])
+                .fontColor(this.themeText())
                 .backgroundColor(Color.Transparent)
                 .onClick(() => this.prevChapter())
               Text(`${this.currentChapterIndex + 1} / ${this.totalChapters}`)
                 .fontSize(AppTypography.SIZE_CAPTION)
-                .fontColor(READER_THEME_TEXT[this.settings.theme])
-                .layoutWeight(1)
-                .textAlign(TextAlign.Center)
+              .fontColor(this.themeText())
+              .layoutWeight(1)
+              .textAlign(TextAlign.Center)
               Button('下一章')
                 .fontSize(AppTypography.SIZE_BODY_SMALL)
                 .fontColor(ThemeManager.getPrimary(500))
@@ -205,7 +240,7 @@ struct ReaderPage {
         .alignItems(HorizontalAlign.Start)
       }
       .width('100%').height('100%')
-      .backgroundColor(READER_THEME_BG[this.settings.theme])
+      .backgroundColor(this.themeBg())
       .onClick(() => this.toggleToolbar())
 
       // 顶部工具栏（ULTRA_THIN 材质）
@@ -235,7 +270,7 @@ struct ReaderPage {
           interactive: false
         } as uiMaterial.ImmersiveOptions))
         .position({ x: 0, y: 0 })
-        .animation({ duration: AppAnimation.DUR_NORMAL, curve: curves.easeOutCubic })
+        .animation({ duration: AppAnimation.DUR_NORMAL, curve: Curve.EaseOut })
       }
 
       // 底部工具栏（THICK 材质）
@@ -306,7 +341,7 @@ struct ReaderPage {
                   Column()
                     .width(32).height(32)
                     .borderRadius(AppRadius.R_FULL)
-                    .backgroundColor(READER_THEME_BG[t])
+                    .backgroundColor(this.getThemeBg(t))
                     .border({
                       width: this.settings.theme === t ? 2 : 0.5,
                       color: this.settings.theme === t
@@ -330,14 +365,14 @@ struct ReaderPage {
               .layoutWeight(1)
               .textAlign(TextAlign.Center)
               .onClick(() => this.prevChapter())
-            Divider().vertical().height(20).color(ThemeManager.getNeutral('BORDER_LIGHT'))
+            Divider().vertical(true).height(20).color(ThemeManager.getNeutral('BORDER_LIGHT'))
             Text(this.showSettings ? '收起' : '设置')
               .fontSize(AppTypography.SIZE_CAPTION)
               .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
               .layoutWeight(1)
               .textAlign(TextAlign.Center)
               .onClick(() => { this.showSettings = !this.showSettings })
-            Divider().vertical().height(20).color(ThemeManager.getNeutral('BORDER_LIGHT'))
+            Divider().vertical(true).height(20).color(ThemeManager.getNeutral('BORDER_LIGHT'))
             Text('下一章')
               .fontSize(AppTypography.SIZE_CAPTION)
               .fontColor(ThemeManager.getPrimary(500))
@@ -356,7 +391,7 @@ struct ReaderPage {
           interactive: false
         } as uiMaterial.ImmersiveOptions))
         .borderRadius({ topLeft: AppRadius.R_LG, topRight: AppRadius.R_LG })
-        .animation({ duration: AppAnimation.DUR_NORMAL, curve: curves.easeOutCubic })
+        .animation({ duration: AppAnimation.DUR_NORMAL, curve: Curve.EaseOut })
       }
     }
     .width('100%').height('100%')

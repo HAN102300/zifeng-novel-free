@@ -110,7 +110,7 @@ struct DirectoryPage {
       // 章节列表
       if (this.isLoading) {
         Column() {
-          ForEach([0, 1, 2, 3, 4, 5], () => { LoadingSkel({ height: 48 }) })
+          ForEach([0, 1, 2, 3, 4, 5], () => { LoadingSkel({ skelHeight: 48 }) })
         }
         .padding(AppSpacing.S4)
       } else {

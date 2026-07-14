@@ -12,16 +12,22 @@ import CategoryPage from './CategoryPage'
 import ShelfPage from './ShelfPage'
 import UserCenterPage from './UserCenterPage'
 
+interface TabItem {
+  label: string
+  icon: Resource
+  activeIcon: Resource
+}
+
 @Entry
 @Component
 struct Index {
   @State currentTab: number = 0
 
-  private tabs: { label: string, icon: Resource, activeIcon: Resource }[] = [
-    { label: '首页', icon: $r('app.media.ic_home'), activeIcon: $r('app.media.ic_home_active') },
-    { label: '分类', icon: $r('app.media.ic_category'), activeIcon: $r('app.media.ic_category_active') },
-    { label: '书架', icon: $r('app.media.ic_shelf'), activeIcon: $r('app.media.ic_shelf_active') },
-    { label: '我的', icon: $r('app.media.ic_user'), activeIcon: $r('app.media.ic_user_active') }
+  private tabs: TabItem[] = [
+    { label: '首页', icon: $r('app.media.ic_home'), activeIcon: $r('app.media.ic_home') },
+    { label: '分类', icon: $r('app.media.ic_category'), activeIcon: $r('app.media.ic_category') },
+    { label: '书架', icon: $r('app.media.ic_shelf'), activeIcon: $r('app.media.ic_shelf') },
+    { label: '我的', icon: $r('app.media.ic_user'), activeIcon: $r('app.media.ic_user') }
   ]
 
   build() {
@@ -42,7 +48,7 @@ struct Index {
 
       // 底部导航栏（THICK 材质）
       Row() {
-        ForEach(this.tabs, (tab: { label: string, icon: Resource, activeIcon: Resource }, idx: number) => {
+        ForEach(this.tabs, (tab: TabItem, idx: number) => {
           Column() {
             Image(this.currentTab === idx ? tab.activeIcon : tab.icon)
               .width(24).height(24)

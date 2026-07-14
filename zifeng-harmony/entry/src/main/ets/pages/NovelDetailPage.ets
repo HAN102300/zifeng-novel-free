@@ -12,7 +12,7 @@ import { BackButton } from '../common/BackButton'
 import { ProgressBar } from '../components/ProgressBar'
 import { NovelDetails, Chapter } from '../model/NovelModels'
 import { BookService } from '../service/BookService'
-import { BookshelfService } from '../service/BookshelfService'
+import { BookshelfService, ShelfAddData } from '../service/BookshelfService'
 import { promptAction } from '@kit.ArkUI'
 
 @Entry
@@ -62,14 +62,15 @@ struct NovelDetailPage {
       this.isInShelf = false
       promptAction.showToast({ message: '已移出书架' })
     } else if (this.novel) {
-      await BookshelfService.addToShelf({
+      const addData: ShelfAddData = {
         bookUrl: this.bookUrl,
         sourceUrl: this.sourceUrl,
         title: this.novel.title,
         author: this.novel.author,
         cover: this.novel.cover,
         latestChapter: this.lastChapter
-      } as any)
+      };
+      await BookshelfService.addToShelf(addData)
       this.isInShelf = true
       promptAction.showToast({ message: '已加入书架' })
     }
@@ -146,7 +147,7 @@ struct NovelDetailPage {
                     .width(120).height(168)
                     .borderRadius(AppRadius.R_MD)
                     .objectFit(ImageFit.Cover)
-                    .rotate({ x: this.coverRotateX, y: this.coverRotateY })
+                    .rotate({ x: 1, y: 0, z: 0, angle: this.coverRotateX })
                     .animation({ duration: AppAnimation.DUR_FAST, curve: Curve.EaseOut })
                 }
                 .onTouch((event: TouchEvent) => {
@@ -197,7 +198,7 @@ struct NovelDetailPage {
 
               // 阅读进度（如已加入书架且有进度）
               if (this.isInShelf && this.readingProgress > 0) {
-                GlassCard({ padding: AppSpacing.S4 }) {
+                GlassCard({ cardPadding: AppSpacing.S4, cardMarginLeft: AppSpacing.S4, cardMarginRight: AppSpacing.S4, cardMarginBottom: AppSpacing.S3 }) {
                   Column() {
                     Row() {
                       Text('阅读进度')
@@ -213,11 +214,10 @@ struct NovelDetailPage {
                       .margin({ top: AppSpacing.S2 })
                   }
                 }
-                .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S3 })
               }
 
               // 简介 (CORRECTED: summary not intro)
-              GlassCard({ padding: AppSpacing.S4 }) {
+              GlassCard({ cardPadding: AppSpacing.S4, cardMarginLeft: AppSpacing.S4, cardMarginRight: AppSpacing.S4, cardMarginBottom: AppSpacing.S3 }) {
                 Column() {
                   Text('简介')
                     .fontSize(AppTypography.SIZE_H4)
@@ -231,10 +231,9 @@ struct NovelDetailPage {
                 }
                 .alignItems(HorizontalAlign.Start)
               }
-              .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S3 })
 
               // 最新章节
-              GlassCard({ padding: AppSpacing.S4 }) {
+              GlassCard({ cardPadding: AppSpacing.S4, cardMarginLeft: AppSpacing.S4, cardMarginRight: AppSpacing.S4, cardMarginBottom: AppSpacing.S8 }) {
                 Column() {
                   Row() {
                     Text('最新章节')
@@ -254,7 +253,6 @@ struct NovelDetailPage {
                 }
                 .alignItems(HorizontalAlign.Start)
               }
-              .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S8 })
             }
           }
           .layoutWeight(1)

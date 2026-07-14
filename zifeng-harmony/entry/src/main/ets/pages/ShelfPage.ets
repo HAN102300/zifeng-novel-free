@@ -14,6 +14,7 @@ import { LoadingSkel } from '../common/LoadingSkel'
 import { NovelCard } from '../components/NovelCard'
 import { NovelListItem } from '../components/NovelListItem'
 import { ProgressBar } from '../components/ProgressBar'
+import { NovelItem } from '../model/NovelItem'
 import { BookshelfService, ShelfBook, ReadingRecord } from '../service/BookshelfService'
 import { promptAction } from '@kit.ArkUI'
 
@@ -52,12 +53,12 @@ struct ShelfPage {
 
   private async loadShelfData() {
     try {
-      const [favs, recent] = await Promise.all([
+      const all = await Promise.all([
         BookshelfService.getFavorites(),
         BookshelfService.getRecentReading()
       ])
-      this.favorites = favs
-      this.recentBooks = recent
+      this.favorites = all[0]
+      this.recentBooks = all[1]
     } catch (e) {
       promptAction.showToast({ message: '加载书架失败' })
     } finally {
@@ -147,7 +148,7 @@ struct ShelfPage {
 
       if (this.isLoading) {
         Column() {
-          ForEach([0, 1, 2], () => { LoadingSkel({ height: 120 }) })
+          ForEach([0, 1, 2], () => { LoadingSkel({ skelHeight: 120 }) })
         }
         .padding(AppSpacing.S4)
       } else {
@@ -160,7 +161,7 @@ struct ShelfPage {
               actionVisible: this.favorites.length > 0
             })
             if (this.favorites.length === 0) {
-              GlassCard({ padding: AppSpacing.S8 }) {
+              GlassCard({ cardPadding: AppSpacing.S8, cardMarginLeft: AppSpacing.S4, cardMarginRight: AppSpacing.S4, cardMarginBottom: AppSpacing.S6 }) {
                 Column() {
                   Text('暂无收藏')
                     .fontSize(AppTypography.SIZE_BODY)
@@ -171,7 +172,6 @@ struct ShelfPage {
                     .margin({ top: AppSpacing.S1 })
                 }
               }
-              .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S6 })
             } else if (this.layoutMode === 'grid') {
               Grid() {
                 ForEach(this.favorites, (book: ShelfBook) => {
@@ -179,7 +179,7 @@ struct ShelfPage {
                     Stack({ alignContent: Alignment.TopEnd }) {
                       NovelCard({
                         novel: book,
-                        onClick: () => {
+                        onNovelClick: (n: NovelItem) => {
                           if (this.showDeleteMode) this.toggleSelect(book.bookUrl)
                           else this.openBook(book)
                         }
@@ -208,7 +208,7 @@ struct ShelfPage {
                   ListItem() {
                     NovelListItem({
                       novel: book,
-                      onClick: () => {
+                      onNovelClick: (n: NovelItem) => {
                         if (this.showDeleteMode) this.toggleSelect(book.bookUrl)
                         else this.openBook(book)
                       }
@@ -226,7 +226,7 @@ struct ShelfPage {
               actionVisible: this.recentBooks.length > 0
             })
             if (this.recentBooks.length === 0) {
-              GlassCard({ padding: AppSpacing.S8 }) {
+              GlassCard({ cardPadding: AppSpacing.S8, cardMarginLeft: AppSpacing.S4, cardMarginRight: AppSpacing.S4, cardMarginBottom: AppSpacing.S8 }) {
                 Column() {
                   Text('暂无阅读记录')
                     .fontSize(AppTypography.SIZE_BODY)
@@ -237,12 +237,11 @@ struct ShelfPage {
                     .margin({ top: AppSpacing.S1 })
                 }
               }
-              .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S8 })
             } else {
               List({ space: AppSpacing.S3 }) {
                 ForEach(this.recentBooks, (record: ReadingRecord) => {
                   ListItem() {
-                    GlassCard({ padding: AppSpacing.S3 }) {
+                    GlassCard({ cardPadding: AppSpacing.S3 }) {
                       Row() {
                         Image(record.cover)
                           .width(60).height(84)

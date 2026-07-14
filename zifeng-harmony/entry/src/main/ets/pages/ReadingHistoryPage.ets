@@ -53,7 +53,10 @@ struct ReadingHistoryPage {
     }
     return Array.from(map.entries())
       .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([date, recs]) => ({ date, records: recs }))
+      .map((entry: [string, ReadingRecord[]]) => {
+        const group: HistoryGroup = { date: entry[0], records: entry[1] }
+        return group
+      })
   }
 
   private formatDateLabel(date: string): string {
@@ -123,7 +126,7 @@ struct ReadingHistoryPage {
 
       if (this.isLoading) {
         Column() {
-          ForEach([0, 1, 2, 3], () => { LoadingSkel({ height: 88 }) })
+          ForEach([0, 1, 2, 3], () => { LoadingSkel({ skelHeight: 88 }) })
         }
         .padding(AppSpacing.S4)
       } else if (this.groups.length === 0) {
@@ -149,7 +152,7 @@ struct ReadingHistoryPage {
               List({ space: AppSpacing.S3 }) {
                 ForEach(group.records, (record: ReadingRecord) => {
                   ListItem() {
-                    GlassCard({ padding: AppSpacing.S3 }) {
+                    GlassCard({ cardPadding: AppSpacing.S3 }) {
                       Row() {
                         Image(record.cover)
                           .width(56).height(78)

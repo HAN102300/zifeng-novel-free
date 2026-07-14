@@ -105,7 +105,7 @@ struct UserCenterPage {
       Scroll() {
         Column() {
           // 用户信息卡片
-          GlassCard({ padding: AppSpacing.S6 }) {
+          GlassCard({ cardPadding: AppSpacing.S6, cardMarginLeft: AppSpacing.S4, cardMarginRight: AppSpacing.S4, cardMarginBottom: AppSpacing.S5 }) {
             Row() {
               if (this.avatar.length > 0) {
                 Image(this.avatar)
@@ -160,21 +160,19 @@ struct UserCenterPage {
             }
             .width('100%')
           }
-          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S5 })
 
           // 阅读统计
-          GlassCard({ padding: AppSpacing.S4 }) {
+          GlassCard({ cardPadding: AppSpacing.S4, cardMarginLeft: AppSpacing.S4, cardMarginRight: AppSpacing.S4, cardMarginBottom: AppSpacing.S5 }) {
             Row() {
               this.StatItem('书架', this.shelfCount)
-              Divider().vertical().height(40).color(ThemeManager.getNeutral('BORDER_LIGHT'))
+              Divider().vertical(true).height(40).color(ThemeManager.getNeutral('BORDER_LIGHT'))
               this.StatItem('历史', this.historyCount)
-              Divider().vertical().height(40).color(ThemeManager.getNeutral('BORDER_LIGHT'))
+              Divider().vertical(true).height(40).color(ThemeManager.getNeutral('BORDER_LIGHT'))
               this.StatItem('阅读天数', this.readingDays)
             }
             .width('100%')
             .justifyContent(FlexAlign.SpaceAround)
           }
-          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S5 })
 
           // 功能入口网格
           Grid() {

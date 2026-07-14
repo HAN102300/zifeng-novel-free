@@ -8,7 +8,7 @@ import { router } from '@kit.ArkUI'
 import { uiMaterial } from '@kit.ArkUI'
 import { AppTypography, AppSpacing, AppRadius } from '../common/DesignSystem'
 import { ThemeManager } from '../service/ThemeManager'
-import { AuthService } from '../service/AuthService'
+import { AuthService, VerifyUserResult } from '../service/AuthService'
 import { BackButton } from '../common/BackButton'
 import { promptAction } from '@kit.ArkUI'
 
@@ -24,7 +24,7 @@ struct ResetPasswordPage {
   @State newPassword: string = ''
   @State confirmPassword: string = ''
   @State isLoading: boolean = false
-  @State verifiedInfo: { username: string; email: string } = { username: '', email: '' }
+  @State verifiedInfo: VerifyUserResult = { username: '', email: '' }
 
   aboutToAppear() {
     this.refreshCaptcha()

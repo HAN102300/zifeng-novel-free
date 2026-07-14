@@ -9,8 +9,13 @@ import { ThemeManager } from '../service/ThemeManager'
 import { GlassCard } from '../common/GlassCard'
 import { BackButton } from '../common/BackButton'
 import { LoadingSkel } from '../common/LoadingSkel'
-import { FeedbackService, FeedbackWithLabels, FeedbackType } from '../service/FeedbackService'
+import { FeedbackService, FeedbackWithLabels, FeedbackType, FeedbackSubmitData } from '../service/FeedbackService'
 import { promptAction } from '@kit.ArkUI'
+
+interface FeedbackTypeOption {
+  key: FeedbackType
+  label: string
+}
 
 @Entry
 @Component
@@ -22,7 +27,7 @@ struct FeedbackPage {
   @State history: FeedbackWithLabels[] = []
   @State isLoadingHistory: boolean = true
 
-  private types: { key: FeedbackType, label: string }[] = [
+  private types: FeedbackTypeOption[] = [
     { key: 'suggestion', label: '功能建议' },
     { key: 'bug', label: '问题反馈' },
     { key: 'content', label: '内容问题' },
@@ -50,11 +55,12 @@ struct FeedbackPage {
     }
     this.isSubmitting = true
     try {
-      await FeedbackService.submit({
+      const data: FeedbackSubmitData = {
         type: this.feedbackType,
         content: this.content,
         contact: this.contact
-      })
+      }
+      await FeedbackService.submit(data)
       promptAction.showToast({ message: '提交成功，感谢反馈' })
       this.content = ''
       this.contact = ''
@@ -83,13 +89,13 @@ struct FeedbackPage {
       Scroll() {
         Column() {
           // 反馈类型
-          GlassCard({ padding: AppSpacing.S4 }) {
+          GlassCard({ cardPadding: AppSpacing.S4, cardMarginLeft: AppSpacing.S4, cardMarginRight: AppSpacing.S4, cardMarginBottom: AppSpacing.S3 }) {
             Column() {
               Text('反馈类型')
                 .fontSize(AppTypography.SIZE_H4)
                 .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
               Flex({ wrap: FlexWrap.Wrap }) {
-                ForEach(this.types, (t: { key: FeedbackType, label: string }) => {
+                ForEach(this.types, (t: FeedbackTypeOption) => {
                   Text(t.label)
                     .fontSize(AppTypography.SIZE_CAPTION)
                     .fontColor(this.feedbackType === t.key
@@ -107,10 +113,9 @@ struct FeedbackPage {
             }
             .alignItems(HorizontalAlign.Start)
           }
-          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S3 })
 
           // 反馈内容
-          GlassCard({ padding: AppSpacing.S4 }) {
+          GlassCard({ cardPadding: AppSpacing.S4, cardMarginLeft: AppSpacing.S4, cardMarginRight: AppSpacing.S4, cardMarginBottom: AppSpacing.S3 }) {
             Column() {
               Text('反馈内容')
                 .fontSize(AppTypography.SIZE_H4)
@@ -130,10 +135,9 @@ struct FeedbackPage {
             }
             .alignItems(HorizontalAlign.Start)
           }
-          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S3 })
 
           // 联系方式
-          GlassCard({ padding: AppSpacing.S4 }) {
+          GlassCard({ cardPadding: AppSpacing.S4, cardMarginLeft: AppSpacing.S4, cardMarginRight: AppSpacing.S4, cardMarginBottom: AppSpacing.S4 }) {
             Column() {
               Text('联系方式（可选）')
                 .fontSize(AppTypography.SIZE_H4)
@@ -147,7 +151,6 @@ struct FeedbackPage {
             }
             .alignItems(HorizontalAlign.Start)
           }
-          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S4 })
 
           // 提交按钮
           Button(this.isSubmitting ? '提交中...' : '提交反馈')
@@ -170,7 +173,7 @@ struct FeedbackPage {
 
           if (this.isLoadingHistory) {
             Column() {
-              ForEach([0, 1], () => { LoadingSkel({ height: 80 }) })
+              ForEach([0, 1] as number[], () => { LoadingSkel({ skelHeight: 80 }) })
             }
             .padding({ left: AppSpacing.S4, right: AppSpacing.S4 })
           } else if (this.history.length === 0) {
@@ -182,7 +185,7 @@ struct FeedbackPage {
             List({ space: AppSpacing.S3 }) {
               ForEach(this.history, (fb: FeedbackWithLabels) => {
                 ListItem() {
-                  GlassCard({ padding: AppSpacing.S4 }) {
+                  GlassCard({ cardPadding: AppSpacing.S4 }) {
                     Column() {
                       Row() {
                         Text(fb.typeLabel)

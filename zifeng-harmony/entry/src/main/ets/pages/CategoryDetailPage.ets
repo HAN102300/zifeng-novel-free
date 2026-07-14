@@ -13,6 +13,11 @@ import { CategoryService, SortType } from '../service/CategoryService'
 import { NovelItem } from '../model/NovelItem'
 import { promptAction } from '@kit.ArkUI'
 
+interface SortOption {
+  key: SortType
+  label: string
+}
+
 @Entry
 @Component
 struct CategoryDetailPage {
@@ -24,7 +29,7 @@ struct CategoryDetailPage {
   @State currentPage: number = 1
   @State currentSort: SortType = 'hot'
   @State hasMore: boolean = true
-  private sortOptions: Array<{ key: SortType; label: string }> = [
+  private sortOptions: SortOption[] = [
     { key: 'hot', label: '热门' },
     { key: 'new', label: '最新' },
     { key: 'completed', label: '完本' }
@@ -92,7 +97,7 @@ struct CategoryDetailPage {
         Blank()
         // 排序选项
         Row() {
-          ForEach(this.sortOptions, (opt) => {
+          ForEach(this.sortOptions, (opt: SortOption) => {
             Text(opt.label)
               .fontSize(AppTypography.SIZE_BODY_SMALL)
               .fontColor(this.currentSort === opt.key
@@ -110,7 +115,7 @@ struct CategoryDetailPage {
       if (this.isLoading) {
         Column() {
           ForEach([0, 1, 2, 3], () => {
-            LoadingSkel({ shape: 'card', height: 96 })
+            LoadingSkel({ shape: 'card', skelHeight: 96 })
               .margin({ bottom: AppSpacing.S3, left: AppSpacing.S4, right: AppSpacing.S4 })
           })
         }
@@ -120,7 +125,7 @@ struct CategoryDetailPage {
             ListItem() {
               NovelListItem({
                 novel: novel,
-                onClick: (n) => this.navigateToDetail(n)
+                 onNovelClick: (n: NovelItem): void => this.navigateToDetail(n)
               })
             }
           })

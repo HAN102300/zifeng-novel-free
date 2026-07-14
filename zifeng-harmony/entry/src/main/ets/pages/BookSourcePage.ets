@@ -95,14 +95,14 @@ struct BookSourcePage {
 
       if (this.isLoading) {
         Column() {
-          ForEach([0, 1, 2], () => { LoadingSkel({ height: 72 }) })
+          ForEach([0, 1, 2], () => { LoadingSkel({ skelHeight: 72 }) })
         }
         .padding(AppSpacing.S4)
       } else {
         List({ space: AppSpacing.S3 }) {
           ForEach(this.sources, (src: BookSource) => {
             ListItem() {
-              GlassCard({ padding: AppSpacing.S4 }) {
+              GlassCard({ cardPadding: AppSpacing.S4 }) {
                 Row() {
                   Column() {
                     Text(src.name)

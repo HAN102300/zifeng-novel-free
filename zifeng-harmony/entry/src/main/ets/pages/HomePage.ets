@@ -17,7 +17,7 @@ import { LoadingSkel } from '../common/LoadingSkel'
 import { NovelCard } from '../components/NovelCard'
 import { RankItem } from '../components/RankItem'
 import { NovelItem } from '../model/NovelItem'
-import { RankService, RANK_CONFIGS, RankType } from '../service/RankService'
+import { RankService, RANK_CONFIGS, RankType, RankConfig } from '../service/RankService'
 import { CategoryService, Category } from '../service/CategoryService'
 import { BookshelfService, ReadingHistoryItem } from '../service/BookshelfService'
 import { AuthService } from '../service/AuthService'
@@ -44,14 +44,14 @@ struct HomePage {
     this.isLoading = true
     this.isLoggedIn = await AuthService.isLoggedIn()
     try {
-      const [recommend, rank, categories] = await Promise.all([
+      const all = await Promise.all([
         RankService.getHomeRank('mustRead'),
         RankService.getHomeRank('mustRead'),
         CategoryService.getCategories()
       ])
-      this.recommendList = recommend
-      this.rankList = rank
-      this.categories = categories
+      this.recommendList = all[0]
+      this.rankList = all[1]
+      this.categories = all[2]
       if (this.isLoggedIn) {
         this.recentReadings = await BookshelfService.getReadingHistory()
       }
@@ -87,7 +87,7 @@ struct HomePage {
         scrollOffset: this.scrollOffset,
         showBack: false,
         rightContent: () => {
-          Image($r('sys.media.user'))
+          Image($r('app.media.user'))
             .width(28).height(28)
             .borderRadius(14)
             .onClick(() => {
@@ -148,7 +148,7 @@ struct HomePage {
             Grid() {
               ForEach([0, 1, 2, 3], () => {
                 GridItem() {
-                  LoadingSkel({ shape: 'card', height: 280 })
+                  LoadingSkel({ shape: 'card', skelHeight: 280 })
                 }
               })
             }
@@ -163,7 +163,7 @@ struct HomePage {
                     novel: novel,
                     showScore: true,
                     showSummary: true,
-                    onClick: (n) => this.navigateToDetail(n)
+                     onNovelClick: (n: NovelItem): void => this.navigateToDetail(n)
                   })
                 }
               })
@@ -185,7 +185,7 @@ struct HomePage {
           // 榜单 Tab
           Scroll() {
             Row() {
-              ForEach(RANK_CONFIGS, (config, index) => {
+              ForEach(RANK_CONFIGS, (config: RankConfig, index: number) => {
                 Text(config.name)
                   .fontSize(AppTypography.SIZE_BODY_SMALL)
                   .fontColor(this.currentRankTab === index
@@ -213,7 +213,7 @@ struct HomePage {
                 rank: index + 1,
                 novel: novel,
                 accentColor: RANK_CONFIGS[this.currentRankTab].accentColor,
-                onClick: (n) => this.navigateToDetail(n)
+                onNovelClick: (n: NovelItem): void => this.navigateToDetail(n)
               })
             })
           }

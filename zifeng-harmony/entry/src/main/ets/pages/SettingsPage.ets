@@ -35,9 +35,9 @@ struct SettingsPage {
     const readerRaw = AppStorage.get<string>('reader_settings')
     if (readerRaw) {
       try {
-        const reader = JSON.parse(readerRaw)
-        this.fontSize = reader.fontSize ?? 18
-        this.lineHeight = reader.lineHeight ?? 1.8
+        const reader = JSON.parse(readerRaw) as Record<string, number>
+        this.fontSize = reader['fontSize'] ?? 18
+        this.lineHeight = reader['lineHeight'] ?? 1.8
       } catch (e) { /* 默认 */ }
     }
   }
@@ -103,35 +103,33 @@ struct SettingsPage {
       Scroll() {
         Column() {
           // 主题色选择
-          GlassCard({ padding: AppSpacing.S4 }) {
+          GlassCard({ cardPadding: AppSpacing.S4, cardMarginLeft: AppSpacing.S4, cardMarginRight: AppSpacing.S4, cardMarginBottom: AppSpacing.S3 }) {
             Column() {
               Text('主题色彩')
                 .fontSize(AppTypography.SIZE_H4)
                 .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
               ThemeSelector({
                 currentTheme: this.currentTheme,
-                onSelect: (key: string) => this.selectTheme(key)
+                onSelect: (key: string): void => this.selectTheme(key)
               })
             }
             .alignItems(HorizontalAlign.Start)
           }
-          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S3 })
 
           // 显示设置
-          GlassCard({ padding: AppSpacing.S4 }) {
+          GlassCard({ cardPadding: AppSpacing.S4, cardMarginLeft: AppSpacing.S4, cardMarginRight: AppSpacing.S4, cardMarginBottom: AppSpacing.S3 }) {
             Column() {
               Text('显示设置')
                 .fontSize(AppTypography.SIZE_H4)
                 .fontColor(ThemeManager.getNeutral('TEXT_PRIMARY'))
-              this.SettingRow('深色模式', this.isDarkMode, (v: boolean) => this.toggleDarkMode(v))
-              this.SettingRow('动画降级（低端设备）', this.reduceMotion, (v: boolean) => this.toggleReduceMotion(v))
+              this.SettingRow('深色模式', this.isDarkMode, (v: boolean): void => this.toggleDarkMode(v))
+              this.SettingRow('动画降级（低端设备）', this.reduceMotion, (v: boolean): void => this.toggleReduceMotion(v))
             }
             .alignItems(HorizontalAlign.Start)
           }
-          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S3 })
 
           // 阅读设置预览
-          GlassCard({ padding: AppSpacing.S4 }) {
+          GlassCard({ cardPadding: AppSpacing.S4, cardMarginLeft: AppSpacing.S4, cardMarginRight: AppSpacing.S4, cardMarginBottom: AppSpacing.S3 }) {
             Column() {
               Text('阅读设置预览')
                 .fontSize(AppTypography.SIZE_H4)
@@ -150,10 +148,9 @@ struct SettingsPage {
             }
             .alignItems(HorizontalAlign.Start)
           }
-          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S3 })
 
           // 存储管理
-          GlassCard({ padding: AppSpacing.S4 }) {
+          GlassCard({ cardPadding: AppSpacing.S4, cardMarginLeft: AppSpacing.S4, cardMarginRight: AppSpacing.S4, cardMarginBottom: AppSpacing.S3 }) {
             Row() {
               Column() {
                 Text('清除缓存')
@@ -172,10 +169,9 @@ struct SettingsPage {
                 .onClick(() => this.clearCache())
             }
           }
-          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S3 })
 
           // 关于
-          GlassCard({ padding: AppSpacing.S4 }) {
+          GlassCard({ cardPadding: AppSpacing.S4, cardMarginLeft: AppSpacing.S4, cardMarginRight: AppSpacing.S4, cardMarginBottom: AppSpacing.S8 }) {
             Column() {
               Text('关于')
                 .fontSize(AppTypography.SIZE_H4)
@@ -186,7 +182,6 @@ struct SettingsPage {
             }
             .alignItems(HorizontalAlign.Start)
           }
-          .margin({ left: AppSpacing.S4, right: AppSpacing.S4, bottom: AppSpacing.S8 })
         }
       }
       .layoutWeight(1)

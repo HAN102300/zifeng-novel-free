@@ -13,6 +13,7 @@ import { ThemeManager } from '../service/ThemeManager'
 import { AuthService } from '../service/AuthService'
 import { ParticleEffects } from '../common/ParticleEffects'
 import { promptAction } from '@kit.ArkUI'
+import TextLogo from '../components/TextLogo'
 
 @Entry
 @Component
@@ -87,8 +88,13 @@ struct LoginPage {
       Column() {
         Blank().layoutWeight(0.5)
 
-        // Logo + 标题
-        Image($r('app.media.yan')).width(72).height(72)
+        // 文字 Logo（共享元素转场，与启动页一镜到底）
+        TextLogo({ mode: 'nav', sharedId: 'app_logo' })
+          .sharedTransition('app_logo', {
+            duration: 600,
+            curve: AppCurves.EASE_OUT
+          })
+
         Text('欢迎回来')
           .fontSize(AppTypography.SIZE_H2)
           .fontWeight(FontWeight.Medium)

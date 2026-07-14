@@ -13,7 +13,7 @@ import { GlassSearchBar } from '../common/GlassSearchBar'
 import { SectionHeader } from '../common/SectionHeader'
 import { NovelListItem } from '../components/NovelListItem'
 import { LoadingSkel } from '../common/LoadingSkel'
-import { SearchService, BatchSearchProgress, SearchResult } from '../service/SearchService'
+import { SearchService, BatchSearchProgress, SearchResult, AbortSignal } from '../service/SearchService'
 import { NovelItem } from '../model/NovelItem'
 import { promptAction } from '@kit.ArkUI'
 
@@ -33,7 +33,7 @@ struct SearchPage {
   @State sources: BookSource[] = []
   @State activeSourceId: string = ''
   @State hasSearched: boolean = false
-  private abortSignal: { aborted: boolean } = { aborted: false }
+  private abortSignal: AbortSignal = { aborted: false }
   private searchTimer: number = -1
 
   aboutToAppear() {
@@ -63,7 +63,7 @@ struct SearchPage {
     this.isSearching = true
     this.hasSearched = true
     this.results = []
-    this.abortSignal = { aborted: false }
+    this.abortSignal = { aborted: false } as AbortSignal
 
     const sourceUrls = this.sources.filter(s => s.enabled).map(s => s.id)
 
@@ -124,9 +124,12 @@ struct SearchPage {
         BackButton()
         GlassSearchBar({
           placeholder: '搜索小说/作者',
-          text: this.keyword,
-          onSearch: (val: string) => this.doSearch(val),
-          onVoiceClick: () => this.startVoiceSearch()
+          editable: true,
+          voiceEnabled: true,
+          inputValue: this.keyword,
+          onSearch: (val: string): void => this.doSearch(val),
+          onInputChange: (val: string): void => { this.keyword = val },
+          onVoiceClick: (): void => this.startVoiceSearch()
         })
       }
       .width('100%')
@@ -164,7 +167,7 @@ struct SearchPage {
       if (this.isSearching && this.results.length === 0) {
         Column() {
           ForEach([0, 1, 2, 3], () => {
-            LoadingSkel({ height: 88 })
+            LoadingSkel({ skelHeight: 88 })
           })
         }
         .padding(AppSpacing.S4)
@@ -191,7 +194,7 @@ struct SearchPage {
                 title: '搜索历史',
                 actionText: '清空',
                 actionVisible: true,
-                onAction: () => this.clearHistory()
+                onAction: (): void => this.clearHistory()
               })
               Flex({ wrap: FlexWrap.Wrap }) {
                 ForEach(this.history, (word: string) => {
@@ -244,7 +247,7 @@ struct SearchPage {
             ListItem() {
               NovelListItem({
                 novel: novel,
-                onClick: () => this.navigateToDetail(novel)
+                 onNovelClick: (n: NovelItem): void => this.navigateToDetail(n)
               })
             }
           })
