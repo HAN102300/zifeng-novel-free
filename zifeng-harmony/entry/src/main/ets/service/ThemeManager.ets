@@ -11,7 +11,17 @@ import {
   NeutralToken,
   MATERIAL_PRESETS,
   MaterialConfig,
+  AccentColors,
 } from "../common/DesignSystem";
+
+/** 强调色名称 → AccentColors 静态色映射 */
+const ACCENT_COLOR_MAP: Record<string, string> = {
+  Rose: AccentColors.ROSE,
+  Emerald: AccentColors.EMERALD,
+  Amber: AccentColors.AMBER,
+  Magenta: AccentColors.MAGENTA,
+  Cyan: AccentColors.CYAN,
+};
 
 const STORAGE_KEY_THEME = "app_theme_key";
 const STORAGE_KEY_DARK_MODE = "app_dark_mode";
@@ -41,6 +51,18 @@ export class ThemeManager {
   /** 获取主色（500 色阶） */
   static getPrimaryColor(): string {
     return THEME_PRESETS[this.currentTheme]["500"];
+  }
+
+  /** 获取主色指定色阶（如 50/100/300/400/500/600/700/900） */
+  static getPrimary(level: number): string {
+    const colors = THEME_PRESETS[this.currentTheme];
+    const key = String(level) as keyof ThemeColorScale;
+    return (colors[key] as string) ?? colors["500"];
+  }
+
+  /** 获取强调色（Rose/Emerald/Amber/Magenta/Cyan） */
+  static getAccent(name: string): string {
+    return ACCENT_COLOR_MAP[name] ?? AccentColors.ROSE;
   }
 
   /** 获取主色渐变 */
