@@ -1,3 +1,5 @@
+
+
 <div align="center">
 
 # 🌸 紫枫免费小说
@@ -141,6 +143,8 @@
 - 个人资料编辑
 - 密码修改/重置
 - 反馈历史查看
+
+反馈历史查看
 
 </td>
 </tr>
@@ -570,7 +574,7 @@ cp .env.example .env.local
 # 编辑 .env.local 填入实际配置（密码、端口等）
 
 # 2. 启动全部服务
-docker compose up -d
+docker compose --env-file .env.local up -d
 
 # 3. 查看运行状态
 docker compose ps
