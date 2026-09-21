@@ -1,0 +1,352 @@
+/* ============================================================
+   紫枫 · 工具类
+   三条合成器铁律写在这里，改样式时先读这段注释：
+     ① 单元素不得同时具备 backdrop-filter + filter:blur() + infinite animation
+     ② infinite 动画元素必须是玻璃卡的「兄弟层」，不能是子孙
+        （否则每帧重采样 backdrop，这是首页 Hero 掉帧的直接原因）
+     ③ will-change 只由 JS 在 whileHover/pan 期间动态加，不写静态 CSS
+   ============================================================ */
+
+/* ---------- 容器：全站唯一的宽度来源 ---------- */
+.zf-container {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: var(--zf-gutter-base);
+}
+.zf-container--xs { max-width: var(--zf-container-xs); }
+.zf-container--sm { max-width: var(--zf-container-sm); }
+.zf-container--md { max-width: var(--zf-container-md); }
+.zf-container--lg { max-width: var(--zf-container-lg); }
+.zf-container--xl { max-width: var(--zf-container-xl); }
+.zf-container--full { max-width: none; }
+
+@media (max-width: 767px) {
+  .zf-container { padding-inline: var(--zf-gutter-sm); }
+}
+
+/* ---------- 排版类：替掉散落的 5 处标题内联组合 ---------- */
+.zf-h1 {
+  font-family: var(--zf-font-display);
+  font-size: var(--zf-fs-4xl);
+  font-weight: var(--zf-fw-black);
+  line-height: var(--zf-lh-tight);
+  letter-spacing: var(--zf-ls-tighter);
+  margin: 0;
+}
+.zf-h2 {
+  font-family: var(--zf-font-display);
+  font-size: var(--zf-fs-3xl);
+  font-weight: var(--zf-fw-black);
+  line-height: var(--zf-lh-tight);
+  letter-spacing: var(--zf-ls-tighter);
+  margin: 0;
+}
+.zf-h3 {
+  font-family: var(--zf-font-display);
+  font-size: var(--zf-fs-xl);
+  font-weight: var(--zf-fw-bold);
+  line-height: var(--zf-lh-snug);
+  margin: 0;
+}
+.zf-lede {
+  font-size: var(--zf-fs-md);
+  line-height: var(--zf-lh-body);
+  color: var(--zf-text-secondary);
+}
+.zf-body { font-size: var(--zf-fs-base); line-height: var(--zf-lh-body); }
+.zf-caption { font-size: var(--zf-fs-xs); line-height: var(--zf-lh-snug); color: var(--zf-text-muted); }
+.zf-label {
+  font-size: var(--zf-fs-sm);
+  font-weight: var(--zf-fw-strong);
+  letter-spacing: var(--zf-ls-wide);
+  color: var(--zf-text-secondary);
+}
+/* 数字对齐：榜单热度、后台 KPI 必须有 tabular-nums 才不抖 */
+.zf-num { font-variant-numeric: tabular-nums; letter-spacing: var(--zf-ls-normal); }
+.zf-mono { font-family: var(--zf-font-mono); font-variant-ligatures: none; }
+
+/* 宽屏 Hero 用流体字号，不再固定 52px */
+.zf-h1--fluid { font-size: var(--zf-fluid-4xl); }
+.zf-h2--fluid { font-size: var(--zf-fluid-3xl); }
+
+/* 品牌渐变文字：只允许用于 Hero 主标题等 1–2 处，不得用在功能型标题上 */
+.zf-grad-text {
+  background-image: var(--zf-grad-brand-ink);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- 玻璃表面 ---------- */
+.zf-glass {
+  background-color: var(--zf-glass-2);
+  backdrop-filter: var(--zf-blur-glass);
+  -webkit-backdrop-filter: var(--zf-blur-glass);
+  border: 1px solid var(--zf-glass-border);
+  box-shadow: var(--zf-shadow-2), var(--zf-glass-edge-top);
+}
+.zf-glass--1 { background-color: var(--zf-glass-1); box-shadow: var(--zf-shadow-1), var(--zf-glass-edge-top); }
+.zf-glass--2 { background-color: var(--zf-glass-2); }
+.zf-glass--3 {
+  background-color: var(--zf-glass-3);
+  backdrop-filter: var(--zf-blur-modal);
+  -webkit-backdrop-filter: var(--zf-blur-modal);
+  border-color: var(--zf-glass-border-strong);
+  box-shadow: var(--zf-shadow-3), var(--zf-glass-edge-top);
+}
+
+/* glassMode=OFF 时的实底态：仍保留品牌描边与 tint，故不是灰白 */
+[data-glass='off'] .zf-glass {
+  background-color: var(--zf-surface-1);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ---------- 氛围层：必须是玻璃卡的兄弟层 ---------- */
+.zf-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: var(--zf-z-base);
+  pointer-events: none;
+  overflow: hidden;
+}
+.zf-ambient__orb {
+  position: absolute;
+  border-radius: var(--zf-r-full);
+  filter: blur(var(--zf-fx-orb-blur, 70px));
+  will-change: transform;
+  animation-play-state: var(--zf-fx-loop, running);
+}
+/* 按 tier 裁掉多余光球：--zf-fx-orbs 为 0/3/5 */
+.zf-ambient__orb:nth-child(n + 6) { display: none; }
+[data-fx='1'] .zf-ambient__orb:nth-child(n + 4) { display: none; }
+[data-fx='0'] .zf-ambient__orb { display: none; }
+
+/* ---------- 高光跟随：由 JS 写 --mx/--my，不在 CSS 里跑动画 ---------- */
+.zf-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.zf-sheen::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: var(--zf-z-sheen);
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    240px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(255, 255, 255, 0.18),
+    transparent 60%
+  );
+  transition: opacity var(--zf-dur-base) var(--zf-ease-out);
+}
+.zf-sheen:hover::after { opacity: 1; }
+[data-fx='0'] .zf-sheen::after,
+[data-fx='1'] .zf-sheen::after { display: none; }
+
+/* ---------- 光标光晕（仅 tier 2） ---------- */
+.zf-cursor-halo { display: var(--zf-fx-cursor-halo, none); }
+
+/* ---------- 响应式显隐：统一用断点，不再各页写魔数 ---------- */
+@media (max-width: 767px) {
+  .zf-hide-md { display: none !important; }
+}
+@media (min-width: 768px) {
+  .zf-show-md { display: none !important; }
+}
+@media (max-width: 991px) {
+  .zf-hide-lg { display: none !important; }
+}
+
+.zf-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.zf-truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 中文标题两行截断：单行 ellipsis 会把「神秘复苏：鬼…」这种截得没法读 */
+.zf-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* ---------- 原生按钮 ----------
+   注意：下面这些是「裸 button」用的。给 antd Button 用的样式必须写成
+   .ant-btn.zf-btn（见后文），两者不能混 —— 此前只定义了 .ant-btn.zf-btn*，
+   导致 ZfPageHeader 的返回钮与 ZfErrorState 的重试钮渲染成浏览器默认样式。 */
+button.zf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--zf-s2);
+  padding: var(--zf-s2) var(--zf-s5);
+  font-family: var(--zf-font-ui);
+  font-size: var(--zf-fs-base);
+  font-weight: var(--zf-fw-strong);
+  line-height: 1.4;
+  color: var(--zf-text-primary);
+  background-color: var(--zf-glass-2);
+  border: 1px solid var(--zf-glass-border);
+  /* 按钮默认圆角矩形，与搜索框 / 卡片同一形状语言；
+     胶囊形只留给 ZfPill 与显式的 .zf-btn--pill */
+  border-radius: var(--zf-r-md);
+  cursor: pointer;
+  transition: transform var(--zf-dur-fast) var(--zf-ease-out),
+    box-shadow var(--zf-dur-fast) var(--zf-ease-out),
+    background-color var(--zf-dur-fast) var(--zf-ease-out),
+    border-color var(--zf-dur-fast) var(--zf-ease-out);
+}
+button.zf-btn:hover { border-color: var(--zf-glass-border-strong); }
+button.zf-btn:active { transform: translateY(1px) scale(0.99); }
+button.zf-btn.zf-btn--pill { border-radius: var(--zf-r-full); }
+
+button.zf-btn--brand {
+  background-image: var(--zf-grad-brand);
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--zf-on-accent);
+}
+button.zf-btn--brand:hover { box-shadow: var(--zf-glow-brand); }
+
+button.zf-btn--ghost {
+  background-color: transparent;
+  border-color: var(--zf-glass-border-strong);
+  color: var(--zf-brand-400);
+}
+button.zf-btn--ghost:hover { background-color: var(--zf-tint-brand-10); color: var(--zf-on-tint); }
+
+/* 圆形图标按钮（返回、视图切换等） */
+.zf-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  font-size: var(--zf-fs-md);
+  line-height: 1;
+  color: var(--zf-text-secondary);
+  background-color: var(--zf-glass-1);
+  border: 1px solid var(--zf-glass-border);
+  border-radius: var(--zf-r-full);
+  cursor: pointer;
+  transition: transform var(--zf-dur-fast) var(--zf-ease-out),
+    color var(--zf-dur-fast) var(--zf-ease-out),
+    background-color var(--zf-dur-fast) var(--zf-ease-out),
+    border-color var(--zf-dur-fast) var(--zf-ease-out);
+}
+.zf-btn-icon:hover {
+  color: var(--zf-on-tint);
+  background-color: var(--zf-tint-brand-16);
+  border-color: rgb(var(--zf-brand-rgb-500) / 0.4);
+}
+.zf-btn-icon:active { transform: translateY(1px) scale(0.97); }
+
+/* ---------- 可点击胶囊（ZfPill as="button" 用） ---------- */
+.zf-pill--clickable { cursor: pointer; }
+.zf-pill--clickable:hover {
+  background-color: var(--zf-tint-brand-16);
+  color: var(--zf-on-tint);
+}
+
+/* ---------- 可悬停行（framer 无法对 var() 插值，故用 CSS 而非 whileHover） ---------- */
+.zf-row-hover {
+  transition: background-color var(--zf-dur-fast) var(--zf-ease-out);
+}
+.zf-row-hover:hover { background-color: var(--zf-glass-1); }
+
+/* ---------- 覆盖 antd：用双 class 提权，不用 !important ----------
+   antd v6 的 CSS-in-JS 是 hash 类（.css-xxx.ant-btn，权重 0,1,1）。
+   写成 .ant-btn.zf-btn 权重 0,2,0 稳定胜出，无需 !important。
+   Button/Input/Select/Tag 在 v6 没有 borderRadius 类组件 token，只能走这条路。 */
+.ant-btn.zf-btn {
+  border-radius: var(--zf-r-md);
+  font-weight: var(--zf-fw-strong);
+  box-shadow: none;
+  transition: transform var(--zf-dur-fast) var(--zf-ease-out),
+    box-shadow var(--zf-dur-fast) var(--zf-ease-out),
+    background var(--zf-dur-fast) var(--zf-ease-out),
+    border-color var(--zf-dur-fast) var(--zf-ease-out);
+}
+.ant-btn.zf-btn:hover { box-shadow: none; }
+.ant-btn.zf-btn:active { transform: translateY(1px) scale(0.99); }
+.ant-btn.zf-btn.zf-btn--pill { border-radius: var(--zf-r-full); }
+
+.ant-btn.zf-btn--brand {
+  background-image: var(--zf-grad-brand);
+  border-color: transparent;
+  color: var(--zf-on-accent);
+}
+.ant-btn.zf-btn--brand:hover,
+.ant-btn.zf-btn--brand:focus-visible {
+  background-image: var(--zf-grad-brand-soft);
+  box-shadow: var(--zf-glow-brand);
+}
+
+.ant-btn.zf-btn--glass {
+  background-color: var(--zf-glass-3);
+  border: 1px solid var(--zf-glass-border-strong);
+  backdrop-filter: var(--zf-blur-light);
+  -webkit-backdrop-filter: var(--zf-blur-light);
+  color: var(--zf-text-primary);
+}
+
+.ant-btn.zf-btn--ghost:not(.ant-btn-variant-text) {
+  background-color: transparent;
+  border: 1px solid var(--zf-glass-border-strong);
+  color: var(--zf-brand-500);
+}
+.ant-btn.zf-btn--ghost:not(.ant-btn-variant-text):hover {
+  background-color: var(--zf-tint-brand-10);
+  color: var(--zf-on-tint);
+}
+
+/* 文字型按钮（如榜单「查看全部」）只改色，不加边框与底色 ——
+   此前 --ghost 无条件加 border，把文字链接套成了空心胶囊 */
+.ant-btn.zf-btn--ghost.ant-btn-variant-text {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--zf-brand-400);
+  padding-inline: var(--zf-s1);
+}
+.ant-btn.zf-btn--ghost.ant-btn-variant-text:hover {
+  background-color: transparent;
+  color: var(--zf-brand-300);
+}
+
+.ant-card.zf-card {
+  background-color: var(--zf-glass-2);
+  backdrop-filter: var(--zf-blur-glass);
+  -webkit-backdrop-filter: var(--zf-blur-glass);
+  border: 1px solid var(--zf-glass-border);
+  box-shadow: var(--zf-shadow-2), var(--zf-glass-edge-top);
+}
+[data-glass='off'] .ant-card.zf-card {
+  background-color: var(--zf-surface-1);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.ant-tag.zf-tag {
+  border-radius: var(--zf-r-full);
+  border-color: var(--zf-glass-border);
+  background-color: var(--zf-glass-1);
+  color: var(--zf-text-secondary);
+  font-variant-numeric: tabular-nums;
+}

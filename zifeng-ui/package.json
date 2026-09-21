@@ -1,0 +1,26 @@
+{
+  "name": "@zifeng/ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "紫枫 用户端与管理后台共享的设计令牌 / 主题 / 组件层。不经 npm 安装，由两端 vite alias 解析。",
+  "exports": {
+    "./tokens": "./tokens/index.js",
+    "./css/tokens.css": "./css/tokens.css",
+    "./css/reset.css": "./css/reset.css",
+    "./css/utilities.css": "./css/utilities.css",
+    "./css/keyframes.css": "./css/keyframes.css",
+    "./antd/theme": "./antd/theme.js",
+    "./antd/locales": "./antd/locales.js",
+    "./motion": "./motion/index.js",
+    "./motion/FxContext": "./motion/FxContext.jsx",
+    "./hooks": "./hooks/index.js",
+    "./format": "./format/index.js",
+    "./charts/preset": "./charts/preset.js",
+    "./components": "./components/index.js"
+  },
+  "scripts": {
+    "build:css": "node scripts/build-css.mjs",
+    "check": "node scripts/check-tokens.mjs"
+  }
+}

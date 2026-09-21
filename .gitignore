@@ -58,6 +58,7 @@ Thumbs.db
 .workbuddy/
 .agents/
 .codegenie/
+.deveco/
 .vscode/*
 !.vscode/extensions.json
 

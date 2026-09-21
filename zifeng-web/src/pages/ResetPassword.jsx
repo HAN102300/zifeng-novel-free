@@ -1,27 +1,32 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Card, Form, Input, Button, Steps, Typography, Space, message, Alert } from 'antd';
+import { Form, Input, Button, Space, Steps, Alert, message } from 'antd';
 import { LockOutlined, MailOutlined, EyeInvisibleOutlined, EyeTwoTone, UserOutlined } from '@ant-design/icons';
-import BackButton from '../components/BackButton';
-import { ThemeContext } from '../App';
 import { verifyUserForReset, resetPasswordDev } from '../utils/apiClient';
-import { glassCardStyle } from '../utils/glassStyle';
+import { variants } from '@zifeng/ui/motion';
+/* 认证表单视觉与校验规则一律复用 Login.jsx 的命名导出：
+   两页共用同一套卡片 / 标题 / 输入框 / 主按钮，不再各写一份。 */
+import { AuthShell, AuthSubmitButton, AUTH_RULES, FIELD_PREFIX_STYLE } from './Login.jsx';
 
-const { Title, Text } = Typography;
+/* ============================================================
+   紫枫免费小说 · 重置密码（P2 迁移）
+   - 与 Login 完全同一套外壳：AuthShell(size="xs" 窄容器 + 卡外返回 + 玻璃卡)
+   - 标题不再用主题色渐变字，改由 ZfPageHeader 出常规标题色
+   - 主按钮发光挂 --zf-glow-brand 令牌；次按钮用 zf-btn--ghost 双 class 提权
+   - 「2-8 字符」这类校验文案与 Login 同一份 AUTH_RULES，不再两处手写
+   - 返回登录用 back="/login"（原来是页内自己画一个 BackButton）
+   - 保留：两步流程、verifyUserForReset / resetPasswordDev 调用与参数
+   ============================================================ */
 
 const ResetPassword = () => {
   const navigate = useNavigate();
-  const { currentTheme, themeConfigs, isDarkMode, glassMode } = useContext(ThemeContext);
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [emailValue, setEmailValue] = useState('');
   const [usernameValue, setUsernameValue] = useState('');
-  const [maskedUsername, setMaskedUsername] = useState('');
   const [step1Form] = Form.useForm();
   const [step2Form] = Form.useForm();
-
-  const color = themeConfigs[currentTheme].primaryColor;
 
   const handleVerifyEmail = async (values) => {
     setLoading(true);
@@ -30,15 +35,13 @@ const ResetPassword = () => {
       if (result.success && result.data?.verified) {
         setEmailValue(values.email);
         setUsernameValue(values.username);
-        setMaskedUsername(result.data.username || '');
         setCurrentStep(1);
         message.success('身份验证成功');
       } else {
         message.error(result.message || '身份验证失败');
       }
     } catch (error) {
-      const msg = error.response?.data?.message || '身份验证失败';
-      message.error(msg);
+      message.error(error.response?.data?.message || '身份验证失败');
     } finally {
       setLoading(false);
     }
@@ -59,248 +62,126 @@ const ResetPassword = () => {
         message.error(result.message || '密码重置失败');
       }
     } catch (error) {
-      const msg = error.response?.data?.message || '密码重置失败';
-      message.error(msg);
+      message.error(error.response?.data?.message || '密码重置失败');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3 }}
-      style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '80vh',
-        padding: '20px',
-        position: 'relative'
-      }}
+    <AuthShell
+      back="/login"
+      title="重置密码"
+      subtitle={currentStep === 0 ? '请输入用户名和邮箱进行身份验证' : '请设置新密码'}
     >
-      {glassMode && (
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: '10%', right: '-5%', width: 400, height: 400, borderRadius: '50%', background: `radial-gradient(circle, ${color}20 0%, transparent 70%)`, filter: 'blur(80px)' }} />
-          <div style={{ position: 'absolute', bottom: '10%', left: '-5%', width: 350, height: 350, borderRadius: '50%', background: `radial-gradient(circle, ${color}15 0%, transparent 70%)`, filter: 'blur(60px)' }} />
-        </div>
-      )}
-      <Card
-        style={{
-          width: '100%',
-          maxWidth: 400,
-          borderRadius: 'var(--zf-r-lg)',
-          boxShadow: 'var(--zf-shadow-lg)',
-          overflow: 'hidden',
-          ...glassCardStyle(glassMode, isDarkMode)
-        }}
-      >
-        <BackButton onClick={() => navigate('/login')} text="返回登录" style={{ marginBottom: 20 }} />
+      <Steps
+        current={currentStep}
+        size="small"
+        style={{ marginBottom: 'var(--zf-s6)' }}
+        items={[{ title: '验证身份' }, { title: '设置新密码' }]}
+      />
 
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <Title level={3} style={{ margin: 0, color: color }}>
-            <motion.span
-              initial={{ opacity: 0, filter: 'blur(8px)' }}
-              animate={{ opacity: 1, filter: 'blur(0px)' }}
-              transition={{ duration: 0.6 }}
+      {currentStep === 0 ? (
+        <motion.div key="step1" variants={variants.pageSlide} initial="initial" animate="animate">
+          <Form form={step1Form} onFinish={handleVerifyEmail} layout="vertical">
+            <Form.Item name="username" label="用户名" rules={AUTH_RULES.username}>
+              <Input
+                prefix={<UserOutlined style={FIELD_PREFIX_STYLE} />}
+                placeholder="请输入注册时使用的用户名"
+                size="large"
+                autoComplete="username"
+              />
+            </Form.Item>
+
+            <Form.Item name="email" label="注册邮箱" rules={AUTH_RULES.email}>
+              <Input
+                prefix={<MailOutlined style={FIELD_PREFIX_STYLE} />}
+                placeholder="请输入注册时使用的邮箱"
+                size="large"
+                autoComplete="email"
+              />
+            </Form.Item>
+
+            <Form.Item>
+              <AuthSubmitButton loading={loading}>验证身份</AuthSubmitButton>
+            </Form.Item>
+          </Form>
+        </motion.div>
+      ) : (
+        <motion.div key="step2" variants={variants.pageSlide} initial="initial" animate="animate">
+          <Alert
+            type="success"
+            showIcon
+            icon={<UserOutlined />}
+            style={{ marginBottom: 'var(--zf-s5)' }}
+            message={
+              <Space direction="vertical" size={2}>
+                <span style={{ fontSize: 'var(--zf-fs-sm)' }}>
+                  已验证账号：<b>{usernameValue}</b>
+                </span>
+                <span className="zf-mono" style={{ fontSize: 'var(--zf-fs-xs)' }}>
+                  {emailValue}
+                </span>
+              </Space>
+            }
+          />
+
+          <Form form={step2Form} onFinish={handleResetPassword} layout="vertical">
+            <Form.Item name="newPassword" label="新密码" rules={AUTH_RULES.password}>
+              <Input.Password
+                prefix={<LockOutlined style={FIELD_PREFIX_STYLE} />}
+                placeholder="请输入新密码"
+                size="large"
+                autoComplete="new-password"
+                iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="confirmPassword"
+              label="确认密码"
+              dependencies={['newPassword']}
+              rules={[
+                { required: true, message: '请确认新密码' },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!value || getFieldValue('newPassword') === value) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(new Error('两次输入的密码不一致'));
+                  },
+                }),
+              ]}
             >
-              重置密码
-            </motion.span>
-          </Title>
-          <Text type="secondary">
-            {currentStep === 0 ? '请输入用户名和邮箱进行身份验证' : '请设置新密码'}
-          </Text>
-        </div>
+              <Input.Password
+                prefix={<LockOutlined style={FIELD_PREFIX_STYLE} />}
+                placeholder="请再次输入新密码"
+                size="large"
+                autoComplete="new-password"
+                iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
+              />
+            </Form.Item>
 
-        <Steps
-          current={currentStep}
-          size="small"
-          style={{ marginBottom: 24 }}
-          items={[
-            { title: '验证身份' },
-            { title: '设置新密码' }
-          ]}
-        />
-
-        {currentStep === 0 && (
-          <motion.div
-            key="step1"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Form
-              form={step1Form}
-              onFinish={handleVerifyEmail}
-              layout="vertical"
-            >
-              <Form.Item
-                name="username"
-                label="用户名"
-                rules={[
-                  { required: true, message: '请输入用户名' },
-                  { min: 3, max: 20, message: '用户名长度在3-20之间' }
-                ]}
-              >
-                <Input
-                  prefix={<UserOutlined style={{ color: color }} />}
-                  placeholder="请输入注册时使用的用户名"
-                  size="large"
-                  style={{ borderRadius: 8 }}
-                />
-              </Form.Item>
-
-              <Form.Item
-                name="email"
-                label="注册邮箱"
-                rules={[
-                  { required: true, message: '请输入注册邮箱' },
-                  { type: 'email', message: '请输入正确的邮箱格式' }
-                ]}
-              >
-                <Input
-                  prefix={<MailOutlined style={{ color: color }} />}
-                  placeholder="请输入注册时使用的邮箱"
-                  size="large"
-                  style={{ borderRadius: 8 }}
-                />
-              </Form.Item>
-
-              <Form.Item>
+            <Form.Item>
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <AuthSubmitButton loading={loading}>重置密码</AuthSubmitButton>
                 <Button
-                  type="primary"
-                  htmlType="submit"
                   size="large"
-                  loading={loading}
-                  style={{
-                    width: '100%',
-                    height: 48,
-                    borderRadius: 'var(--zf-r-full)',
-                    border: 'none',
-                    backgroundImage: `linear-gradient(135deg, ${color}, ${color}cc)`,
-                    boxShadow: `0 6px 22px ${color}66, var(--zf-glow-primary)`
+                  classNames={{ root: 'zf-btn zf-btn--ghost' }}
+                  style={{ width: '100%' }}
+                  onClick={() => {
+                    setCurrentStep(0);
+                    step2Form.resetFields();
                   }}
                 >
-                  验证身份
+                  返回上一步
                 </Button>
-              </Form.Item>
-            </Form>
-          </motion.div>
-        )}
-
-        {currentStep === 1 && (
-          <motion.div
-            key="step2"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Alert
-              type="success"
-              showIcon
-              icon={<UserOutlined />}
-              style={{ marginBottom: 16, borderRadius: 8 }}
-              message={
-                <Space direction="vertical" size={2}>
-                  <Text>用户名: {usernameValue}</Text>
-                  <Text>邮箱: {emailValue}</Text>
-                </Space>
-              }
-            />
-
-            <Form
-              form={step2Form}
-              onFinish={handleResetPassword}
-              layout="vertical"
-            >
-              <Form.Item
-                name="newPassword"
-                label="新密码"
-                rules={[
-                  { required: true, message: '请输入新密码' },
-                  { min: 6, message: '密码长度至少6位' }
-                ]}
-              >
-                <Input.Password
-                  prefix={<LockOutlined style={{ color: color }} />}
-                  placeholder="请输入新密码"
-                  size="large"
-                  style={{ borderRadius: 8 }}
-                  iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
-                />
-              </Form.Item>
-
-              <Form.Item
-                name="confirmPassword"
-                label="确认密码"
-                dependencies={['newPassword']}
-                rules={[
-                  { required: true, message: '请确认新密码' },
-                  ({ getFieldValue }) => ({
-                    validator(_, value) {
-                      if (!value || getFieldValue('newPassword') === value) {
-                        return Promise.resolve();
-                      }
-                      return Promise.reject(new Error('两次输入的密码不一致'));
-                    }
-                  })
-                ]}
-              >
-                <Input.Password
-                  prefix={<LockOutlined style={{ color: color }} />}
-                  placeholder="请再次输入新密码"
-                  size="large"
-                  style={{ borderRadius: 8 }}
-                  iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
-                />
-              </Form.Item>
-
-              <Form.Item>
-                <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                  <Button
-                    type="primary"
-                    htmlType="submit"
-                    size="large"
-                    loading={loading}
-                    style={{
-                      width: '100%',
-                      height: 48,
-                      borderRadius: 'var(--zf-r-full)',
-                      border: 'none',
-                      backgroundImage: `linear-gradient(135deg, ${color}, ${color}cc)`,
-                      boxShadow: `0 6px 22px ${color}66, var(--zf-glow-primary)`
-                    }}
-                  >
-                    重置密码
-                  </Button>
-                  <Button
-                    size="large"
-                    style={{
-                      width: '100%',
-                      height: 48,
-                      borderRadius: 'var(--zf-r-full)',
-                      background: glassMode ? 'var(--zf-glass-bg-strong)' : 'transparent',
-                      border: `1px solid ${glassMode ? 'var(--zf-glass-border-strong)' : color}`,
-                      backdropFilter: glassMode ? 'var(--zf-blur-light)' : 'none',
-                      WebkitBackdropFilter: glassMode ? 'var(--zf-blur-light)' : 'none',
-                      color: glassMode ? 'var(--zf-text-primary)' : color
-                    }}
-                    onClick={() => {
-                      setCurrentStep(0);
-                      step2Form.resetFields();
-                    }}
-                  >
-                    返回上一步
-                  </Button>
-                </Space>
-              </Form.Item>
-            </Form>
-          </motion.div>
-        )}
-      </Card>
-    </motion.div>
+              </Space>
+            </Form.Item>
+          </Form>
+        </motion.div>
+      )}
+    </AuthShell>
   );
 };
 

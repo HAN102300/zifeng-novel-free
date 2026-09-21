@@ -14,7 +14,10 @@
 import React, { lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ConfigProvider, theme, Layout } from 'antd';
+import { ConfigProvider, Layout } from 'antd';
+import { buildAntdTheme } from '@zifeng/ui/antd/theme';
+import { zhCN } from '@zifeng/ui/antd/locales';
+import { FxProvider } from '@zifeng/ui/motion/FxContext';
 import { AuthContext } from './contexts/AuthContext';
 import Home from './pages/Home';
 import Category from './pages/Category';
@@ -58,6 +61,7 @@ const UserCenter = lazy(() => import('./pages/UserCenter'));
 const Reader = lazy(() => import('./pages/Reader'));
 const SearchResult = lazy(() => import('./pages/SearchResult'));
 const BookSourcePage = lazy(() => import('./pages/BookSourcePage'));
+const DesignLab = lazy(() => import('./pages/DesignLab'));
 
 function App() {
   const themeState = useTheme();
@@ -67,24 +71,22 @@ function App() {
 
   return (
     <Router>
-      <ConfigProvider
-        theme={{
-          algorithm: themeState.isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
-          token: {
-            colorPrimary: themeState.currentThemeConfig.primaryColor,
-            colorBgContainer: themeState.isDarkMode ? '#141414' : '#ffffff',
-            colorBgLayout: themeState.isDarkMode ? '#000000' : '#f0f2f5',
-            borderRadius: 12,
+      <FxProvider>
+        <ConfigProvider
+          locale={zhCN}
+          theme={buildAntdTheme({
+            mode: themeState.isDarkMode ? 'dark' : 'light',
+            brand: themeState.brand,
             fontSize: themeState.globalFontSize,
-          },
-        }}
-      >
-        <NovelContext.Provider value={{ novels, loading }}>
-          <ThemeContext.Provider value={themeState}>
-            <AppLayout themeState={themeState} authState={authState} glassMode={themeState.glassMode} />
-          </ThemeContext.Provider>
-        </NovelContext.Provider>
-      </ConfigProvider>
+          })}
+        >
+          <NovelContext.Provider value={{ novels, loading }}>
+            <ThemeContext.Provider value={themeState}>
+              <AppLayout themeState={themeState} authState={authState} glassMode={themeState.glassMode} />
+            </ThemeContext.Provider>
+          </NovelContext.Provider>
+        </ConfigProvider>
+      </FxProvider>
     </Router>
   );
 }
@@ -92,6 +94,7 @@ function App() {
 const AppLayout = ({ themeState, authState, glassMode }) => {
   const location = useLocation();
   const isReaderPage = location.pathname.startsWith('/reader');
+  /* 仅用于抑制书法水印装饰；导航栏的排除逻辑不在此处 */
   const isSearchPage = location.pathname.startsWith('/search');
 
   const { isDarkMode, currentThemeConfig, setIsDarkMode } = themeState;
@@ -100,7 +103,9 @@ const AppLayout = ({ themeState, authState, glassMode }) => {
   return (
     <AuthContext.Provider value={{ ...authState }}>
       <Layout className="app-layout" style={{ minHeight: '100vh' }}>
-        {!isReaderPage && !isSearchPage && (
+        {/* 只有阅读器需要沉浸（全屏无干扰）。搜索页原先也排除了 Navbar，
+            结果用户一旦搜索就丢失全部站点导航，只能靠页内「返回」退出。 */}
+        {!isReaderPage && (
           <Navbar
             currentThemeConfig={currentThemeConfig}
             isDarkMode={isDarkMode}
@@ -145,6 +150,10 @@ const AppLayout = ({ themeState, authState, glassMode }) => {
                   <Route path="/reader/:novelId" element={<LazyLoadChild><Reader /></LazyLoadChild>} />
                   <Route path="/search" element={<LazyLoadChild><SearchResult /></LazyLoadChild>} />
                   <Route path="/booksource" element={<LazyLoadChild><BookSourcePage /></LazyLoadChild>} />
+                  {/* 视觉稿只在开发环境挂载，生产构建不注册路由 */}
+                  {import.meta.env.DEV && (
+                    <Route path="/design-lab" element={<LazyLoadChild><DesignLab /></LazyLoadChild>} />
+                  )}
                 </Routes>
               </AnimatePresence>
             </div>

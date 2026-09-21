@@ -1,25 +1,23 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
-import { Card, Upload, Button, Input, message, Space, Row, Col } from 'antd';
+import React, { useState } from 'react';
+import { Card, Upload, Button, Input, Space, message } from 'antd';
 import { InboxOutlined, LinkOutlined, FileTextOutlined } from '@ant-design/icons';
+import { ZfPageHeader, ZfGrid } from '@zifeng/ui/components';
 import { importAdminSources, importFromUrl } from '../../utils/adminApi';
-import { staggerFadeIn, cardHover, cardLeave } from '../../utils/animations';
-import { ThemeContext } from '../../App';
+import { CARD, LIFT_CLASS, MONO } from '../../utils/ui';
 
 const { TextArea } = Input;
 const { Dragger } = Upload;
 
+/**
+ * 书源导入。
+ * 原先是三张「48px 居中大彩色图标 + 大标题 + 说明」的卡，读起来像营销落地页，
+ * 而同一后台其他页面都是紧凑的工具型表单 —— 这里收成统一的表单卡：
+ * 图标进标题、说明降为 caption、控件占满剩余宽度。业务逻辑与提示文案未改。
+ */
 const SourceImport = () => {
-  const { isDarkMode } = useContext(ThemeContext);
   const [url, setUrl] = useState('');
   const [jsonText, setJsonText] = useState('');
   const [importing, setImporting] = useState(false);
-  const importRef = useRef(null);
-
-  useEffect(() => {
-    if (importRef.current) {
-      staggerFadeIn(importRef.current.children, 100);
-    }
-  }, []);
 
   const handleImportFromUrl = async () => {
     if (!url.trim()) { message.warning('请输入URL'); return; }
@@ -41,7 +39,7 @@ const SourceImport = () => {
           const importedCount = res2.data?.data?.length ?? res2.data?.count ?? sources.length;
           message.success(`成功导入 ${importedCount} 个书源`);
           setUrl('');
-        } catch (importErr) {
+        } catch {
           message.error(`书源获取成功（${count}个），但写入数据库失败`);
         }
       } else {
@@ -53,8 +51,9 @@ const SourceImport = () => {
     } catch (err) {
       const errMsg = err?.response?.data?.message || err?.message || '网络请求失败';
       message.error(`从URL导入失败：${errMsg}`);
+    } finally {
+      setImporting(false);
     }
-    finally { setImporting(false); }
   };
 
   const handleImportFromJson = async () => {
@@ -62,86 +61,107 @@ const SourceImport = () => {
     setImporting(true);
     try {
       let parsed;
-      try { parsed = JSON.parse(jsonText); } catch { message.error('JSON格式不正确'); setImporting(false); return; }
+      try {
+        parsed = JSON.parse(jsonText);
+      } catch {
+        message.error('JSON格式不正确');
+        setImporting(false);
+        return;
+      }
       const sources = Array.isArray(parsed) ? parsed : [parsed];
       const res = await importAdminSources(sources);
       const count = res.data?.data?.length || sources.length;
       message.success(`导入成功，共 ${count} 个书源`);
       setJsonText('');
-    } catch { message.error('导入失败'); }
-    finally { setImporting(false); }
+    } catch {
+      message.error('导入失败');
+    } finally {
+      setImporting(false);
+    }
   };
 
   const handleFileUpload = (file) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const text = e.target.result;
-        setJsonText(text);
+        setJsonText(e.target.result);
         message.success('文件已读取，点击导入按钮确认导入');
-      } catch { message.error('文件读取失败'); }
+      } catch {
+        message.error('文件读取失败');
+      }
     };
+    reader.onerror = () => message.error('文件读取失败');
     reader.readAsText(file);
     return false;
   };
 
-  const cardStyle = {
-    borderRadius: 12,
-    border: 'none',
-    boxShadow: isDarkMode ? '0 2px 12px rgba(0,0,0,0.3)' : '0 2px 12px rgba(0,0,0,0.06)',
-  };
+  const cardProps = (icon, title, hint) => ({
+    ...CARD,
+    className: `${CARD.className} ${LIFT_CLASS}`,
+    title: (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--zf-s2)', fontSize: 'var(--zf-fs-base)' }}>
+        <span aria-hidden="true" style={{ color: 'var(--zf-brand-500)', display: 'inline-flex' }}>{icon}</span>
+        {title}
+      </span>
+    ),
+    extra: (
+      <span className="zf-caption" style={{ fontWeight: 'var(--zf-fw-normal)' }}>{hint}</span>
+    ),
+  });
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexShrink: 0 }}>
-        <h2 className="page-title">书源导入</h2>
-      </div>
+    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+      <ZfPageHeader title="书源导入" subtitle="支持 URL 抓取、JSON 粘贴与本地文件三种来源" />
 
-      <Row gutter={[24, 24]} ref={importRef}>
-        <Col xs={24} sm={24} md={8}>
-          <Card
-            style={{ ...cardStyle, textAlign: 'center', height: '100%' }}
-            onMouseEnter={(e) => cardHover(e.currentTarget, isDarkMode)}
-            onMouseLeave={(e) => cardLeave(e.currentTarget, isDarkMode)}
+      <ZfGrid min={300} gap="var(--zf-s4)" style={{ marginTop: 'var(--zf-s2)' }}>
+        <Card {...cardProps(<LinkOutlined />, '从 URL 导入', '拉取远端书源 JSON')}>
+          <Space.Compact style={{ width: '100%' }}>
+            <Input
+              placeholder="https://example.com/booksource.json"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onPressEnter={handleImportFromUrl}
+              style={MONO}
+            />
+            <Button type="primary" loading={importing} onClick={handleImportFromUrl}>
+              导入
+            </Button>
+          </Space.Compact>
+        </Card>
+
+        <Card {...cardProps(<FileTextOutlined />, '从 JSON 导入', '粘贴书源数组或单个对象')}>
+          <TextArea
+            rows={4}
+            placeholder="粘贴JSON内容"
+            value={jsonText}
+            onChange={(e) => setJsonText(e.target.value)}
+            style={{ ...MONO, fontSize: 'var(--zf-fs-xs)' }}
+          />
+          <Button
+            type="primary"
+            loading={importing}
+            onClick={handleImportFromJson}
+            style={{ marginTop: 'var(--zf-s3)', width: '100%' }}
           >
-            <div style={{ fontSize: 48, color: '#1890ff', marginBottom: 12 }}><LinkOutlined /></div>
-            <h3 style={{ margin: '0 0 8px' }}>从URL导入</h3>
-            <p style={{ color: isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', marginBottom: 16 }}>输入书源JSON文件URL地址</p>
-            <Space.Compact style={{ width: '100%' }}>
-              <Input placeholder="输入URL" value={url} onChange={(e) => setUrl(e.target.value)} onPressEnter={handleImportFromUrl} />
-              <Button type="primary" loading={importing} onClick={handleImportFromUrl}>导入</Button>
-            </Space.Compact>
-          </Card>
-        </Col>
-        <Col xs={24} sm={24} md={8}>
-          <Card
-            style={{ ...cardStyle, textAlign: 'center', height: '100%' }}
-            onMouseEnter={(e) => cardHover(e.currentTarget, isDarkMode)}
-            onMouseLeave={(e) => cardLeave(e.currentTarget, isDarkMode)}
+            确认导入
+          </Button>
+        </Card>
+
+        <Card {...cardProps(<InboxOutlined />, '上传文件', '.json / .txt，读取后仍需确认')}>
+          <Dragger
+            accept=".json,.txt"
+            showUploadList={false}
+            beforeUpload={handleFileUpload}
+            multiple={false}
+            style={{ borderRadius: 'var(--zf-r-md)' }}
           >
-            <div style={{ fontSize: 48, color: '#52c41a', marginBottom: 12 }}><FileTextOutlined /></div>
-            <h3 style={{ margin: '0 0 8px' }}>从JSON导入</h3>
-            <p style={{ color: isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', marginBottom: 16 }}>粘贴书源JSON内容</p>
-            <TextArea rows={4} placeholder='粘贴JSON内容' value={jsonText} onChange={(e) => setJsonText(e.target.value)} style={{ fontFamily: 'monospace', fontSize: 12 }} />
-            <Button type="primary" loading={importing} onClick={handleImportFromJson} style={{ marginTop: 12, width: '100%' }}>确认导入</Button>
-          </Card>
-        </Col>
-        <Col xs={24} sm={24} md={8}>
-          <Card
-            style={{ ...cardStyle, textAlign: 'center', height: '100%' }}
-            onMouseEnter={(e) => cardHover(e.currentTarget, isDarkMode)}
-            onMouseLeave={(e) => cardLeave(e.currentTarget, isDarkMode)}
-          >
-            <div style={{ fontSize: 48, color: '#faad14', marginBottom: 12 }}><InboxOutlined /></div>
-            <h3 style={{ margin: '0 0 8px' }}>上传文件</h3>
-            <p style={{ color: isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', marginBottom: 16 }}>拖拽或点击上传书源文件</p>
-            <Dragger accept=".json,.txt" showUploadList={false} beforeUpload={handleFileUpload} multiple={false} style={{ borderRadius: 8 }}>
-              <p style={{ fontSize: 24, color: '#faad14', marginBottom: 4 }}><InboxOutlined /></p>
-              <p style={{ fontSize: 13 }}>点击或拖拽文件</p>
-            </Dragger>
-          </Card>
-        </Col>
-      </Row>
+            <p style={{ fontSize: 'var(--zf-fs-xl)', color: 'var(--zf-brand-500)', marginBottom: 'var(--zf-s1)' }}>
+              <InboxOutlined />
+            </p>
+            <p style={{ fontSize: 'var(--zf-fs-sm)', color: 'var(--zf-text-secondary)' }}>点击或拖拽文件到此处</p>
+          </Dragger>
+        </Card>
+      </ZfGrid>
     </div>
   );
 };

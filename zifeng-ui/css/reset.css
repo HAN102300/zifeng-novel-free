@@ -1,0 +1,124 @@
+/* ============================================================
+   紫枫 · 基础重置
+   必须在 tokens.css 之前引入，在两端各自的 index.css 之前。
+   注意：antd 自己的 reset 由 app 侧 `import 'antd/dist/reset.css'` 提供，
+   这里不重复，只做项目层需要的最小重置。
+   ============================================================ */
+
+/* 关键：box-sizing 不继承。两端此前只在 #root 上声明，
+   导致 admin 的 Content（content-box）在 height:calc(100vh - 64px)
+   之上又叠了 24px padding，溢出被自身 overflow:hidden 吃掉 —— 
+   这就是「每个页头都被裁掉一半」的根因。 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--zf-canvas);
+  color: var(--zf-text-primary);
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  font-family: var(--zf-font-ui);
+  font-size: var(--zf-fs-base);
+  line-height: var(--zf-lh-body);
+  letter-spacing: var(--zf-ls-normal);
+  color: var(--zf-text-primary);
+  background: var(--zf-canvas);
+}
+
+/* 此前 index.css 有全局 h1,h2{font-family:var(--heading);color:var(--text-h)}，
+   其中 --text-h 只由 @media (prefers-color-scheme) 切换、与 app 的 data-theme
+   脱钩，暗色下会拿到近黑文字。这里不再对标题做任何全局设定，
+   排版一律走 .zf-h1/.zf-h2 等显式类，避免污染 antd 的 Title/Descriptions。 */
+h1, h2, h3, h4, h5, h6, p, figure {
+  margin: 0;
+}
+
+img, picture, video, canvas, svg {
+  display: block;
+  max-width: 100%;
+}
+
+input, button, textarea, select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul, ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+::selection {
+  background: var(--zf-tint-brand-25);
+  color: var(--zf-text-primary);
+}
+
+:focus-visible {
+  outline: 2px solid var(--zf-brand-500);
+  outline-offset: 3px;
+  border-radius: var(--zf-r-xs);
+}
+
+/* 滚动条：颜色引用品牌 rgb，切主题自动跟随
+   （此前 App.css:300 写死 --zf-primary-400，故换主题后滚动条仍是紫） */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--zf-brand-rgb-400) / 0.45) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--zf-brand-rgb-400) / 0.45);
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: var(--zf-r-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--zf-brand-rgb-500) / 0.7);
+  background-clip: content-box;
+}
+
+/* 减少动效偏好：由 tier 0 承接大部分降级，这里只兜住第三方件 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

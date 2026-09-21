@@ -1,0 +1,200 @@
+/* ============================================================
+   紫枫 · 关键帧（唯一来源）
+   收编自两处冲突的定义：
+     zifeng-web/src/styles/animations.css  （22 组）
+     zifeng-web/src/App.css:223-256        （glassFloat1-5 + shimmer）
+   其中 shimmer 两处同名但方向相反（200%→-200% vs -200%→200%），
+   实际生效的取决于打包顺序 —— 这里统一为「自左向右」一种方向。
+
+   所有 infinite 动画都挂 animation-play-state: var(--zf-fx-loop, running)，
+   tier 0 一键静止；骨架/流光的扫过另挂 var(--zf-fx-shimmer, running)。
+   ============================================================ */
+
+/* ---------- 氛围漂移 ---------- */
+@keyframes zf-drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-30px, 20px, 0); }
+}
+@keyframes zf-drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(25px, -30px, 0); }
+}
+@keyframes zf-drift-c {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-20px, -25px, 0); }
+}
+@keyframes zf-drift-d {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(15px, 25px, 0); }
+}
+@keyframes zf-drift-e {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-25px, 15px, 0); }
+}
+/* 墨团流动：带缩放的加强漂移 */
+@keyframes zf-ink-flow {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.12; }
+  33% { transform: translate3d(30px, -40px, 0) scale(1.1); opacity: 0.18; }
+  66% { transform: translate3d(-20px, 30px, 0) scale(0.95); opacity: 0.1; }
+}
+/* 背景网格缓慢漂移 */
+@keyframes zf-mesh {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-2%, 2%, 0) scale(1.06); }
+}
+
+/* ---------- 入场 / 揭示 ---------- */
+@keyframes zf-card-enter {
+  from { opacity: 0; transform: translate3d(0, 24px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes zf-reveal {
+  from { opacity: 0; transform: translate3d(0, 30px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes zf-char-reveal {
+  from { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.9); filter: blur(4px); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
+}
+
+/* ---------- 扫光 / 流光 ---------- */
+/* 统一方向：自左向右。原 animations.css 的 shimmer 与之相反，已归一。 */
+@keyframes zf-shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes zf-grad-flow {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes zf-sweep-x {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+@keyframes zf-logo-shine {
+  0%, 40% { transform: translateX(-120%); }
+  60%, 100% { transform: translateX(120%); }
+}
+@keyframes zf-progress-shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+/* 骨架屏微光 */
+@keyframes zf-skeleton {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ---------- 状态脉冲 ---------- */
+@keyframes zf-pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgb(var(--zf-brand-rgb-500) / 0.6); }
+  70% { box-shadow: 0 0 0 16px rgb(var(--zf-brand-rgb-500) / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(var(--zf-brand-rgb-500) / 0); }
+}
+@keyframes zf-pulse-live {
+  0% { box-shadow: 0 0 0 0 rgb(16 185 129 / 0.6); }
+  70% { box-shadow: 0 0 0 8px rgb(16 185 129 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(16 185 129 / 0); }
+}
+@keyframes zf-pulse-gold {
+  0%, 100% { box-shadow: 0 0 18px rgb(245 158 11 / 0.7); }
+  50% { box-shadow: 0 0 28px rgb(245 158 11 / 1); }
+}
+
+/* ---------- 阅读器翻页拟真（tier 2） ---------- */
+@keyframes zf-page-flip-in {
+  from { opacity: 0; transform: perspective(1000px) rotateY(-15deg) translate3d(30px, 0, 0); }
+  to { opacity: 1; transform: perspective(1000px) rotateY(0) translate3d(0, 0, 0); }
+}
+@keyframes zf-page-flip-out {
+  from { opacity: 1; transform: perspective(1000px) rotateY(0) translate3d(0, 0, 0); }
+  to { opacity: 0; transform: perspective(1000px) rotateY(15deg) translate3d(-30px, 0, 0); }
+}
+
+/* ---------- 水墨晕染转场（tier 2） ---------- */
+@keyframes zf-ink-wipe {
+  from { clip-path: circle(0% at 50% 55%); }
+  to { clip-path: circle(140% at 50% 55%); }
+}
+
+/* ---------- 杂项 ---------- */
+@keyframes zf-ripple {
+  from { transform: scale(0); opacity: 0.6; }
+  to { transform: scale(4); opacity: 0; }
+}
+@keyframes zf-num-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+@keyframes zf-float-soft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes zf-draw-line {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* ============================================================
+   可复用工具类 —— 页面直接挂这些，不再自己写 animation
+   ============================================================ */
+
+.zf-anim-enter {
+  animation: zf-card-enter var(--zf-dur-gentle) var(--zf-ease-out) both;
+  animation-play-state: var(--zf-fx-loop, running);
+}
+.zf-anim-reveal {
+  animation: zf-reveal var(--zf-dur-gentle) var(--zf-ease-out) both;
+  animation-play-state: var(--zf-fx-loop, running);
+}
+.zf-anim-drift {
+  animation: zf-drift-a 18s ease-in-out infinite;
+  animation-play-state: var(--zf-fx-loop, running);
+}
+.zf-anim-drift-b {
+  animation: zf-drift-b 22s ease-in-out infinite;
+  animation-play-state: var(--zf-fx-loop, running);
+}
+.zf-anim-drift-c {
+  animation: zf-drift-c 26s ease-in-out infinite;
+  animation-play-state: var(--zf-fx-loop, running);
+}
+.zf-anim-ink-flow {
+  animation: zf-ink-flow 24s ease-in-out infinite;
+  animation-play-state: var(--zf-fx-loop, running);
+}
+.zf-anim-pulse-ring {
+  animation: zf-pulse-ring 2.4s var(--zf-ease-out) infinite;
+  animation-play-state: var(--zf-fx-loop, running);
+}
+.zf-anim-float {
+  animation: zf-float-soft 6s ease-in-out infinite;
+  animation-play-state: var(--zf-fx-loop, running);
+}
+
+/* 骨架微光：走 shimmer 总闸，tier 0 静止但仍保留底色对比 */
+.zf-skeleton {
+  background-image: linear-gradient(
+    90deg,
+    var(--zf-glass-1) 0%,
+    var(--zf-glass-3) 50%,
+    var(--zf-glass-1) 100%
+  );
+  background-size: 200% 100%;
+  animation: zf-skeleton 1.6s linear infinite;
+  animation-play-state: var(--zf-fx-shimmer, running);
+  border-radius: var(--zf-r-md);
+}
+
+/* 标题流光：用于 Hero，不用于功能型标题 */
+.zf-anim-grad-flow {
+  background-size: 200% auto;
+  animation: zf-grad-flow 6s linear infinite;
+  animation-play-state: var(--zf-fx-shimmer, running);
+}
+
+/* 水墨转场：PageTransition 在 tier 2 使用 */
+.zf-anim-ink-wipe {
+  animation: zf-ink-wipe var(--zf-fx-transition-dur, 0.55s) var(--zf-ease-ink) both;
+}

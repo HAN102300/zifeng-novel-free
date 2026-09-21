@@ -1,95 +1,129 @@
 import { useContext } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { Button, Input } from 'antd';
+import {
+  FireOutlined,
+  RiseOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  TrophyOutlined,
+  CommentOutlined,
+  RightOutlined,
+  ReadOutlined,
+  BookOutlined,
+} from '@ant-design/icons';
 import { NovelContext, ThemeContext } from '../App';
 import { getDefaultSource, saveNovelCache } from '../utils/novelConfig';
-import NovelCard from '../components/NovelCard';
-import SectionHeader from '../components/SectionHeader';
-import CalligraphyWatermark from '../components/CalligraphyWatermark';
+import {
+  ZfPageShell,
+  ZfGrid,
+  ZfSectionTitle,
+  ZfGlassSurface,
+  ZfPill,
+  ZfCoverCard,
+  ZfSkeleton,
+  ZfSkeletonGrid,
+} from '@zifeng/ui/components';
+import { variants, EASE, DUR } from '@zifeng/ui/motion';
+import { useFx } from '@zifeng/ui/motion/FxContext';
+import { useBreakpoint } from '@zifeng/ui/hooks';
+import { hasScore, formatScore } from '@zifeng/ui/format';
 
 /* ============================================================
-   紫枫免费小说 · 首页（Task 8 重构）
-   - Hero 渐变标题（gradFlow 流动渐变）
-   - 六大榜单分区：左大图特色卡 + 右 4 列网格
-   - framer-motion 错峰揭示 + 响应式（≤880px 单列）
-   - 保留 NovelContext/ThemeContext 取数与 handleClick 跳转
-   参考：design/zifeng-pages-deep-dive.html .home-hero / .rank-section
+   紫枫免费小说 · 首页（P2 迁移）
+   - Hero 改为「内容驱动」：主推书的真实封面/书名/分类/评分 + 详情入口
+     + 搜索入口 + 搜索榜热门词，替换原先那块零信息量的三色假书堆
+   - ★ 合成器铁律：光球与粒子的 infinite 动画全部移出玻璃卡，
+     做成兄弟层（.zf-ambient__orb + .zf-anim-*），玻璃层内部不再有
+     infinite 子动画 → 不再每帧重采样 backdrop
+   - 六大榜单统一 ZfSectionTitle（品牌渐变底 + 白色图标，靠图标区分）
+     与 ZfCoverCard（五张同一内部结构，文字基线对齐）
+   - 断点走 useBreakpoint()，缓动走 EASE.out，页面内不再有内联 style 标签块
    ============================================================ */
 
-/* 六大榜单配置：key 对应 novels 字段，icon 映射 SectionHeader，
-   rankType 对应 App.jsx rankUrls 中的 type（/rank/:rankType） */
+/* 六大榜单配置：key 对应 novels 字段，rankType 对应 /rank/:rankType */
 const RANK_SECTIONS = [
-  { key: 'mustRead',  icon: 'fire',    title: '必读榜', subtitle: '精选好书',     rankType: 1 },
-  { key: 'potential', icon: 'rise',    title: '潜力榜', subtitle: 'rising stars', rankType: 5 },
-  { key: 'completed', icon: 'check',   title: '完结榜', subtitle: '已完结精品',   rankType: 2 },
-  { key: 'updated',   icon: 'clock',   title: '更新榜', subtitle: '最近更新',     rankType: 3 },
-  { key: 'search',    icon: 'trophy',  title: '搜索榜', subtitle: '热搜排行',     rankType: 4 },
-  { key: 'comment',   icon: 'comment', title: '评论榜', subtitle: '热门讨论',     rankType: 6 },
+  { key: 'mustRead',  Icon: FireOutlined,        title: '必读榜', subtitle: '精选好书',     rankType: 1 },
+  { key: 'potential', Icon: RiseOutlined,        title: '潜力榜', subtitle: 'rising stars', rankType: 5 },
+  { key: 'completed', Icon: CheckCircleOutlined, title: '完结榜', subtitle: '已完结精品',   rankType: 2 },
+  { key: 'updated',   Icon: ClockCircleOutlined, title: '更新榜', subtitle: '最近更新',     rankType: 3 },
+  { key: 'search',    Icon: TrophyOutlined,      title: '搜索榜', subtitle: '热搜排行',     rankType: 4 },
+  { key: 'comment',   Icon: CommentOutlined,     title: '评论榜', subtitle: '热门讨论',     rankType: 6 },
 ];
 
-const REVEAL_EASE = [0.16, 1, 0.3, 1];
+/* Hero 光球：兄弟层内的两团墨，色相全部走品牌 tint 令牌 */
+const HERO_ORBS = [
+  { top: '-14%', right: '-3%', width: 300, height: 300, tint: 'var(--zf-tint-brand-35)', delay: '0s' },
+  { bottom: '-18%', left: '-2%', width: 240, height: 240, tint: 'var(--zf-tint-brand-25)', delay: '-9s' },
+];
 
-/* —— 骨架占位块（基于 skel keyframe，不用全屏 Spin） —— */
-function Skel({ height, width = '100%', radius = 'var(--zf-r-md)' }) {
+/* Hero 氛围粒子：位点写死而非 Math.random()，否则每次 render 都在重排 */
+const HERO_PARTICLES = [
+  { left: '6%',  top: '24%', size: 5, dur: '7s',   delay: '0s' },
+  { left: '19%', top: '70%', size: 7, dur: '8.5s', delay: '-1.4s' },
+  { left: '36%', top: '14%', size: 4, dur: '6.5s', delay: '-2.6s' },
+  { left: '55%', top: '82%', size: 6, dur: '9s',   delay: '-3.2s' },
+  { left: '73%', top: '18%', size: 4, dur: '7.5s', delay: '-0.8s' },
+  { left: '88%', top: '64%', size: 8, dur: '10s',  delay: '-2.1s' },
+];
+
+/* —— 榜单图标：统一品牌渐变底 + 白色图标，靠图形而非色相区分 —— */
+function RankBadge({ Icon }) {
   return (
-    <div
+    <span
+      aria-hidden="true"
       style={{
-        width,
-        height,
-        borderRadius: radius,
-        background:
-          'linear-gradient(90deg, var(--zf-glass-bg) 25%, var(--zf-glass-bg-strong) 50%, var(--zf-glass-bg) 75%)',
-        backgroundSize: '200% 100%',
-        animation: 'skel 1.4s ease-in-out infinite',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 30,
+        height: 30,
+        borderRadius: 'var(--zf-r-md)',
+        background: 'var(--zf-grad-brand)',
+        color: 'var(--zf-on-accent)',
+        fontSize: 'var(--zf-fs-md)',
+        boxShadow: 'var(--zf-glow-brand-soft)',
       }}
-    />
+    >
+      <Icon />
+    </span>
   );
 }
 
-/* —— 加载态：Hero + 三组分区骨架 —— */
+/* —— 加载态：Hero 骨架 + 两组榜单骨架 —— */
 function HomeSkeleton() {
+  const { isMobile } = useBreakpoint();
   return (
-    <div style={{ padding: '0 0 40px 0' }}>
-      <div
-        style={{
-          padding: 'var(--zf-s12)',
-          borderRadius: 'var(--zf-r-xl)',
-          background: 'linear-gradient(135deg, rgba(124,58,237,.18), rgba(236,72,153,.10))',
-          border: '1px solid var(--zf-glass-border)',
-          marginBottom: 'var(--zf-s8)',
-        }}
-      >
-        <Skel height={44} width={260} radius="var(--zf-r-sm)" />
-        <div style={{ marginTop: 12 }}>
-          <Skel height={18} width={320} radius="var(--zf-r-sm)" />
-        </div>
+    <ZfPageShell size="lg">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--zf-s8)' }}>
+        <ZfSkeleton variant="block" height={isMobile ? 320 : 240} />
+        {[0, 1].map((i) => (
+          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--zf-s5)' }}>
+            <ZfSkeleton variant="text" width={200} height={22} />
+            <ZfSkeletonGrid count={isMobile ? 4 : 5} />
+          </div>
+        ))}
       </div>
-      {[0, 1, 2].map((i) => (
-        <div key={i} style={{ marginBottom: 'var(--zf-s10)' }}>
-          <div style={{ marginBottom: 'var(--zf-s5)' }}>
-            <Skel height={42} width={220} radius="var(--zf-r-lg)" />
-          </div>
-          <div className="zf-rank-layout">
-            <Skel height={300} radius="var(--zf-r-lg)" />
-            <div className="zf-rank-grid">
-              {[0, 1, 2, 3].map((j) => (
-                <Skel key={j} height={290} radius="var(--zf-r-md)" />
-              ))}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
+    </ZfPageShell>
   );
 }
 
 const Home = () => {
   const { novels, loading } = useContext(NovelContext);
-  const { currentTheme, themeConfigs, isDarkMode, glassMode } = useContext(ThemeContext);
+  /* glassMode 关闭时页面不能用玻璃底：ZfGlassSurface / ZfCoverCard 的
+     background 与 backdrop-filter 是内联的，压过 [data-glass='off'] 的
+     CSS 分支，所以这一层必须在页面里显式接管。 */
+  const { glassMode } = useContext(ThemeContext);
   const navigate = useNavigate();
+  const { up, isMobile } = useBreakpoint();
+  const { tier } = useFx();
 
-  const colors = themeConfigs[currentTheme].colors;
-  const primaryColor = themeConfigs[currentTheme].primaryColor;
+  /* —— 榜单一行 5 张（窄屏 2 列），全部同一内部结构 —— */
+  const cols = up('lg') ? 5 : isMobile ? 2 : 3;
+  const featured = novels?.mustRead?.[0];
+  const hotWords = (novels?.search || []).slice(0, 4);
+  const particles = HERO_PARTICLES.slice(0, tier >= 2 ? 6 : tier >= 1 ? 3 : 0);
 
   /* —— 跳转小说详情（保留原逻辑：默认书源 + 缓存 + navigate） —— */
   const handleClick = (novel) => {
@@ -111,430 +145,286 @@ const Home = () => {
     navigate(`/novel/${novel.id}?${params.toString()}`);
   };
 
-  const handleViewAll = (rankType) => {
-    navigate(`/rank/${rankType}`);
+  const handleViewAll = (rankType) => navigate(`/rank/${rankType}`);
+
+  const goSearch = (value) => {
+    const kw = String(value || '').trim();
+    if (kw) navigate(`/search?keyword=${encodeURIComponent(kw)}`);
   };
 
-  if (loading) {
-    return <HomeSkeleton />;
-  }
+  if (loading) return <HomeSkeleton />;
 
   return (
-    <div style={{ padding: '0 0 40px 0' }}>
-      {/* —— 响应式布局：≤880px 特色卡置顶、网格变 2 列 —— */}
-      <style>{`
-        .zf-rank-layout{display:grid;grid-template-columns:280px 1fr;gap:var(--zf-s5)}
-        .zf-rank-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--zf-s4)}
-        @media (max-width:880px){
-          .zf-rank-layout{grid-template-columns:1fr}
-          .zf-rank-grid{grid-template-columns:repeat(2,1fr)}
-          .zf-hero-books{display:none!important}
-        }
-        @keyframes zfParticleFloat{
-          0%,100%{transform:translateY(0) translateX(0);opacity:.2}
-          50%{transform:translateY(-18px) translateX(8px);opacity:.7}
-        }
-        .zf-hero-particle{animation:zfParticleFloat ease-in-out infinite}
-      `}</style>
-
-      {/* ============== Hero 区（左右分栏：文字 + 浮动书本） ============== */}
-      <section
-        style={{
-          padding: 'var(--zf-s12)',
-          borderRadius: 'var(--zf-r-xl)',
-          background:
-            'linear-gradient(135deg, rgba(124,58,237,.25), rgba(236,72,153,.15))',
-          border: '1px solid var(--zf-glass-border-strong)',
-          backdropFilter: 'var(--zf-blur-glass)',
-          WebkitBackdropFilter: 'var(--zf-blur-glass)',
-          marginBottom: 'var(--zf-s8)',
-          position: 'relative',
-          overflow: 'hidden',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--zf-s6)',
-          minHeight: 220,
-        }}
-      >
-        {/* —— 背景层：水墨墨团浮动 —— */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '8%',
-            right: '3%',
-            width: 280,
-            height: 280,
-            borderRadius: '50%',
-            background: `radial-gradient(circle, ${primaryColor}20 0%, transparent 70%)`,
-            filter: 'blur(55px)',
-            animation: 'inkFlow 25s ease-in-out infinite',
-            pointerEvents: 'none',
-            zIndex: 0,
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '5%',
-            left: '2%',
-            width: 220,
-            height: 220,
-            borderRadius: '50%',
-            background: `radial-gradient(circle, ${(colors[2] || primaryColor)}18 0%, transparent 70%)`,
-            filter: 'blur(45px)',
-            animation: 'inkFlow 30s ease-in-out infinite reverse',
-            pointerEvents: 'none',
-            zIndex: 0,
-          }}
-        />
-
-        {/* —— 书法水印"阅" —— */}
-        <CalligraphyWatermark
-          char="阅"
-          position={{ top: '2%', right: '2%' }}
-          size={180}
-          color={`${primaryColor}0a`}
-        />
-
-        {/* —— 粒子飘动 —— */}
-        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+    <ZfPageShell size="lg">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--zf-s10)' }}>
+        {/* ============== Hero：内容驱动（真实主推书 + 搜索入口） ============== */}
+        <section style={{ position: 'relative' }}>
+          {/* ★ 氛围兄弟层：infinite 动画不得落在带 backdrop-filter 的卡内部 */}
           <div
-            key={i}
-            className="zf-hero-particle"
+            aria-hidden="true"
             style={{
               position: 'absolute',
-              width: 3 + (i % 3) * 2,
-              height: 3 + (i % 3) * 2,
-              borderRadius: '50%',
-              background: i % 2 === 0 ? primaryColor : (colors[1] || primaryColor),
-              left: `${8 + i * 11}%`,
-              top: `${15 + (i * 9) % 65}%`,
-              animationDelay: `${i * 0.6}s`,
-              animationDuration: `${4 + (i % 3) * 1.5}s`,
+              inset: 0,
+              overflow: 'hidden',
               pointerEvents: 'none',
-              zIndex: 0,
-            }}
-          />
-        ))}
-
-        {/* —— 左侧：标题 + 副标题 + 装饰线 —— */}
-        <div style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: 1 }}>
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: REVEAL_EASE }}
-            style={{
-              fontFamily: 'var(--zf-font-serif)',
-              fontSize: 'var(--zf-fs-4xl)',
-              fontWeight: 900,
-              lineHeight: 1.1,
-              margin: 0,
-              marginBottom: 14,
+              borderRadius: 'var(--zf-r-xl)',
             }}
           >
-            <span
-              style={{
-                background:
-                  'linear-gradient(120deg, var(--zf-primary-400), var(--zf-accent-magenta), var(--zf-accent-cyan))',
-                backgroundSize: '200% auto',
-                WebkitBackgroundClip: 'text',
-                backgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                color: 'transparent',
-                animation: 'gradFlow 4s linear infinite',
-                display: 'inline-block',
-              }}
-            >
-              紫枫免费小说
-            </span>
-          </motion.h2>
-          <motion.p
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.15, ease: REVEAL_EASE }}
-            style={{
-              color: 'var(--zf-text-secondary)',
-              maxWidth: 480,
-              margin: 0,
-              fontSize: 'var(--zf-fs-lg)',
-            }}
-          >
-            海量书源 · 免费阅读 · 极致体验
-          </motion.p>
-          <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 80, opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.4, ease: REVEAL_EASE }}
-            style={{
-              height: 4,
-              borderRadius: 2,
-              marginTop: 18,
-              background:
-                'linear-gradient(90deg, var(--zf-primary-500), var(--zf-accent-magenta))',
-            }}
-          />
-        </div>
-
-        {/* —— 右侧：浮动书本图标群 —— */}
-        <div
-          className="zf-hero-books"
-          style={{
-            flex: '0 0 220px',
-            height: 200,
-            position: 'relative',
-            zIndex: 1,
-          }}
-        >
-          {[
-            { x: 10, y: 15, rotate: -10, delay: 0, grad: 'linear-gradient(135deg, #8B5CF6, #6D28D9)', z: 3, label: '紫' },
-            { x: 85, y: 5, rotate: 8, delay: 0.2, grad: 'linear-gradient(135deg, #EC4899, #BE123C)', z: 2, label: '枫' },
-            { x: 48, y: 70, rotate: -4, delay: 0.4, grad: 'linear-gradient(135deg, #06B6D4, #0891B2)', z: 1, label: '阅' },
-          ].map((book, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, scale: 0.5, y: 30 }}
-              animate={{ opacity: 1, scale: 1, y: book.y }}
-              transition={{ duration: 0.6, delay: 0.3 + book.delay, ease: REVEAL_EASE }}
-              style={{
-                position: 'absolute',
-                left: book.x,
-                top: 0,
-                width: 72,
-                height: 100,
-                borderRadius: '4px 10px 10px 4px',
-                background: book.grad,
-                boxShadow:
-                  '0 10px 30px rgba(0,0,0,.28), inset 5px 0 0 rgba(0,0,0,.18), inset 0 0 20px rgba(255,255,255,.08)',
-                zIndex: book.z,
-                overflow: 'hidden',
-              }}
-            >
-              {/* 书本封面光泽 */}
-              <div
+            {HERO_ORBS.map((o, i) => (
+              <span
+                key={i}
+                className="zf-ambient__orb zf-anim-ink-flow"
                 style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 5,
-                  right: 0,
-                  bottom: 0,
-                  background:
-                    'linear-gradient(105deg, transparent 40%, rgba(255,255,255,.12) 50%, transparent 60%)',
-                  pointerEvents: 'none',
+                  top: o.top,
+                  right: o.right,
+                  bottom: o.bottom,
+                  left: o.left,
+                  width: o.width,
+                  height: o.height,
+                  animationDelay: o.delay,
+                  background: `radial-gradient(circle, ${o.tint}, transparent 70%)`,
                 }}
               />
-              {/* 浮动动画层 */}
-              <motion.div
-                animate={{ y: [0, -8, 0], rotate: [book.rotate, book.rotate + 2, book.rotate] }}
-                transition={{ duration: 3.5 + i * 0.5, repeat: Infinity, ease: 'easeInOut' }}
+            ))}
+            {particles.map((p, i) => (
+              <span
+                key={i}
+                className="zf-anim-float"
                 style={{
-                  width: '100%',
-                  height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transform: `rotate(${book.rotate}deg)`,
+                  position: 'absolute',
+                  left: p.left,
+                  top: p.top,
+                  width: p.size,
+                  height: p.size,
+                  borderRadius: 'var(--zf-r-full)',
+                  background: i % 2 ? 'var(--zf-brand-400)' : 'var(--zf-brand-600)',
+                  opacity: 0.45,
+                  animationDuration: p.dur,
+                  animationDelay: p.delay,
                 }}
-              >
-                <span
-                  style={{
-                    color: 'rgba(255,255,255,.75)',
-                    fontSize: 28,
-                    fontWeight: 900,
-                    fontFamily: 'var(--zf-font-serif), serif',
-                    textShadow: '0 2px 4px rgba(0,0,0,.3)',
-                  }}
-                >
-                  {book.label}
-                </span>
-              </motion.div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
+              />
+            ))}
+          </div>
 
-      {/* ============== 六大榜单分区 ============== */}
-      {RANK_SECTIONS.map((section) => {
-        const list = novels?.[section.key];
-        if (!list || list.length === 0) return null;
-
-        const feature = list[0];
-        const rest = list.slice(1, 5); // 第 2-5 本（4 本）
-
-        return (
-          <motion.section
-            key={section.key}
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-50px' }}
-            transition={{ duration: 0.7, ease: REVEAL_EASE }}
-            style={{ marginBottom: 'var(--zf-s10)' }}
+          <ZfGlassSurface
+            level={2}
+            style={{
+              position: 'relative',
+              padding: isMobile ? 'var(--zf-s6)' : 'var(--zf-s10) var(--zf-s8)',
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,1fr) minmax(300px, 380px)',
+              alignItems: 'center',
+              gap: 'var(--zf-s8)',
+              ...(glassMode
+                ? null
+                : {
+                    background: 'var(--zf-surface-1)',
+                    backdropFilter: 'none',
+                    WebkitBackdropFilter: 'none',
+                  }),
+            }}
           >
-            <SectionHeader
-              icon={section.icon}
-              title={section.title}
-              subtitle={section.subtitle}
-              onViewAll={() => handleViewAll(section.rankType)}
-            />
+            {/* —— 左：身份 + 口号 + 搜索入口 + 热搜书名 —— */}
+            <motion.div
+              variants={variants.fadeUp}
+              initial="initial"
+              animate="animate"
+              style={{ display: 'flex', flexDirection: 'column', gap: 'var(--zf-s4)', minWidth: 0 }}
+            >
+              <ZfPill
+                tone="brand"
+                size="sm"
+                icon={<ReadOutlined />}
+                style={{ alignSelf: 'flex-start' }}
+              >
+                免费阅读 · 无需登录
+              </ZfPill>
 
-            <div className="zf-rank-layout">
-              {/* —— 左：大图特色卡（取榜单第 1 本） —— */}
-              <div
-                onClick={() => handleClick(feature)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-4px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}
+              {/* Hero 主标题：品牌水墨渐变。刻意不加 zf-anim-grad-flow ——
+                  玻璃卡内的 infinite 动画会让 backdrop 每帧重采样，
+                  静态渐变已足够撑起身份，动效预算全部交给兄弟层光球 */}
+              <h1 className="zf-h1 zf-h1--fluid zf-grad-text">紫枫免费小说</h1>
+
+              <p className="zf-lede" style={{ margin: 0, maxWidth: 'var(--zf-measure-text)' }}>
+                聚合书源、纯净无广告。六大榜单每日精选，从玄幻到言情，点开就能一路读完。
+              </p>
+
+              <Input.Search
+                placeholder="搜索书名 / 作者"
+                enterButton
+                size="large"
+                onSearch={goSearch}
+                style={{ maxWidth: 'var(--zf-container-xs)' }}
+              />
+
+              {hotWords.length > 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--zf-s2)', flexWrap: 'wrap' }}>
+                  <span className="zf-caption" style={{ textTransform: 'uppercase', letterSpacing: 'var(--zf-ls-wide)' }}>
+                    搜索榜热门
+                  </span>
+                  {hotWords.map((n) => (
+                    <Button
+                      key={n.id}
+                      size="small"
+                      classNames={{ root: 'zf-btn zf-btn--ghost' }}
+                      onClick={() => goSearch(n.name)}
+                    >
+                      {n.name}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
+            </motion.div>
+
+            {/* —— 右：必读榜首名的真实封面与信息（替掉假书堆） —— */}
+            {featured ? (
+              <motion.aside
+                variants={variants.scaleIn}
+                initial="initial"
+                animate="animate"
+                transition={{ duration: DUR.slow / 1000, ease: EASE.out, delay: 0.12 }}
+                aria-label={`必读榜首名《${featured.name}》`}
+                onClick={() => handleClick(featured)}
                 style={{
-                  position: 'relative',
+                  /* 内层刻意不再叠 backdrop-filter：嵌套玻璃会让重采样翻倍 */
+                  display: 'flex',
+                  gap: 'var(--zf-s4)',
+                  padding: 'var(--zf-s4)',
                   borderRadius: 'var(--zf-r-lg)',
-                  overflow: 'hidden',
-                  height: 300,
+                  background: 'var(--zf-tint-brand-08)',
+                  border: '1px solid rgb(var(--zf-brand-rgb-500) / 0.28)',
+                  minWidth: 0,
                   cursor: 'pointer',
-                  transition: 'transform var(--zf-dur-normal) var(--zf-ease-spring)',
-                  background: `linear-gradient(135deg, var(--zf-primary-700), ${primaryColor})`,
                 }}
               >
-                {feature.cover ? (
-                  <img
-                    src={feature.cover}
-                    alt={feature.name}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      display: 'block',
-                    }}
-                  />
-                ) : null}
-
-                {/* 底部渐变遮罩 + 标题/简介/标签 */}
                 <div
                   style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background:
-                      'linear-gradient(180deg, transparent 30%, rgba(11,8,20,.95))',
-                    padding: 20,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-end',
+                    width: 'var(--zf-s24)',
+                    flexShrink: 0,
+                    aspectRatio: '3 / 4',
+                    borderRadius: 'var(--zf-r-md)',
+                    overflow: 'hidden',
+                    background: 'var(--zf-glass-1)',
                   }}
                 >
-                  {/* 金色 "1" 光晕徽章（pulseGold） */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 16,
-                      left: 16,
-                      width: 44,
-                      height: 52,
-                      borderRadius: 8,
-                      background: 'linear-gradient(135deg, var(--zf-accent-amber), #F97316)',
-                      display: 'grid',
-                      placeItems: 'center',
-                      fontFamily: 'var(--zf-font-serif)',
-                      fontWeight: 900,
-                      fontSize: 24,
-                      color: '#fff',
-                      animation: 'pulseGold 2s ease-in-out infinite',
-                    }}
-                  >
-                    1
-                  </div>
+                  {featured.cover ? (
+                    <img
+                      src={featured.cover}
+                      alt={featured.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  ) : (
+                    <span
+                      className="zf-h3"
+                      aria-hidden="true"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '100%',
+                        color: 'var(--zf-text-faint)',
+                      }}
+                    >
+                      {String(featured.name || '').slice(0, 1)}
+                    </span>
+                  )}
+                </div>
 
-                  <div
-                    style={{
-                      fontFamily: 'var(--zf-font-serif)',
-                      fontSize: 'var(--zf-fs-xl)',
-                      fontWeight: 700,
-                      color: '#fff',
-                      marginBottom: 6,
-                    }}
-                  >
-                    {feature.name}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--zf-s1)', minWidth: 0, flex: 1 }}>
+                  <ZfPill tone="solid" size="xs" icon={<TrophyOutlined />} style={{ alignSelf: 'flex-start' }}>
+                    必读榜第 1 名
+                  </ZfPill>
+                  <h2 className="zf-h3 zf-truncate" style={{ fontSize: 'var(--zf-fs-lg)' }} title={featured.name}>
+                    {featured.name}
+                  </h2>
+                  <div className="zf-caption zf-truncate">{featured.author}</div>
+                  <div style={{ display: 'flex', gap: 'var(--zf-s2)', flexWrap: 'wrap' }}>
+                    {featured.category ? <ZfPill size="xs">{featured.category}</ZfPill> : null}
+                    {hasScore(featured.score) ? (
+                      <ZfPill size="xs" tone="warning">
+                        {formatScore(featured.score)}
+                      </ZfPill>
+                    ) : null}
                   </div>
-                  <div
-                    style={{
-                      fontSize: 'var(--zf-fs-sm)',
-                      color: 'rgba(255,255,255,.8)',
-                      marginBottom: 12,
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    {feature.author}
-                    {feature.category ? ` · ${feature.category}` : ''}
-                  </div>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    {feature.category ? (
-                      <span
-                        style={{
-                          padding: '2px 8px',
-                          borderRadius: 5,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          background: 'rgba(139,92,246,.30)',
-                          color: '#fff',
-                        }}
-                      >
-                        {feature.category}
-                      </span>
-                    ) : null}
-                    {feature.score ? (
-                      <span
-                        style={{
-                          padding: '2px 8px',
-                          borderRadius: 5,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          background: 'rgba(245,158,11,.30)',
-                          color: '#FDE68A',
-                        }}
-                      >
-                        {feature.score} 分
-                      </span>
-                    ) : null}
-                    {feature.rankInfo ? (
-                      <span
-                        style={{
-                          padding: '2px 8px',
-                          borderRadius: 5,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          background: 'rgba(236,72,153,.30)',
-                          color: '#FBCFE8',
-                        }}
-                      >
-                        {feature.rankInfo}
-                      </span>
-                    ) : null}
+                  <div style={{ display: 'flex', gap: 'var(--zf-s2)', marginTop: 'auto', paddingTop: 'var(--zf-s3)' }}>
+                    <Button
+                      size="small"
+                      classNames={{ root: 'zf-btn zf-btn--brand' }}
+                      icon={<BookOutlined />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleClick(featured);
+                      }}
+                    >
+                      开始阅读
+                    </Button>
+                    <Button
+                      size="small"
+                      classNames={{ root: 'zf-btn zf-btn--ghost' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate('/rank/1');
+                      }}
+                    >
+                      完整榜单
+                    </Button>
                   </div>
                 </div>
-              </div>
+              </motion.aside>
+            ) : null}
+          </ZfGlassSurface>
+        </section>
 
-              {/* —— 右：4 列网格（第 2-5 本，index 从 1 起错峰入场） —— */}
-              <div className="zf-rank-grid">
-                {rest.map((novel, idx) => (
-                  <NovelCard
-                    key={novel.id}
+        {/* ============== 六大榜单分区 ============== */}
+        {RANK_SECTIONS.map((section, si) => {
+          const list = novels?.[section.key];
+          if (!list || list.length === 0) return null;
+
+          return (
+            <motion.section
+              key={section.key}
+              variants={variants.reveal}
+              custom={si}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-50px' }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 'var(--zf-s5)' }}
+            >
+              <ZfSectionTitle
+                animated={false}
+                variant="line"
+                title={section.title}
+                sub={section.subtitle}
+                icon={<RankBadge Icon={section.Icon} />}
+                extra={
+                  <Button
+                    type="text"
+                    size="small"
+                    classNames={{ root: 'zf-btn zf-btn--ghost' }}
+                    onClick={() => handleViewAll(section.rankType)}
+                  >
+                    查看全部 <RightOutlined />
+                  </Button>
+                }
+              />
+
+              <ZfGrid columns={cols} gap="var(--zf-s4)">
+                {list.slice(0, 5).map((novel, i) => (
+                  <ZfCoverCard
+                    key={novel.id ?? i}
                     novel={novel}
-                    index={idx + 1}
-                    color={colors[0]}
-                    glassMode={glassMode}
-                    isDarkMode={isDarkMode}
-                    onClick={() => handleClick(novel)}
+                    rank={i + 1}
+                    size="md"
+                    glass={glassMode}
+                    onOpen={handleClick}
                   />
                 ))}
-              </div>
-            </div>
-          </motion.section>
-        );
-      })}
-    </div>
+              </ZfGrid>
+            </motion.section>
+          );
+        })}
+      </div>
+    </ZfPageShell>
   );
 };
 

@@ -1,12 +1,20 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
-import { Table, Button, Modal, Form, Input, Tag, Space, Popconfirm, message, Spin, Tooltip } from 'antd';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Table, Button, Modal, Form, Input, Tag, Space, Popconfirm, message, Tooltip } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined, LockOutlined } from '@ant-design/icons';
+import { ZfPageHeader, ZfEmptyState } from '@zifeng/ui/components';
 import { getAdmins, createAdmin, updateAdmin, deleteAdmin } from '../utils/adminApi';
-import { fadeInUp } from '../utils/animations';
-import { ThemeContext } from '../App';
+import {
+  TABLE_SHELL,
+  tableScrollY,
+  PAGE_HEADROOM,
+  LOCAL_PAGINATION,
+  AVATAR_SQUARE,
+  AVATAR_SQUARE_DANGER,
+  USERNAME_RULES,
+  PASSWORD_RULES,
+} from '../utils/ui';
 
 const AdminManagement = () => {
-  const { isDarkMode } = useContext(ThemeContext);
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -15,29 +23,32 @@ const AdminManagement = () => {
   const [addForm] = Form.useForm();
   const [editForm] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
-  const tableRef = useRef(null);
 
-  useEffect(() => {
-    if (tableRef.current) {
-      fadeInUp(tableRef.current);
-    }
-  }, [admins]);
+  /* 取数包在异步 run() 里（与 zifeng-web 的 RankDetail 同形）：effect 的同步路径上
+     不产生任何状态更新。loading 的首屏值由 useState(true) 给出，不再在取数开头置位。 */
+  const fetchAdmins = useCallback(() => {
+    const run = async () => {
+      try {
+        const res = await getAdmins();
+        setAdmins(res.data?.data || []);
+      } catch {
+        message.error('获取管理员列表失败');
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+  }, []);
+
+  /* 增删改后的刷新是事件触发，在回调里重新进入加载态 */
+  const reload = () => {
+    setLoading(true);
+    fetchAdmins();
+  };
 
   useEffect(() => {
     fetchAdmins();
-  }, []);
-
-  const fetchAdmins = async () => {
-    setLoading(true);
-    try {
-      const res = await getAdmins();
-      setAdmins(res.data?.data || []);
-    } catch {
-      message.error('获取管理员列表失败');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [fetchAdmins]);
 
   const handleAdd = async (values) => {
     setSubmitting(true);
@@ -47,7 +58,7 @@ const AdminManagement = () => {
         message.success('添加管理员成功');
         setAddModalOpen(false);
         addForm.resetFields();
-        fetchAdmins();
+        reload();
       } else {
         message.error(res.data?.message || '添加失败');
       }
@@ -68,7 +79,7 @@ const AdminManagement = () => {
         setEditModalOpen(false);
         setEditingAdmin(null);
         editForm.resetFields();
-        fetchAdmins();
+        reload();
       } else {
         message.error(res.data?.message || '更新失败');
       }
@@ -83,7 +94,7 @@ const AdminManagement = () => {
     try {
       await deleteAdmin(id);
       message.success('删除管理员成功');
-      fetchAdmins();
+      reload();
     } catch (err) {
       message.error(err.response?.data?.message || '删除失败');
     }
@@ -99,38 +110,38 @@ const AdminManagement = () => {
     return record.role === 'super_admin' || record.id === 1;
   };
 
+  const closeAdd = () => { setAddModalOpen(false); addForm.resetFields(); };
+  const closeEdit = () => { setEditModalOpen(false); setEditingAdmin(null); editForm.resetFields(); };
+
   const columns = [
     {
       title: '用户名',
       dataIndex: 'username',
       key: 'username',
       width: 180,
-      render: (text, record) => (
-        <Space>
-          <div style={{
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            background: isSuperAdmin(record)
-              ? 'linear-gradient(135deg, #ff4d4f 0%, #cf1322 100%)'
-              : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontSize: 14,
-            fontWeight: 'bold',
-          }}>
-            {text?.charAt(0)?.toUpperCase() || 'A'}
-          </div>
-          <span style={{ fontWeight: 500 }}>{text}</span>
-          {isSuperAdmin(record) && (
-            <Tooltip title="超级管理员受保护，不可编辑或删除">
-              <Tag icon={<LockOutlined />} color="volcano" style={{ margin: 0, fontSize: 10 }}>受保护</Tag>
-            </Tooltip>
-          )}
-        </Space>
-      ),
+      render: (text, record) => {
+        const superAdmin = isSuperAdmin(record);
+        return (
+          <Space>
+            {/* 与用户列表的头像共用同一枚 AVATAR_SQUARE；超管身份改用实心危险色
+                而不是另配一套红渐变，避免同一屏出现第三种「品牌色」。 */}
+            <span
+              aria-hidden="true"
+              style={{ ...AVATAR_SQUARE(32), ...(superAdmin ? AVATAR_SQUARE_DANGER : null) }}
+            >
+              {text?.charAt(0)?.toUpperCase() || 'A'}
+            </span>
+            <span style={{ fontWeight: 'var(--zf-fw-strong)' }}>{text}</span>
+            {superAdmin && (
+              <Tooltip title="超级管理员受保护，不可编辑或删除">
+                <Tag icon={<LockOutlined />} color="volcano" style={{ margin: 0, fontSize: 'var(--zf-fs-2xs)' }}>
+                  受保护
+                </Tag>
+              </Tooltip>
+            )}
+          </Space>
+        );
+      },
     },
     {
       title: '角色',
@@ -172,7 +183,9 @@ const AdminManagement = () => {
       dataIndex: 'lastLoginAt',
       key: 'lastLoginAt',
       width: 180,
-      render: (text) => text ? new Date(text).toLocaleString('zh-CN') : <span style={{ color: isDarkMode ? '#555' : '#bbb' }}>从未登录</span>,
+      render: (text) => text
+        ? new Date(text).toLocaleString('zh-CN')
+        : <span style={{ color: 'var(--zf-text-faint)' }}>从未登录</span>,
     },
     {
       title: '操作',
@@ -188,7 +201,6 @@ const AdminManagement = () => {
                 icon={<EditOutlined />}
                 onClick={() => !isSuper && openEditModal(record)}
                 disabled={isSuper}
-                style={isSuper ? { color: isDarkMode ? '#555' : '#bbb' } : { color: '#1890ff' }}
               >
                 编辑
               </Button>
@@ -203,13 +215,7 @@ const AdminManagement = () => {
               disabled={isSuper}
             >
               <Tooltip title={isSuper ? '超级管理员不可删除' : '删除'}>
-                <Button
-                  type="text"
-                  danger
-                  icon={<DeleteOutlined />}
-                  disabled={isSuper}
-                  style={isSuper ? { color: isDarkMode ? '#555' : '#bbb' } : undefined}
-                >
+                <Button type="text" danger icon={<DeleteOutlined />} disabled={isSuper}>
                   删除
                 </Button>
               </Tooltip>
@@ -221,86 +227,60 @@ const AdminManagement = () => {
   ];
 
   return (
-    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-        flexWrap: 'wrap',
-        gap: 12,
-        flexShrink: 0,
-      }}>
-        <h2 className="page-title">管理员管理</h2>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setAddModalOpen(true)}
-          style={{ borderRadius: 8 }}
-        >
-          添加管理员
-        </Button>
-      </div>
+    <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <ZfPageHeader
+        title="管理员管理"
+        extra={
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setAddModalOpen(true)}
+            classNames={{ root: 'zf-btn zf-btn--brand' }}
+          >
+            添加管理员
+          </Button>
+        }
+        style={{ marginBottom: 'var(--zf-s4)', flexShrink: 0 }}
+      />
 
-      <div ref={tableRef} style={{
-        borderRadius: 12,
-        flex: 1,
-        boxShadow: isDarkMode
-          ? '0 2px 12px rgba(0,0,0,0.3)'
-          : '0 2px 12px rgba(0,0,0,0.06)',
-      }}>
+      <div style={TABLE_SHELL}>
         <Table
           dataSource={admins}
           columns={columns}
           rowKey="id"
           loading={loading}
-          style={{ background: isDarkMode ? '#141414' : '#fff', borderRadius: 12, overflow: 'hidden' }}
-          scroll={{ y: 'calc(100vh - 64px - 48px - 55px - 32px)' }}
+          scroll={{ y: tableScrollY(PAGE_HEADROOM.plain) }}
+          locale={{
+            emptyText: (
+              <ZfEmptyState
+                compact
+                title="还没有管理员"
+                description="点击右上角「添加管理员」创建第一个账号。"
+              />
+            ),
+          }}
+          pagination={LOCAL_PAGINATION}
         />
       </div>
 
       <Modal
         title={<Space><PlusOutlined /> 添加管理员</Space>}
         open={addModalOpen}
-        onCancel={() => { setAddModalOpen(false); addForm.resetFields(); }}
+        onCancel={closeAdd}
         footer={null}
         width={440}
       >
-        <Form
-          form={addForm}
-          onFinish={handleAdd}
-          layout="vertical"
-          style={{ marginTop: 16 }}
-        >
-          <Form.Item
-            name="username"
-            label="用户名"
-            rules={[
-              { required: true, message: '请输入用户名' },
-              { min: 2, message: '用户名至少2个字符' },
-              { max: 8, message: '用户名最多8个字符' },
-            ]}
-          >
-            <Input prefix={<UserOutlined />} placeholder="请输入用户名" style={{ borderRadius: 8 }} />
+        <Form form={addForm} onFinish={handleAdd} layout="vertical" style={{ marginTop: 'var(--zf-s4)' }}>
+          <Form.Item name="username" label="用户名" rules={USERNAME_RULES}>
+            <Input prefix={<UserOutlined />} placeholder="请输入用户名" />
           </Form.Item>
-          <Form.Item
-            name="password"
-            label="密码"
-            rules={[
-              { required: true, message: '请输入密码' },
-              { min: 6, message: '密码至少6个字符' },
-            ]}
-          >
-            <Input.Password placeholder="请输入密码" style={{ borderRadius: 8 }} />
+          <Form.Item name="password" label="密码" rules={PASSWORD_RULES}>
+            <Input.Password placeholder="请输入密码" />
           </Form.Item>
           <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
             <Space>
-              <Button onClick={() => { setAddModalOpen(false); addForm.resetFields(); }}>
-                取消
-              </Button>
-              <Button type="primary" htmlType="submit" loading={submitting}>
-                确认添加
-              </Button>
+              <Button onClick={closeAdd}>取消</Button>
+              <Button type="primary" htmlType="submit" loading={submitting}>确认添加</Button>
             </Space>
           </Form.Item>
         </Form>
@@ -309,35 +289,18 @@ const AdminManagement = () => {
       <Modal
         title={<Space><EditOutlined /> 编辑管理员</Space>}
         open={editModalOpen}
-        onCancel={() => { setEditModalOpen(false); setEditingAdmin(null); editForm.resetFields(); }}
+        onCancel={closeEdit}
         footer={null}
         width={440}
       >
-        <Form
-          form={editForm}
-          onFinish={handleEdit}
-          layout="vertical"
-          style={{ marginTop: 16 }}
-        >
-          <Form.Item
-            name="username"
-            label="用户名"
-            rules={[
-              { required: true, message: '请输入用户名' },
-              { min: 2, message: '用户名至少2个字符' },
-              { max: 8, message: '用户名最多8个字符' },
-            ]}
-          >
-            <Input prefix={<UserOutlined />} placeholder="请输入用户名" style={{ borderRadius: 8 }} />
+        <Form form={editForm} onFinish={handleEdit} layout="vertical" style={{ marginTop: 'var(--zf-s4)' }}>
+          <Form.Item name="username" label="用户名" rules={USERNAME_RULES}>
+            <Input prefix={<UserOutlined />} placeholder="请输入用户名" />
           </Form.Item>
           <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
             <Space>
-              <Button onClick={() => { setEditModalOpen(false); setEditingAdmin(null); editForm.resetFields(); }}>
-                取消
-              </Button>
-              <Button type="primary" htmlType="submit" loading={submitting}>
-                保存修改
-              </Button>
+              <Button onClick={closeEdit}>取消</Button>
+              <Button type="primary" htmlType="submit" loading={submitting}>保存修改</Button>
             </Space>
           </Form.Item>
         </Form>

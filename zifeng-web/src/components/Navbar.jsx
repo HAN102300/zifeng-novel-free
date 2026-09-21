@@ -1,6 +1,19 @@
 /* ============================================================
    紫枫免费小说 · 导航栏组件 (Navbar)
    从 App.jsx 提取的独立组件
+
+   ★ 本次迁移修掉的两处性能/正确性问题：
+   1) logo 的「呼吸光晕」原先用 framer-motion 以 JS 每帧改 boxShadow。
+      boxShadow 不走合成器（每帧触发重绘），而该元素又嵌在带
+      backdrop-filter 的 Header 内部 —— 等于每帧逼浏览器重采样整条玻璃
+      背景，同时违反合成器铁律 ①（单元素不叠加 backdrop-filter 与
+      infinite 动画）和 ②（infinite 必须是玻璃层的兄弟层而非子孙）。
+      现改为静态光晕 + hover 增强，只保留一个 background-position 扫光
+      （合成器友好，且挂 --zf-fx-shimmer 总闸）。
+   2) 响应式原先用 window.innerWidth + resize 监听，resize 期间每个像素
+      都 setState 重渲染；且 880/480 是魔数。改用 useBreakpoint()。
+   3) 用户胶囊原先用 onMouseEnter/Leave 一次直改 3 个 DOM style 属性，
+      且卸载时不复位 border-color。改为声明式 whileHover。
    ============================================================ */
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -10,10 +23,11 @@ import { Layout, Drawer, Input, Button, Switch, Tooltip, Dropdown, Avatar } from
 import {
   HomeOutlined, AppstoreOutlined, BookOutlined, DatabaseOutlined,
   SettingOutlined, SearchOutlined, UserOutlined, MenuOutlined,
-  MoonOutlined, SunOutlined
+  MoonOutlined, SunOutlined,
 } from '@ant-design/icons';
-import { glassNavbar } from '../utils/glassStyle';
-import { getPrimaryRgb } from '../utils/colorUtils';
+import { glassNavbar, glassNavIndicator } from '../utils/glassStyle';
+import { useBreakpoint } from '@zifeng/ui/hooks';
+import { variants } from '@zifeng/ui/motion';
 
 const { Header } = Layout;
 
@@ -26,21 +40,15 @@ const menuItems = [
 ];
 
 export default function Navbar({
-  currentThemeConfig, isDarkMode, isLoggedIn, userInfo,
-  setIsDarkMode, glassMode
+  isDarkMode, isLoggedIn, userInfo, setIsDarkMode, glassMode,
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [screenWidth, setScreenWidth] = useState(window.innerWidth);
+  /* 旧断点 880 归到 lg(992)：中屏会更早收进抽屉，这是断点归一的预期变化 */
+  const { isMobile, up } = useBreakpoint();
+  const showFullNav = up('lg');
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-
-  // 响应式
-  useEffect(() => {
-    const handleResize = () => setScreenWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // 滚动收缩
   useEffect(() => {
@@ -50,18 +58,18 @@ export default function Navbar({
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // 路由切换时关闭移动端抽屉
-  useEffect(() => {
+  /* 抽屉关闭由导航动作本身负责，不再用「监听 location 变化后 setState」
+     那个 effect —— 后者是 react-hooks/set-state-in-effect 反模式：
+     先渲染一次、effect 再触发第二次渲染。 */
+  const go = (path) => {
     setDrawerOpen(false);
-  }, [location.pathname]);
-
-  const isSmallScreen = screenWidth <= 880;
-  const isMobile = screenWidth <= 480;
+    navigate(path);
+  };
 
   const onSearch = (value) => {
     if (value && value.trim()) {
-      navigate(`/search?keyword=${encodeURIComponent(value.trim())}`);
       setDrawerOpen(false);
+      navigate(`/search?keyword=${encodeURIComponent(value.trim())}`);
     }
   };
 
@@ -94,23 +102,24 @@ export default function Navbar({
     ),
     { type: 'divider' },
     {
-      key: 'darkMode', icon: isDarkMode ? <SunOutlined /> : <MoonOutlined />,
+      key: 'darkMode',
+      icon: isDarkMode ? <SunOutlined /> : <MoonOutlined />,
       label: isDarkMode ? '浅色模式' : '深色模式',
-      onClick: () => setIsDarkMode(!isDarkMode)
-    }
+      onClick: () => setIsDarkMode(!isDarkMode),
+    },
   ];
-
-  const primaryRgb = useMemo(() => getPrimaryRgb(currentThemeConfig.primaryColor), [currentThemeConfig.primaryColor]);
 
   const navbarStyle = useMemo(() => ({
     position: 'sticky',
     top: 0,
-    zIndex: 1000,
+    zIndex: 'var(--zf-z-navbar)',
     width: '100%',
+    /* 第 3 参现在真正生效了：glassStyle 已补 OFF 分支，
+       此前签名只收两参导致「毛玻璃风格」开关关不掉导航栏 */
     ...glassNavbar(scrolled, isDarkMode, glassMode),
     margin: 0,
     borderRadius: 0,
-    padding: isMobile ? '0 10px' : '0 20px',
+    padding: isMobile ? '0 var(--zf-s2)' : '0 var(--zf-s5)',
     overflow: 'hidden',
   }), [scrolled, isDarkMode, glassMode, isMobile]);
 
@@ -118,67 +127,90 @@ export default function Navbar({
     <Header className={`zf-navbar${scrolled ? ' scrolled' : ''}`} style={navbarStyle}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
         {/* 左侧：Logo + 导航链接 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 20, flex: '1 1 auto', minWidth: 0 }}>
-          <NavLink to="/" aria-label="紫枫免费小说首页" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-            <motion.div
-              animate={{
-                boxShadow: [
-                  `0 0 8px 0 rgba(${primaryRgb}, 0.3)`,
-                  `0 0 16px 4px rgba(${primaryRgb}, 0.5)`,
-                  `0 0 8px 0 rgba(${primaryRgb}, 0.3)`,
-                ],
-              }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 'var(--zf-s2)' : 'var(--zf-s5)', flex: '1 1 auto', minWidth: 0 }}>
+          <NavLink
+            to="/"
+            aria-label="紫枫免费小说首页"
+            style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 'var(--zf-s3)', flexShrink: 0 }}
+          >
+            <span
               style={{
-                width: 40, height: 40, borderRadius: 12,
-                background: 'linear-gradient(135deg, var(--zf-primary-500), var(--zf-accent-magenta))',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                position: 'relative', overflow: 'hidden',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 40,
+                height: 40,
+                borderRadius: 'var(--zf-r-md)',
+                background: 'var(--zf-grad-brand)',
+                boxShadow: 'var(--zf-glow-brand)',
+                overflow: 'hidden',
               }}
             >
-              <span style={{
-                fontFamily: 'var(--zf-font-serif)', fontWeight: 900, fontSize: 22,
-                color: '#fff', lineHeight: 1, position: 'relative', zIndex: 1
-              }}>枫</span>
-              <span style={{
-                position: 'absolute', inset: 0, pointerEvents: 'none',
-                background: 'linear-gradient(110deg, transparent 30%, rgba(255,255,255,.5) 50%, transparent 70%)',
-                backgroundSize: '200% auto',
-                animation: 'logoShine 4s ease-in-out infinite',
-              }} />
-            </motion.div>
+              <span
+                style={{
+                  position: 'relative',
+                  zIndex: 1,
+                  fontFamily: 'var(--zf-font-display)',
+                  fontWeight: 'var(--zf-fw-black)',
+                  fontSize: 'var(--zf-fs-xl)',
+                  lineHeight: 1,
+                  color: 'var(--zf-on-accent)',
+                }}
+              >枫</span>
+              {/* 扫光走 background-position（合成器处理）并受 shimmer 总闸控制 */}
+              <span
+                aria-hidden="true"
+                className="zf-anim-grad-flow"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  pointerEvents: 'none',
+                  background: 'var(--zf-grad-sheen)',
+                }}
+              />
+            </span>
             {!isMobile && (
-              <span style={{ fontFamily: 'var(--zf-font-serif)', fontWeight: 700, fontSize: 20, color: 'var(--zf-text-primary)' }}>
-                紫枫<em style={{ fontStyle: 'normal', color: 'var(--zf-primary-400)' }}>免费小说</em>
+              <span
+                style={{
+                  fontFamily: 'var(--zf-font-display)',
+                  fontWeight: 'var(--zf-fw-bold)',
+                  fontSize: 'var(--zf-fs-lg)',
+                  color: 'var(--zf-text-primary)',
+                }}
+              >
+                紫枫<em style={{ fontStyle: 'normal', color: 'var(--zf-brand-400)' }}>免费小说</em>
               </span>
             )}
           </NavLink>
-          {!isSmallScreen && (
-            <nav style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, marginLeft: 16 }}>
+
+          {showFullNav && (
+            <nav style={{ display: 'flex', alignItems: 'center', gap: 'var(--zf-s1)', flex: 1, marginLeft: 'var(--zf-s4)' }}>
               {menuItems.map(item => (
                 <button
                   key={item.key}
+                  type="button"
                   className="zf-nav-btn"
-                  onClick={() => navigate(item.to)}
-                  style={{
-                    position: 'relative', padding: '10px 16px', fontSize: 15, fontWeight: 500,
-                    color: selectedKey === item.key ? 'var(--zf-text-primary)' : 'var(--zf-text-secondary)',
-                    border: 'none', background: 'none', fontFamily: 'inherit', cursor: 'pointer',
-                    transition: 'color 0.18s'
-                  }}
+                  onClick={() => go(item.to)}
                   aria-current={selectedKey === item.key ? 'page' : undefined}
+                  style={{
+                    position: 'relative',
+                    padding: 'var(--zf-s2) var(--zf-s4)',
+                    fontSize: 'var(--zf-fs-md)',
+                    fontWeight: 'var(--zf-fw-normal)',
+                    color: selectedKey === item.key ? 'var(--zf-text-primary)' : 'var(--zf-text-secondary)',
+                    border: 'none',
+                    background: 'none',
+                    fontFamily: 'inherit',
+                    cursor: 'pointer',
+                    transition: `color var(--zf-dur-fast) var(--zf-ease-out)`,
+                  }}
                 >
                   {item.label}
                   {selectedKey === item.key && (
-                    <motion.span
-                      layoutId="navIndicator"
-                      style={{
-                        position: 'absolute', bottom: 2, left: 0, right: 0, height: 3, borderRadius: 3,
-                        background: 'linear-gradient(90deg, var(--zf-primary-500), var(--zf-accent-magenta))',
-                        boxShadow: 'var(--zf-glow-primary)'
-                      }}
-                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                    />
+                    /* 磁吸下划线：复用此前零引用的 glassNavIndicator；
+                       layoutId 让它成为跨菜单项的共享元素过渡 */
+                    <motion.span layoutId="navIndicator" style={glassNavIndicator()} />
                   )}
                 </button>
               ))}
@@ -187,8 +219,8 @@ export default function Navbar({
         </div>
 
         {/* 右侧：搜索 + 用户 + 暗色切换 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 12, flexShrink: 0 }}>
-          {!isSmallScreen && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 'var(--zf-s1)' : 'var(--zf-s3)', flexShrink: 0 }}>
+          {showFullNav && (
             <Input.Search
               placeholder="搜索小说..."
               allowClear
@@ -199,71 +231,80 @@ export default function Navbar({
               style={{ width: 'clamp(140px, 20vw, 250px)' }}
             />
           )}
-          {isSmallScreen ? (
+
+          {!showFullNav ? (
             <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>
               {isLoggedIn ? (
                 <Avatar size={28} src={userInfo?.avatar} icon={<UserOutlined />} style={{ cursor: 'pointer' }} />
               ) : (
-                <Button type="text" icon={<UserOutlined />} style={{ color: currentThemeConfig.primaryColor }} />
+                <Button type="text" icon={<UserOutlined />} style={{ color: 'var(--zf-brand-500)' }} />
               )}
             </Dropdown>
           ) : (
             <>
-              {/* 用户信息/登录按钮 */}
               {isLoggedIn ? (
                 <NavLink to="/user" style={{ textDecoration: 'none' }}>
                   <Tooltip title="用户中心">
-                    <div
+                    <motion.div
+                      whileHover={{ y: -1 }}
+                      whileTap={{ scale: 0.985 }}
+                      transition={variants.hoverLift.transition}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        padding: '4px 12px', borderRadius: 10,
-                        background: isDarkMode ? 'rgba(255,255,255,0.1)' : `rgba(${primaryRgb}, 0.1)`,
-                        border: `1px solid ${currentThemeConfig.primaryColor}`,
-                        transition: 'all 0.3s ease', cursor: 'pointer', height: '36px'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.15)' : `rgba(${primaryRgb}, 0.2)`;
-                        e.currentTarget.style.transform = 'translateY(-1px)';
-                        e.currentTarget.style.boxShadow = `0 2px 8px rgba(${primaryRgb}, 0.3)`;
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.1)' : `rgba(${primaryRgb}, 0.1)`;
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = 'none';
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 'var(--zf-s2)',
+                        height: 36,
+                        padding: 'var(--zf-s1) var(--zf-s3)',
+                        borderRadius: 'var(--zf-r-sm)',
+                        background: 'var(--zf-tint-brand-10)',
+                        border: '1px solid rgb(var(--zf-brand-rgb-500) / 0.45)',
+                        cursor: 'pointer',
                       }}
                     >
-                      <div style={{
-                        width: 30, height: 30, borderRadius: '50%', overflow: 'hidden',
-                        border: `2px solid ${currentThemeConfig.primaryColor}`,
-                        boxShadow: `0 2px 6px rgba(${primaryRgb}, 0.4)`, flexShrink: 0
-                      }}>
+                      <span
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 30,
+                          height: 30,
+                          flexShrink: 0,
+                          overflow: 'hidden',
+                          borderRadius: 'var(--zf-r-full)',
+                          border: '2px solid rgb(var(--zf-brand-rgb-500) / 0.55)',
+                          background: 'var(--zf-grad-brand)',
+                          color: 'var(--zf-on-accent)',
+                        }}
+                      >
                         {userInfo?.avatar ? (
-                          <img src={userInfo.avatar} alt={userInfo.username}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                          <img
+                            src={userInfo.avatar}
+                            alt={userInfo.username}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
                         ) : (
-                          <div style={{
-                            width: '100%', height: '100%', backgroundColor: currentThemeConfig.primaryColor,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                          }}>
-                            <UserOutlined style={{ color: '#fff', fontSize: 14 }} />
-                          </div>
+                          <UserOutlined style={{ fontSize: 'var(--zf-fs-xs)' }} />
                         )}
-                      </div>
-                      <span style={{
-                        color: currentThemeConfig.primaryColor, fontWeight: 'bold',
-                        fontSize: 14, textShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                      }}>
+                      </span>
+                      <span
+                        className="zf-truncate"
+                        style={{
+                          maxWidth: 120,
+                          fontSize: 'var(--zf-fs-base)',
+                          fontWeight: 'var(--zf-fw-bold)',
+                          color: 'var(--zf-brand-400)',
+                        }}
+                      >
                         {userInfo?.username || '用户'}
                       </span>
-                    </div>
+                    </motion.div>
                   </Tooltip>
                 </NavLink>
               ) : (
                 <Tooltip title="登录/注册">
                   <Button
                     icon={<UserOutlined />}
-                    type="default"
-                    style={{ borderColor: currentThemeConfig.primaryColor, color: currentThemeConfig.primaryColor }}
+                    className="zf-btn zf-btn--ghost"
                     onClick={() => navigate('/login', { state: { from: location.pathname + location.search } })}
                   >
                     登录
@@ -278,33 +319,51 @@ export default function Navbar({
               />
             </>
           )}
-          {isSmallScreen && (
+
+          {!showFullNav && (
             <Button type="text" icon={<MenuOutlined />} onClick={() => setDrawerOpen(true)} aria-label="打开菜单" />
           )}
         </div>
       </div>
 
       {/* 移动端抽屉 */}
-      <Drawer title="紫枫免费小说" placement="right" open={drawerOpen} onClose={() => setDrawerOpen(false)} width={280}>
-        <div style={{ marginBottom: 16 }}>
+      <Drawer
+        title="紫枫免费小说"
+        placement="right"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        width={280}
+      >
+        <div style={{ marginBottom: 'var(--zf-s4)' }}>
           <Input.Search placeholder="搜索小说..." onSearch={onSearch} className="zf-search-input" enterButton />
         </div>
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {menuItems.map(item => (
-            <button
-              key={item.key} onClick={() => navigate(item.to)}
-              style={{
-                textAlign: 'left', padding: '12px 16px', fontSize: 16,
-                fontWeight: selectedKey === item.key ? 600 : 500,
-                color: selectedKey === item.key ? currentThemeConfig.primaryColor : 'var(--zf-text-primary)',
-                background: selectedKey === item.key ? `rgba(${primaryRgb}, 0.12)` : 'transparent',
-                border: 'none', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
-                transition: 'all 0.18s'
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 'var(--zf-s1)' }}>
+          {menuItems.map(item => {
+            const active = selectedKey === item.key;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => go(item.to)}
+                aria-current={active ? 'page' : undefined}
+                style={{
+                  textAlign: 'left',
+                  padding: 'var(--zf-s3) var(--zf-s4)',
+                  fontSize: 'var(--zf-fs-lg)',
+                  fontWeight: active ? 'var(--zf-fw-strong)' : 'var(--zf-fw-normal)',
+                  color: active ? 'var(--zf-brand-400)' : 'var(--zf-text-primary)',
+                  background: active ? 'var(--zf-tint-brand-10)' : 'transparent',
+                  border: 'none',
+                  borderRadius: 'var(--zf-r-sm)',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  transition: `background var(--zf-dur-fast) var(--zf-ease-out), color var(--zf-dur-fast) var(--zf-ease-out)`,
+                }}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </nav>
       </Drawer>
     </Header>

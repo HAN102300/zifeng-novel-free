@@ -1,10 +1,22 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Form, Input, Button, Card, message, Switch, Space } from 'antd';
+import { Form, Input, Button, message, Switch } from 'antd';
 import { UserOutlined, LockOutlined, SafetyOutlined, MoonOutlined, SunOutlined } from '@ant-design/icons';
+import { ZfAmbient, ZfGlassSurface } from '@zifeng/ui/components';
+import { variants, DUR, EASE } from '@zifeng/ui/motion';
 import { getCaptcha, adminLogin } from '../utils/adminApi';
 import { ThemeContext } from '../App';
+import { BRAND_NAME, USERNAME_RULES, CAPTCHA_RULES } from '../utils/ui';
+
+/* 表单条目错峰入场：容器只管节奏，子项复用共享 variants，
+   原先是 5 处各写一遍 initial/animate + 字面量 cubic-bezier。 */
+const fieldStagger = {
+  initial: {},
+  animate: {
+    transition: { staggerChildren: DUR.fastest / 1000, delayChildren: DUR.fast / 1000 },
+  },
+};
 
 const Login = () => {
   const navigate = useNavigate();
@@ -13,26 +25,37 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [captchaKey, setCaptchaKey] = useState('');
   const [captchaImage, setCaptchaImage] = useState('');
-  const [captchaLoading, setCaptchaLoading] = useState(false);
+  /* 首屏就会发起请求，初值直接给 loading；effect 内同步 setState 会多渲染一轮 */
+  const [captchaLoading, setCaptchaLoading] = useState(true);
+
+  /* 取数包在异步 run() 里（与 zifeng-web 的 RankDetail 同形）：
+     effect 的同步路径上不产生任何状态更新 */
+  const fetchCaptcha = useCallback(() => {
+    const run = async () => {
+      try {
+        const res = await getCaptcha();
+        if (res.data?.success) {
+          setCaptchaKey(res.data.data.captchaKey);
+          setCaptchaImage(res.data.data.captchaImage);
+        }
+      } catch {
+        message.error('获取验证码失败');
+      } finally {
+        setCaptchaLoading(false);
+      }
+    };
+    run();
+  }, []);
+
+  /* 事件里主动刷新验证码（点击图形、登录失败重取）：先回到加载态再请求 */
+  const refreshCaptcha = () => {
+    setCaptchaLoading(true);
+    fetchCaptcha();
+  };
 
   useEffect(() => {
     fetchCaptcha();
-  }, []);
-
-  const fetchCaptcha = async () => {
-    setCaptchaLoading(true);
-    try {
-      const res = await getCaptcha();
-      if (res.data?.success) {
-        setCaptchaKey(res.data.data.captchaKey);
-        setCaptchaImage(res.data.data.captchaImage);
-      }
-    } catch {
-      message.error('获取验证码失败');
-    } finally {
-      setCaptchaLoading(false);
-    }
-  };
+  }, [fetchCaptcha]);
 
   const handleLogin = async (values) => {
     setLoading(true);
@@ -52,261 +75,146 @@ const Login = () => {
         navigate('/dashboard/overview');
       } else {
         message.error(res.data?.message || '登录失败');
-        fetchCaptcha();
+        refreshCaptcha();
       }
     } catch (err) {
       message.error(err.response?.data?.message || '登录失败，请检查网络');
-      fetchCaptcha();
+      refreshCaptcha();
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: isDarkMode
-        ? 'linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #16213e 100%)'
-        : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      position: 'relative',
-      overflow: 'hidden',
-    }}>
-      <div style={{
-        position: 'absolute',
-        top: '-20%',
-        right: '-10%',
-        width: 500,
-        height: 500,
-        borderRadius: '50%',
-        background: 'rgba(255,255,255,0.05)',
-        filter: 'blur(80px)',
-        pointerEvents: 'none',
-      }} />
-      <div style={{
-        position: 'absolute',
-        bottom: '-15%',
-        left: '-5%',
-        width: 400,
-        height: 400,
-        borderRadius: '50%',
-        background: 'rgba(255,255,255,0.03)',
-        filter: 'blur(60px)',
-        pointerEvents: 'none',
-      }} />
-      <div style={{
-        position: 'absolute',
-        top: '40%',
-        left: '30%',
-        width: 300,
-        height: 300,
-        borderRadius: '50%',
-        background: 'rgba(118, 75, 162, 0.06)',
-        filter: 'blur(70px)',
-        pointerEvents: 'none',
-      }} />
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        /* 原先写死两套渐变：暗色是蓝黑、亮色是靛紫 —— 蓝黑与用户端完全不同源，
+           靛紫又和后台内部脱节。改接画布令牌后，登录页与它要进的那个后台是同一个底色。 */
+        background: 'linear-gradient(160deg, var(--zf-canvas) 0%, var(--zf-canvas-2) 55%, var(--zf-surface-1) 100%)',
+        position: 'relative',
+        overflow: 'hidden',
+        padding: 'var(--zf-s6) var(--zf-s4)',
+      }}
+    >
+      {/* 三颗 blur(60–80px) 的彩色圆斑 → 共享氛围层。
+          它必须是玻璃卡的兄弟层（合成器铁律 ②），所以放在卡片外面。 */}
+      <ZfAmbient count={3} />
 
-      <div style={{
-        position: 'absolute',
-        top: 24,
-        right: 24,
-        zIndex: 10,
-      }}>
-        <Space>
-          {isDarkMode ? <SunOutlined style={{ color: 'rgba(255,255,255,0.6)' }} /> : <MoonOutlined style={{ color: 'rgba(255,255,255,0.6)' }} />}
-          <Switch
-            checked={isDarkMode}
-            onChange={setIsDarkMode}
-            size="small"
-          />
-        </Space>
+      <div style={{ position: 'absolute', top: 'var(--zf-s5)', right: 'var(--zf-s5)', zIndex: 1 }}>
+        <Switch
+          checked={isDarkMode}
+          onChange={setIsDarkMode}
+          size="small"
+          checkedIcon={<SunOutlined />}
+          unCheckedIcon={<MoonOutlined />}
+          aria-label="切换明暗模式"
+        />
       </div>
 
       <motion.div
-        initial={{ opacity: 0, y: 40, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        variants={variants.scaleIn}
+        initial="initial"
+        animate="animate"
+        style={{ position: 'relative', width: '100%', maxWidth: 'var(--zf-container-xs)' }}
       >
-        <Card
-          style={{
-            width: 420,
-            borderRadius: 20,
-            background: isDarkMode
-              ? 'rgba(20, 20, 30, 0.85)'
-              : 'rgba(255, 255, 255, 0.85)',
-            backdropFilter: 'blur(24px) saturate(1.4)',
-            WebkitBackdropFilter: 'blur(24px) saturate(1.4)',
-            border: isDarkMode
-              ? '1px solid rgba(255,255,255,0.08)'
-              : '1px solid rgba(255,255,255,0.3)',
-            boxShadow: isDarkMode
-              ? '0 24px 80px rgba(0,0,0,0.5)'
-              : '0 24px 80px rgba(0,0,0,0.15)',
-          }}
-          styles={{ body: { padding: '40px 36px' } }}
-        >
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            style={{ textAlign: 'center', marginBottom: 36 }}
-          >
-            <div className="brand-pulse" style={{
-              width: 64,
-              height: 64,
-              borderRadius: 16,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 16px',
-              fontSize: 28,
-              color: '#fff',
-              fontWeight: 'bold',
-              boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)',
-            }}>
-              枫
-            </div>
-            <h1 style={{
-              fontSize: 24,
-              fontWeight: 700,
-              margin: 0,
-              color: isDarkMode ? '#f0f0f0' : '#1a1a2e',
-              letterSpacing: '1px',
-            }}>
-              紫枫小说管理后台
-            </h1>
-            <p style={{
-              fontSize: 13,
-              color: isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)',
-              marginTop: 8,
-            }}>
-              请输入管理员账号登录
-            </p>
-          </motion.div>
-
-          <Form
-            form={form}
-            onFinish={handleLogin}
-            size="large"
-            autoComplete="off"
-          >
+        <ZfGlassSurface level={3} style={{ borderRadius: 'var(--zf-r-xl)' }}>
+          <div style={{ padding: 'var(--zf-s10) var(--zf-s8)' }}>
             <motion.div
-              initial={{ opacity: 0, x: -16 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3, duration: 0.4 }}
-            >
-              <Form.Item
-                name="username"
-                rules={[
-                  { required: true, message: '请输入用户名' },
-                  { min: 2, message: '用户名至少2个字符' },
-                  { max: 8, message: '用户名最多8个字符' },
-                ]}
-              >
-                <Input
-                  prefix={<UserOutlined style={{ color: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)' }} />}
-                  placeholder="用户名"
-                  style={{ borderRadius: 10, height: 46 }}
-                />
-              </Form.Item>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: -16 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4, duration: 0.4 }}
-            >
-              <Form.Item
-                name="password"
-                rules={[
-                  { required: true, message: '请输入密码' },
-                ]}
-              >
-                <Input.Password
-                  prefix={<LockOutlined style={{ color: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)' }} />}
-                  placeholder="密码"
-                  style={{ borderRadius: 10, height: 46 }}
-                />
-              </Form.Item>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: -16 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5, duration: 0.4 }}
-            >
-              <Form.Item
-                name="captcha"
-                rules={[{ required: true, message: '请输入验证码' }]}
-              >
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <Input
-                    prefix={<SafetyOutlined style={{ color: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)' }} />}
-                    placeholder="验证码"
-                    style={{ borderRadius: 10, height: 46, flex: 1 }}
-                  />
-                  <div
-                    onClick={fetchCaptcha}
-                    style={{
-                      height: 46,
-                      width: 130,
-                      borderRadius: 10,
-                      overflow: 'hidden',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f5f5f5',
-                      border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : '#d9d9d9'}`,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {captchaLoading ? (
-                      <span style={{ fontSize: 12, color: isDarkMode ? '#666' : '#999' }}>加载中...</span>
-                    ) : captchaImage ? (
-                      <img
-                        src={captchaImage}
-                        alt="验证码"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
-                    ) : (
-                      <span style={{ fontSize: 12, color: isDarkMode ? '#666' : '#999' }}>点击获取</span>
-                    )}
-                  </div>
-                </div>
-              </Form.Item>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6, duration: 0.4 }}
+              transition={{ delay: DUR.fast / 1000, duration: DUR.normal / 1000, ease: EASE.out }}
+              style={{ textAlign: 'center', marginBottom: 'var(--zf-s8)' }}
             >
-              <Form.Item style={{ marginBottom: 0 }}>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={loading}
-                  block
-                  style={{
-                    borderRadius: 10,
-                    height: 46,
-                    fontSize: 16,
-                    fontWeight: 600,
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    border: 'none',
-                    boxShadow: '0 4px 16px rgba(102, 126, 234, 0.4)',
-                  }}
-                >
-                  登 录
-                </Button>
-              </Form.Item>
+              <div
+                className="brand-pulse"
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 'var(--zf-r-md)',
+                  background: 'var(--zf-grad-brand)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto var(--zf-s4)',
+                  fontSize: 'var(--zf-fs-3xl)',
+                  color: 'var(--zf-on-accent)',
+                  fontWeight: 'var(--zf-fw-bold)',
+                  boxShadow: 'var(--zf-shadow-2)',
+                }}
+              >
+                枫
+              </div>
+              <h1 className="zf-h2" style={{ fontSize: 'var(--zf-fs-xl)', color: 'var(--zf-text-primary)' }}>
+                {BRAND_NAME}
+              </h1>
+              <p className="zf-caption" style={{ marginTop: 'var(--zf-s2)' }}>
+                请输入管理员账号登录
+              </p>
             </motion.div>
-          </Form>
-        </Card>
+
+            <Form form={form} onFinish={handleLogin} size="large" autoComplete="off">
+              <motion.div variants={fieldStagger} initial="initial" animate="animate">
+                <motion.div variants={variants.listRise}>
+                  <Form.Item name="username" rules={USERNAME_RULES}>
+                    <Input prefix={<UserOutlined />} placeholder="用户名" />
+                  </Form.Item>
+                </motion.div>
+
+                <motion.div variants={variants.listRise}>
+                  <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
+                    <Input.Password prefix={<LockOutlined />} placeholder="密码" />
+                  </Form.Item>
+                </motion.div>
+
+                <motion.div variants={variants.listRise}>
+                  {/* 此前 Form.Item 的 name 挂在包裹用的 div 上：antd 会把 value/onChange
+                      注入 div，字段其实靠事件冒泡才侥幸收集到，且 div 上会残留 value 属性。
+                      现在 name 回到 Input 本体，验证码图改为等高的兄弟节点。 */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--zf-s3)' }}>
+                    <Form.Item name="captcha" rules={CAPTCHA_RULES} style={{ flex: 1, marginBottom: 0 }}>
+                      <Input prefix={<SafetyOutlined />} placeholder="验证码" />
+                    </Form.Item>
+                    <button
+                      type="button"
+                      className="captcha-chip"
+                      onClick={refreshCaptcha}
+                      disabled={captchaLoading}
+                      aria-label="点击刷新验证码"
+                      title="看不清？点击刷新"
+                    >
+                      {captchaLoading ? (
+                        <span className="captcha-chip__hint">加载中…</span>
+                      ) : captchaImage ? (
+                        <img src={captchaImage} alt="登录验证码" />
+                      ) : (
+                        <span className="captcha-chip__hint">点击获取</span>
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+
+                <motion.div variants={variants.listRise}>
+                  <Form.Item style={{ marginBottom: 0, marginTop: 'var(--zf-s6)' }}>
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      loading={loading}
+                      block
+                      classNames={{ root: 'zf-btn zf-btn--brand' }}
+                      style={{ fontSize: 'var(--zf-fs-base)' }}
+                    >
+                      登 录
+                    </Button>
+                  </Form.Item>
+                </motion.div>
+              </motion.div>
+            </Form>
+          </div>
+        </ZfGlassSurface>
       </motion.div>
     </div>
   );

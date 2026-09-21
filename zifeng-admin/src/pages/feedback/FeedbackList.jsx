@@ -1,9 +1,16 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
-import { Row, Col, Card, Table, Tag, Select, Button, Space, Modal, Input, message, Tooltip, Dropdown, Typography } from 'antd';
-import { ClockCircleOutlined, SyncOutlined, CheckCircleOutlined, CloseCircleOutlined, SearchOutlined, ReloadOutlined, FormOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Table, Tag, Select, Button, Space, Modal, Input, message, Tooltip, Dropdown, Typography,
+} from 'antd';
+import {
+  ClockCircleOutlined, SyncOutlined, CheckCircleOutlined, CloseCircleOutlined,
+  SearchOutlined, ReloadOutlined, FormOutlined, DownOutlined,
+} from '@ant-design/icons';
+import { ZfPageHeader, ZfSectionTitle, ZfStatCard, ZfGrid, ZfEmptyState } from '@zifeng/ui/components';
 import { getFeedbacks, getFeedbackStats, replyFeedback, updateFeedbackStatus } from '../../utils/adminApi';
-import { staggerFadeIn, cardHover, cardLeave } from '../../utils/animations';
-import { ThemeContext } from '../../App';
+import {
+  TABLE_SHELL, tableScrollY, PAGE_HEADROOM, TABLE_PAGINATION, DEFAULT_PAGE_SIZE,
+} from '../../utils/ui';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -25,84 +32,97 @@ const ALLOWED_TRANSITIONS = {
 };
 
 const statusMap = {
-  0: { label: '待处理', color: 'orange', icon: <ClockCircleOutlined /> },
-  1: { label: '处理中', color: 'blue', icon: <SyncOutlined spin /> },
-  2: { label: '已解决', color: 'green', icon: <CheckCircleOutlined /> },
-  3: { label: '已关闭', color: 'default', icon: <CloseCircleOutlined /> },
+  0: { label: '待处理', color: 'orange', icon: <ClockCircleOutlined />, statTone: 'warning' },
+  1: { label: '处理中', color: 'blue', icon: <SyncOutlined spin />, statTone: 'brand' },
+  2: { label: '已解决', color: 'green', icon: <CheckCircleOutlined />, statTone: 'success' },
+  3: { label: '已关闭', color: 'default', icon: <CloseCircleOutlined />, statTone: 'brand' },
 };
 
-const statCards = [
-  { key: 'pending', title: '待处理', color: '#fa8c16', gradient: 'linear-gradient(135deg, #fa8c16 0%, #d46b08 100%)', icon: <ClockCircleOutlined /> },
-  { key: 'inProgress', title: '处理中', color: '#1890ff', gradient: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)', icon: <SyncOutlined /> },
-  { key: 'resolved', title: '已解决', color: '#52c41a', gradient: 'linear-gradient(135deg, #52c41a 0%, #389e0d 100%)', icon: <CheckCircleOutlined /> },
-  { key: 'closed', title: '已关闭', color: '#8c8c8c', gradient: 'linear-gradient(135deg, #8c8c8c 0%, #595959 100%)', icon: <CloseCircleOutlined /> },
+/* 统计卡不再自带 4 套渐变色块：图标底色由 ZfStatCard 的 tone 决定，
+   与 statusMap 共用同一份定义，避免表格里的状态色与卡片区对不上。 */
+const STAT_CARDS = [
+  { key: 'pending', title: '待处理', status: 0 },
+  { key: 'inProgress', title: '处理中', status: 1 },
+  { key: 'resolved', title: '已解决', status: 2 },
+  { key: 'closed', title: '已关闭', status: 3 },
 ];
 
+const EMPTY_STATS = { pending: 0, inProgress: 0, resolved: 0, closed: 0, total: 0 };
+
 const FeedbackList = () => {
-  const { isDarkMode } = useContext(ThemeContext);
   const [feedbacks, setFeedbacks] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState({ pending: 0, inProgress: 0, resolved: 0, closed: 0, total: 0 });
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+  /* 首屏即在请求中，初值直接给 true：effect 里同步 setState 会多渲染一轮 */
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(EMPTY_STATS);
+  const [pagination, setPagination] = useState({ current: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0 });
   const [filters, setFilters] = useState({ category: undefined, status: undefined });
   const [replyModal, setReplyModal] = useState({ open: false, id: null, title: '' });
   const [replyContent, setReplyContent] = useState('');
   const [replyLoading, setReplyLoading] = useState(false);
   const [detailModal, setDetailModal] = useState({ open: false, data: null });
-  const statsRef = useRef(null);
-  const tableRef = useRef(null);
 
-  useEffect(() => {
-    if (statsRef.current) {
-      staggerFadeIn(statsRef.current.children, 60);
-    }
-  }, [stats]);
+  /* 取数包在异步 run() 里（与 zifeng-web 的 RankDetail 同形）：effect 的同步路径上
+     不产生任何状态更新。首屏的加载态由 useState(true) 给出 */
+  const fetchStats = useCallback(() => {
+    const run = async () => {
+      try {
+        const res = await getFeedbackStats();
+        setStats(res.data?.data || EMPTY_STATS);
+      } catch {
+        message.error('获取反馈统计失败');
+      }
+    };
+    run();
+  }, []);
+
+  const fetchFeedbacks = useCallback((page = 1, size = DEFAULT_PAGE_SIZE, of = filters) => {
+    const run = async () => {
+      try {
+        const params = {
+          page: page - 1,
+          size,
+          category: of.category || undefined,
+          status: of.status !== undefined && of.status !== null ? of.status : undefined,
+        };
+        const res = await getFeedbacks(params);
+        const data = res.data?.data;
+        if (data) {
+          setFeedbacks(data.items || []);
+          setPagination({ current: (data.page || 0) + 1, pageSize: data.size || DEFAULT_PAGE_SIZE, total: data.total || 0 });
+        }
+      } catch {
+        message.error('获取反馈列表失败');
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+  }, [filters]);
+
+  /* 筛选 / 翻页 / 回复改状态后的刷新都由事件触发，在回调里重新进入加载态 */
+  const reload = (page = 1, size = DEFAULT_PAGE_SIZE, of = filters) => {
+    setLoading(true);
+    fetchFeedbacks(page, size, of);
+  };
 
   useEffect(() => {
     fetchStats();
     fetchFeedbacks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchStats = async () => {
-    try {
-      const res = await getFeedbackStats();
-      setStats(res.data?.data || { pending: 0, inProgress: 0, resolved: 0, closed: 0, total: 0 });
-    } catch {}
-  };
-
-  const fetchFeedbacks = async (page = 1, size = 20) => {
-    setLoading(true);
-    try {
-      const params = {
-        page: page - 1,
-        size,
-        category: filters.category || undefined,
-        status: filters.status !== undefined && filters.status !== null ? filters.status : undefined,
-      };
-      const res = await getFeedbacks(params);
-      const data = res.data?.data;
-      if (data) {
-        setFeedbacks(data.items || []);
-        setPagination({ current: (data.page || 0) + 1, pageSize: data.size || 20, total: data.total || 0 });
-      }
-    } catch {
-      message.error('获取反馈列表失败');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSearch = () => {
-    fetchFeedbacks(1, pagination.pageSize);
+    reload(1, pagination.pageSize);
   };
 
   const handleReset = () => {
-    setFilters({ category: undefined, status: undefined });
-    setTimeout(() => fetchFeedbacks(1, pagination.pageSize), 0);
+    const cleared = { category: undefined, status: undefined };
+    setFilters(cleared);
+    setTimeout(() => reload(1, pagination.pageSize, cleared), 0);
   };
 
   const handleTableChange = (pag) => {
-    fetchFeedbacks(pag.current, pag.pageSize);
+    reload(pag.current, pag.pageSize);
   };
 
   const handleReply = async () => {
@@ -116,7 +136,7 @@ const FeedbackList = () => {
       message.success('回复成功');
       setReplyModal({ open: false, id: null, title: '' });
       setReplyContent('');
-      fetchFeedbacks(pagination.current, pagination.pageSize);
+      reload(pagination.current, pagination.pageSize);
       fetchStats();
     } catch {
       message.error('回复失败');
@@ -129,7 +149,7 @@ const FeedbackList = () => {
     try {
       await updateFeedbackStatus(id, { status: newStatus });
       message.success('状态更新成功');
-      fetchFeedbacks(pagination.current, pagination.pageSize);
+      reload(pagination.current, pagination.pageSize);
       fetchStats();
     } catch (err) {
       const msg = err?.response?.data?.message || '状态更新失败';
@@ -162,7 +182,7 @@ const FeedbackList = () => {
       width: 200,
       ellipsis: true,
       render: (title, record) => (
-        <a onClick={() => setDetailModal({ open: true, data: record })} style={{ fontWeight: 500 }}>
+        <a onClick={() => setDetailModal({ open: true, data: record })} style={{ fontWeight: 'var(--zf-fw-strong)' }}>
           {title}
         </a>
       ),
@@ -175,9 +195,7 @@ const FeedbackList = () => {
       ellipsis: true,
       render: (text) => (
         <Tooltip title={text} placement="topLeft">
-          <span style={{ color: isDarkMode ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)' }}>
-            {text}
-          </span>
+          <span style={{ color: 'var(--zf-text-secondary)' }}>{text}</span>
         </Tooltip>
       ),
     },
@@ -237,8 +255,9 @@ const FeedbackList = () => {
               }}
               disabled={isTerminal}
             >
+              {/* 裸字符 ▼ 不是图标字体：字号、行高、暗色对比度都不受控。换 DownOutlined。 */}
               <Button type="link" size="small" disabled={isTerminal}>
-                状态 <span style={{ fontSize: 10 }}>▼</span>
+                状态 <DownOutlined />
               </Button>
             </Dropdown>
           </Space>
@@ -247,105 +266,81 @@ const FeedbackList = () => {
     },
   ];
 
-  const cardStyle = {
-    borderRadius: 12,
-    border: 'none',
-    boxShadow: isDarkMode ? '0 2px 12px rgba(0,0,0,0.3)' : '0 2px 12px rgba(0,0,0,0.06)',
-    overflow: 'hidden',
-  };
+  const filterBar = (
+    <Space wrap>
+      <Select
+        placeholder="反馈类型"
+        allowClear
+        style={{ width: 130 }}
+        value={filters.category}
+        onChange={(val) => setFilters(prev => ({ ...prev, category: val }))}
+        options={Object.entries(categoryMap).map(([value, info]) => ({ value, label: info.label }))}
+      />
+      <Select
+        placeholder="反馈状态"
+        allowClear
+        style={{ width: 130 }}
+        value={filters.status}
+        onChange={(val) => setFilters(prev => ({ ...prev, status: val }))}
+        options={Object.entries(statusMap).map(([value, info]) => ({ value: parseInt(value), label: info.label }))}
+      />
+      <Button icon={<SearchOutlined />} onClick={handleSearch}>搜索</Button>
+      <Button icon={<ReloadOutlined />} onClick={handleReset}>重置</Button>
+    </Space>
+  );
 
   return (
-    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Row gutter={[16, 16]} ref={statsRef} style={{ marginBottom: 16, flexShrink: 0 }}>
-        {statCards.map((card) => (
-          <Col xs={12} sm={12} md={6} key={card.key}>
-            <Card
-              className="stat-card-brand"
-              style={cardStyle}
-              styles={{ body: { padding: '20px 24px' } }}
-              onMouseEnter={(e) => cardHover(e.currentTarget, isDarkMode)}
-              onMouseLeave={(e) => cardLeave(e.currentTarget, isDarkMode)}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: 13, color: isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', marginBottom: 8 }}>
-                    {card.title}
-                  </div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: card.color }}>
-                    {stats[card.key] || 0}
-                  </div>
-                </div>
-                <div style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 12,
-                  background: card.gradient,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 22,
-                  color: '#fff',
-                  boxShadow: `0 4px 12px ${card.color}33`,
-                }}>
-                  {card.icon}
-                </div>
-              </div>
-            </Card>
-          </Col>
+    <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <ZfPageHeader
+        title="用户反馈"
+        subtitle={`共 ${stats.total || 0} 条反馈`}
+        style={{ marginBottom: 'var(--zf-s4)', flexShrink: 0 }}
+      />
+
+      <ZfGrid min={170} gap="var(--zf-s4)" style={{ marginBottom: 'var(--zf-s4)', flexShrink: 0 }}>
+        {STAT_CARDS.map((card) => (
+          <ZfStatCard
+            key={card.key}
+            label={card.title}
+            icon={statusMap[card.status].icon}
+            tone={statusMap[card.status].statTone}
+            value={Number(stats[card.key] || 0).toLocaleString()}
+          />
         ))}
-      </Row>
+      </ZfGrid>
 
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-        flexWrap: 'wrap',
-        gap: 12,
-        flexShrink: 0,
-      }}>
-        <h2 className="page-title">反馈列表</h2>
-        <Space wrap>
-          <Select
-            placeholder="反馈类型"
-            allowClear
-            style={{ width: 130 }}
-            value={filters.category}
-            onChange={(val) => setFilters(prev => ({ ...prev, category: val }))}
-            options={Object.entries(categoryMap).map(([value, info]) => ({ value, label: info.label }))}
-          />
-          <Select
-            placeholder="反馈状态"
-            allowClear
-            style={{ width: 130 }}
-            value={filters.status}
-            onChange={(val) => setFilters(prev => ({ ...prev, status: val }))}
-            options={Object.entries(statusMap).map(([value, info]) => ({ value: parseInt(value), label: info.label }))}
-          />
-          <Button icon={<SearchOutlined />} onClick={handleSearch}>搜索</Button>
-          <Button icon={<ReloadOutlined />} onClick={handleReset}>重置</Button>
-        </Space>
-      </div>
+      <ZfSectionTitle
+        title="反馈列表"
+        extra={filterBar}
+        animated={false}
+        style={{ marginBottom: 'var(--zf-s3)', flexShrink: 0 }}
+      />
 
-      <div ref={tableRef} style={{
-        borderRadius: 12,
-        flex: 1,
-        boxShadow: isDarkMode ? '0 2px 12px rgba(0,0,0,0.3)' : '0 2px 12px rgba(0,0,0,0.06)',
-      }}>
+      <div style={TABLE_SHELL}>
         <Table
           dataSource={feedbacks}
           columns={columns}
           rowKey="id"
           loading={loading}
-          style={{ background: isDarkMode ? '#141414' : '#fff', borderRadius: 12, overflow: 'hidden' }}
-          scroll={{ y: 'calc(100vh - 64px - 48px - 120px - 60px - 32px)' }}
+          scroll={{ y: tableScrollY(PAGE_HEADROOM.stats) }}
+          locale={{
+            emptyText: (
+              <ZfEmptyState
+                compact
+                title={filters.category || filters.status !== undefined ? '没有符合筛选的反馈' : '还没有用户反馈'}
+                description={
+                  filters.category || filters.status !== undefined
+                    ? '换个类型或状态，或点「重置」看全部。'
+                    : '用户在阅读页提交反馈后会出现在这里。'
+                }
+              />
+            ),
+          }}
           pagination={{
             current: pagination.current,
             pageSize: pagination.pageSize,
             total: pagination.total,
-            showSizeChanger: true,
-            pageSizeOptions: ['15', '30', '50'],
-            showTotal: (total) => `共 ${total} 条记录`,
+            ...TABLE_PAGINATION,
           }}
           onChange={handleTableChange}
         />
@@ -370,9 +365,9 @@ const FeedbackList = () => {
           maxLength={2000}
           value={replyContent}
           onChange={(e) => setReplyContent(e.target.value)}
-          style={{ marginTop: 16 }}
+          style={{ marginTop: 'var(--zf-s4)' }}
         />
-        <div style={{ textAlign: 'right', marginTop: 4, fontSize: 12, color: isDarkMode ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)' }}>
+        <div className="zf-caption" style={{ textAlign: 'right', marginTop: 'var(--zf-s1)' }}>
           {replyContent.length}/2000
         </div>
       </Modal>
@@ -385,44 +380,46 @@ const FeedbackList = () => {
         width={640}
       >
         {detailModal.data && (
-          <div style={{ padding: '8px 0' }}>
-            <div style={{ marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ padding: 'var(--zf-s2) 0' }}>
+            <div style={{ marginBottom: 'var(--zf-s4)', display: 'flex', gap: 'var(--zf-s2)', alignItems: 'center' }}>
               <Tag color={categoryMap[detailModal.data.category]?.color || 'default'}>
                 {categoryMap[detailModal.data.category]?.label || detailModal.data.category}
               </Tag>
-              <Tag color={statusMap[detailModal.data.status]?.color || 'default'} icon={statusMap[detailModal.data.status]?.icon}>
+              <Tag
+                color={statusMap[detailModal.data.status]?.color || 'default'}
+                icon={statusMap[detailModal.data.status]?.icon}
+              >
                 {statusMap[detailModal.data.status]?.label || '未知'}
               </Tag>
             </div>
 
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8 }}>{detailModal.data.title}</div>
-              <div style={{
-                color: isDarkMode ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)',
-                lineHeight: 1.8,
-                whiteSpace: 'pre-wrap',
-                background: isDarkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
-                padding: 16,
-                borderRadius: 8,
-              }}>
+            <div style={{ marginBottom: 'var(--zf-s3)' }}>
+              <div className="zf-h3" style={{ marginBottom: 'var(--zf-s2)' }}>
+                {detailModal.data.title}
+              </div>
+              {/* 内容块：底色/描边/文字全部走令牌，暗色下不再是一块看不清的深灰 */}
+              <div
+                style={{
+                  color: 'var(--zf-text-secondary)',
+                  lineHeight: 'var(--zf-lh-body)',
+                  whiteSpace: 'pre-wrap',
+                  background: 'var(--zf-glass-1)',
+                  border: '1px solid var(--zf-glass-border)',
+                  padding: 'var(--zf-s4)',
+                  borderRadius: 'var(--zf-r-sm)',
+                }}
+              >
                 {detailModal.data.content}
               </div>
             </div>
 
-            <div style={{
-              fontSize: 12,
-              color: isDarkMode ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)',
-              marginBottom: 16,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 4,
-            }}>
+            <div className="zf-caption" style={{ marginBottom: 'var(--zf-s4)', display: 'flex', flexDirection: 'column', gap: 'var(--zf-s1)' }}>
               <span>提交用户：{detailModal.data.username || `用户${detailModal.data.userId}`}</span>
               <span>提交时间：{detailModal.data.createdAt ? new Date(detailModal.data.createdAt).toLocaleString('zh-CN') : '-'}</span>
-              {detailModal.data.pageUrl && <span>页面地址：{detailModal.data.pageUrl}</span>}
+              {detailModal.data.pageUrl && <span className="zf-mono">页面地址：{detailModal.data.pageUrl}</span>}
               {detailModal.data.userAgent && (
                 <Tooltip title={detailModal.data.userAgent}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', maxWidth: '100%' }}>
+                  <span className="zf-truncate" style={{ display: 'block', maxWidth: '100%' }}>
                     User-Agent：{detailModal.data.userAgent}
                   </span>
                 </Tooltip>
@@ -430,20 +427,22 @@ const FeedbackList = () => {
             </div>
 
             {detailModal.data.adminReply && (
-              <div style={{
-                background: isDarkMode ? 'rgba(24, 144, 255, 0.08)' : 'rgba(24, 144, 255, 0.04)',
-                border: `1px solid ${isDarkMode ? 'rgba(24, 144, 255, 0.2)' : 'rgba(24, 144, 255, 0.15)'}`,
-                borderRadius: 8,
-                padding: 16,
-              }}>
-                <div style={{ fontWeight: 600, marginBottom: 8, color: '#1890ff', fontSize: 13 }}>
+              <div
+                style={{
+                  background: 'var(--zf-tint-brand-08)',
+                  border: '1px solid rgb(var(--zf-brand-rgb-500) / 0.25)',
+                  borderRadius: 'var(--zf-r-sm)',
+                  padding: 'var(--zf-s4)',
+                }}
+              >
+                <div style={{ fontWeight: 'var(--zf-fw-strong)', marginBottom: 'var(--zf-s2)', color: 'var(--zf-brand-400)', fontSize: 'var(--zf-fs-sm)' }}>
                   管理员回复{detailModal.data.repliedByUsername ? `（${detailModal.data.repliedByUsername}）` : ''}
                 </div>
-                <div style={{ color: isDarkMode ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.75)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                <div style={{ color: 'var(--zf-text-secondary)', lineHeight: 'var(--zf-lh-body)', whiteSpace: 'pre-wrap' }}>
                   {detailModal.data.adminReply}
                 </div>
                 {detailModal.data.repliedAt && (
-                  <div style={{ fontSize: 12, color: isDarkMode ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)', marginTop: 8 }}>
+                  <div className="zf-caption" style={{ marginTop: 'var(--zf-s2)' }}>
                     回复时间：{new Date(detailModal.data.repliedAt).toLocaleString('zh-CN')}
                   </div>
                 )}

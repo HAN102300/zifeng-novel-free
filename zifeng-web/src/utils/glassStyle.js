@@ -110,10 +110,12 @@ function glassHeroStyle(glassMode, isDarkMode) {
  * 滚动收缩态导航栏样式
  * @param {boolean} scrolled - 是否已滚动收缩
  * @param {boolean} isDarkMode - 兼容签名（token 模式下浅/深色由 [data-theme] 自动切换）
+ * @param {boolean} glassMode - 关闭时退回实底态；此前签名漏了这第 3 参，
+ *   而 Navbar.jsx:110 一直在传，导致「毛玻璃风格」开关关不掉导航栏。
  * @returns {Object} React 内联样式对象
  */
-function glassNavbar(scrolled, isDarkMode) {
-  const base = {
+function glassNavbar(scrolled, _isDarkMode, glassMode = true) {
+  const solid = {
     position: 'sticky',
     top: 0,
     zIndex: 100,
@@ -121,25 +123,34 @@ function glassNavbar(scrolled, isDarkMode) {
     alignItems: 'center',
     gap: 'var(--zf-s6)',
     margin: 'var(--zf-s4) 0 var(--zf-s8)',
-    background: 'var(--zf-glass-bg)',
-    backdropFilter: 'var(--zf-blur-glass)',
-    WebkitBackdropFilter: 'var(--zf-blur-glass)',
+    background: 'var(--zf-surface-1)',
     border: '1px solid var(--zf-glass-border)',
     borderRadius: 'var(--zf-r-xl)',
     transition: zfTransition,
+  };
+  if (!glassMode) {
+    return scrolled
+      ? { ...solid, padding: '10px var(--zf-s6)', boxShadow: 'var(--zf-shadow-2)' }
+      : { ...solid, padding: '14px var(--zf-s6)', boxShadow: 'var(--zf-shadow-1)' };
+  }
+  const base = {
+    ...solid,
+    background: 'var(--zf-glass-1)',
+    backdropFilter: 'var(--zf-blur-glass)',
+    WebkitBackdropFilter: 'var(--zf-blur-glass)',
   };
   if (scrolled) {
     return {
       ...base,
       padding: '10px var(--zf-s6)',
-      background: 'var(--zf-glass-bg-strong)',
-      boxShadow: 'var(--zf-shadow-lg)',
+      background: 'var(--zf-glass-3)',
+      boxShadow: 'var(--zf-shadow-3)',
     };
   }
   return {
     ...base,
     padding: '14px var(--zf-s6)',
-    boxShadow: 'var(--zf-shadow-md)',
+    boxShadow: 'var(--zf-shadow-2)',
   };
 }
 

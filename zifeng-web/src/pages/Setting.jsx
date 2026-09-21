@@ -1,24 +1,56 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { Card, Row, Col, Typography, Space, Switch, Slider, Select, TimePicker, List, Divider } from 'antd';
+import React, { useState, useContext } from 'react';
+import { motion } from 'framer-motion';
+import { Slider, Switch, Select } from 'antd';
 import {
   BgColorsOutlined,
   MoonOutlined,
   SunOutlined,
-  CheckCircleFilled,
+  CheckOutlined,
   FontSizeOutlined,
   EyeOutlined,
   ClockCircleOutlined,
-  CloudOutlined,
-  RightOutlined
+  DesktopOutlined,
 } from '@ant-design/icons';
 import { ThemeContext } from '../App';
-import { useNavigate } from 'react-router-dom';
-import { getBookSources } from '../utils/bookSourceManager';
-import { glassCardStyle } from '../utils/glassStyle';
 import { version } from '../../package.json';
-import { motion } from 'framer-motion';
+import { ZfPageShell, ZfGrid, ZfPageHeader, ZfSectionTitle, ZfGlassSurface, ZfPill } from '@zifeng/ui/components';
+import { BRANDS, BRAND_KEYS, normalizeBrand } from '@zifeng/ui/tokens';
+import { variants } from '@zifeng/ui/motion';
 
-const { Title, Text } = Typography;
+/* ============================================================
+   紫枫免费小说 · 设置页（P2 迁移）
+   - 主题色板重做：原先是 5 张约 300×150 的卡 + 5 个 2019 默认取色器式的
+     高饱和纯色圆点（纯绿/纯橙/纯红/纯蓝那种），选个颜色要两行 400px。
+     现在是一行 5 枚紧凑色卡，色块取该品牌**真实派生色阶**
+     （data-brand 作用域下的 --zf-grad-brand = 700→500），高度收到约 62px。
+   - ★存储键仍是 config/themes.js 的旧键 purple/green/orange/red/default，
+     否则用户已存的 zifeng_theme 偏好会失效；只有显示名与色阶换成
+     zifeng-ui/tokens/hue.js 的 BRANDS（优雅紫/青玉/琥珀/胭脂/黛蓝）。
+   - 主题切换完全由 useTheme 写 html[data-brand] 驱动，本页不再出现任何
+     setProperty('--zf-primary-*') 补丁。
+   - 容器 → ZfPageShell、页头 → ZfPageHeader、分区头 → ZfSectionTitle、
+     卡片 → ZfGlassSurface（毛玻璃开关由 [data-glass='off'] 承接，
+     不再手写 glassCardStyle）
+   - 全部 isDarkMode ? '#xxx' : '#yyy' 三元 → 令牌，字面色清零
+   - 保留：自动夜间模式的读写逻辑、全局字号 Slider、玻璃开关
+   ============================================================ */
+
+/* 存储键 ← 品牌键。azure 对应旧键 default（不是 blue），必须显式写死，
+   否则换个命名就会把用户的既有偏好写丢。 */
+const STORAGE_KEY_OF_BRAND = {
+  violet: 'purple',
+  jade: 'green',
+  amber: 'orange',
+  crimson: 'red',
+  azure: 'default',
+};
+
+/* 一行放得下 5 枚：色块 28px + 名称 14px + 上下内边距 8px×2 + 间隙 */
+const BRAND_OPTIONS = BRAND_KEYS.map((brand) => ({
+  brand,
+  key: STORAGE_KEY_OF_BRAND[brand],
+  name: BRANDS[brand].name,
+}));
 
 // 生成时间选项 (00:00 - 23:30, 每30分钟一个)
 const generateTimeOptions = () => {
@@ -34,44 +66,64 @@ const generateTimeOptions = () => {
 
 const timeOptions = generateTimeOptions();
 
-// 检查当前时间是否在夜间模式时间范围内
-const checkAutoNightMode = (setIsDarkMode) => {
-  const saved = localStorage.getItem('zifeng_auto_night_mode');
-  if (!saved) return;
-  const config = JSON.parse(saved);
-  if (!config.enabled) return;
-
-  const manualOverride = localStorage.getItem('zifeng_manual_dark_override');
-  if (manualOverride === 'true') return;
-
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const [startH, startM] = config.startTime.split(':').map(Number);
-  const [endH, endM] = config.endTime.split(':').map(Number);
-  const startMinutes = startH * 60 + startM;
-  const endMinutes = endH * 60 + endM;
-
-  let shouldBeDark;
-  if (startMinutes > endMinutes) {
-    shouldBeDark = currentMinutes >= startMinutes || currentMinutes < endMinutes;
-  } else {
-    shouldBeDark = currentMinutes >= startMinutes && currentMinutes < endMinutes;
-  }
-
-  setIsDarkMode(shouldBeDark);
-  localStorage.setItem('zifeng_dark_mode', String(shouldBeDark));
+/* ---------- 版式常量：同一组合只写一次 ---------- */
+const COL = { display: 'flex', flexDirection: 'column', gap: 'var(--zf-s5)', minWidth: 0 };
+const ROW = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  flexWrap: 'wrap',
+  gap: 'var(--zf-s4)',
+  padding: 'var(--zf-s4)',
+  borderRadius: 'var(--zf-r-md)',
+  background: 'var(--zf-glass-1)',
+  border: '1px solid var(--zf-glass-border)',
 };
+const ROW_TEXT = { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 };
+const ROW_TITLE = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--zf-s2)',
+  fontSize: 'var(--zf-fs-md)',
+  fontWeight: 'var(--zf-fw-strong)',
+  color: 'var(--zf-text-primary)',
+};
+const ROW_DESC = { fontSize: 'var(--zf-fs-xs)', color: 'var(--zf-text-muted)' };
+const ROW_CTRL = { display: 'flex', alignItems: 'center', gap: 'var(--zf-s3)', minWidth: 0 };
+
+/** 一行设置项：左文案右控件，窄屏自然换行 */
+function SettingRow({ icon, title, desc, children }) {
+  return (
+    <div style={ROW}>
+      <div style={ROW_TEXT}>
+        <span style={ROW_TITLE}>
+          <span aria-hidden="true" style={{ display: 'inline-flex', color: 'var(--zf-brand-500)' }}>
+            {icon}
+          </span>
+          {title}
+        </span>
+        {desc ? <span style={ROW_DESC}>{desc}</span> : null}
+      </div>
+      <div style={ROW_CTRL}>{children}</div>
+    </div>
+  );
+}
 
 const Setting = () => {
-  const { currentTheme, setCurrentTheme, isDarkMode, setIsDarkMode, themeConfigs, globalFontSize, handleGlobalFontSizeChange, glassMode, handleGlassModeToggle } = useContext(ThemeContext);
-  const navigate = useNavigate();
-  const sourceCount = getBookSources().length;
+  const {
+    currentTheme,
+    setCurrentTheme,
+    isDarkMode,
+    setIsDarkMode,
+    refreshAutoNightMode,
+    clearManualDarkOverride,
+    globalFontSize,
+    setGlobalFontSize,
+    glassMode,
+    handleGlassModeToggle,
+  } = useContext(ThemeContext);
 
-  const handleManualDarkToggle = (checked) => {
-    setIsDarkMode(checked);
-    localStorage.setItem('zifeng_dark_mode', String(checked));
-    localStorage.setItem('zifeng_manual_dark_override', 'true');
-  };
+  const currentBrand = normalizeBrand(currentTheme);
 
   // 夜间模式自动切换状态
   const [autoNightEnabled, setAutoNightEnabled] = useState(() => {
@@ -101,371 +153,226 @@ const Setting = () => {
     return '07:00';
   });
 
-  // 主题选项 —— 色块颜色对齐 themeConfigs.primaryColor，确保色块与实际主题色一致
-  const themeOptions = [
-    { key: 'purple', name: '优雅紫', color: themeConfigs.purple.primaryColor },
-    { key: 'green', name: '清新绿', color: themeConfigs.green.primaryColor },
-    { key: 'orange', name: '活力橙', color: themeConfigs.orange.primaryColor },
-    { key: 'red', name: '热情红', color: themeConfigs.red.primaryColor },
-    { key: 'default', name: '经典蓝', color: themeConfigs.default.primaryColor },
-  ];
-
-  // 主题切换映射：将 --zf-primary-500 令牌同步到当前主题主色，使令牌驱动的组件也跟随主题
-  // （默认主题为优雅紫 #8B5CF6，与 index.css 既有值一致，默认态无副作用）
-  useEffect(() => {
-    const pc = themeConfigs[currentTheme]?.primaryColor;
-    if (pc) {
-      document.documentElement.style.setProperty('--zf-primary-500', pc);
-    }
-  }, [currentTheme, themeConfigs]);
-
-  // 夜间模式自动切换开关
-  const handleAutoNightToggle = (checked) => {
-    setAutoNightEnabled(checked);
-    const config = {
-      enabled: checked,
-      startTime: nightStartTime,
-      endTime: nightEndTime
-    };
-    localStorage.setItem('zifeng_auto_night_mode', JSON.stringify(config));
-    if (checked) {
-      localStorage.removeItem('zifeng_manual_dark_override');
-      checkAutoNightMode(setIsDarkMode);
-    }
-  };
-
-  // 夜间模式时间范围变更
-  const handleNightTimeChange = (type, value) => {
-    let newStart = nightStartTime;
-    let newEnd = nightEndTime;
-
-    if (type === 'start') {
-      newStart = value;
-      setNightStartTime(value);
-    } else {
-      newEnd = value;
-      setNightEndTime(value);
-    }
-
+  /* 排程的读取与定时比对在 useTheme 里（跟着 App 一起活），这里只管写配置 + 立刻生效 */
+  const saveNightConfig = (override) => {
     const config = {
       enabled: autoNightEnabled,
-      startTime: newStart,
-      endTime: newEnd
+      startTime: nightStartTime,
+      endTime: nightEndTime,
+      ...override,
     };
     localStorage.setItem('zifeng_auto_night_mode', JSON.stringify(config));
-
-    if (autoNightEnabled) {
-      checkAutoNightMode(setIsDarkMode);
-    }
   };
 
-  // 页面加载时检查自动夜间模式，并启动定时器
-  useEffect(() => {
-    // 初始检查
-    checkAutoNightMode(setIsDarkMode);
+  const applySchedule = () => {
+    clearManualDarkOverride();
+    refreshAutoNightMode();
+  };
 
-    // 每分钟检查一次
-    const timer = setInterval(() => {
-      checkAutoNightMode(setIsDarkMode);
-    }, 60000);
+  const handleAutoNightToggle = (checked) => {
+    setAutoNightEnabled(checked);
+    saveNightConfig({ enabled: checked });
+    if (checked) applySchedule();
+  };
 
-    return () => clearInterval(timer);
-  }, [setIsDarkMode]);
-
-  // 阅读设置列表
-  const readingSettings = [
-    {
-      title: '字体大小',
-      icon: <FontSizeOutlined />,
-      description: '调整网站全局字体大小',
-      content: (
-        <div style={{ width: 200 }}>
-          <Slider
-            min={12}
-            max={24}
-            step={1}
-            value={globalFontSize}
-            onChange={handleGlobalFontSizeChange}
-            marks={{ 12: '12', 14: '14', 18: '18', 24: '24' }}
-            tooltip={{ formatter: (val) => `${val}px` }}
-          />
-        </div>
-      )
-    },
-    {
-      title: '夜间模式',
-      icon: <MoonOutlined />,
-      description: '自动在设定时间段切换夜间模式',
-      content: (
-        <Space direction="vertical" size="small" align="end">
-          <Switch
-            size="small"
-            checked={autoNightEnabled}
-            onChange={handleAutoNightToggle}
-          />
-          {autoNightEnabled && (
-            <Space size="small" style={{ marginTop: 4 }}>
-              <ClockCircleOutlined style={{ color: themeConfigs[currentTheme].primaryColor }} />
-              <Select
-                size="small"
-                value={nightStartTime}
-                onChange={(val) => handleNightTimeChange('start', val)}
-                options={timeOptions}
-                style={{ width: 90 }}
-              />
-              <Text type="secondary">至</Text>
-              <Select
-                size="small"
-                value={nightEndTime}
-                onChange={(val) => handleNightTimeChange('end', val)}
-                options={timeOptions}
-                style={{ width: 90 }}
-              />
-            </Space>
-          )}
-        </Space>
-      )
-    },
-  ];
+  const handleNightTimeChange = (type, value) => {
+    if (type === 'start') setNightStartTime(value);
+    else setNightEndTime(value);
+    saveNightConfig(type === 'start' ? { startTime: value } : { endTime: value });
+    /* 改了时间段却没立刻生效，多半是被之前手动拨过的开关挡住了 —— 按新排程走 */
+    if (autoNightEnabled) applySchedule();
+  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      style={{ padding: '0 0 40px 0' }}
+    <ZfPageShell
+      size="lg"
+      header={
+        <ZfPageHeader
+          title="设置"
+          subtitle="主题配色、显示模式与阅读偏好，保存后立即生效并写入本机。"
+          extra={<ZfPill tone="brand">{BRANDS[currentBrand]?.name}</ZfPill>}
+        />
+      }
     >
-      <Row gutter={[24, 24]}>
-        {/* 主题设置 */}
-        <Col xs={24} lg={12}>
-          <motion.div whileHover={{ x: 4 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
-          <Card
-            title={
-              <Space>
-                <BgColorsOutlined style={{ color: themeConfigs[currentTheme].primaryColor }} />
-                <Title level={5} style={{ margin: 0 }}>主题配色</Title>
-              </Space>
-            }
-            style={{
-              borderRadius: 'var(--zf-r-lg)',
-              boxShadow: 'var(--zf-shadow-md)',
-              ...glassCardStyle(glassMode, isDarkMode)
-            }}
-          >
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
-              <Text type="secondary">选择您喜欢的主题颜色</Text>
-              <Row gutter={[16, 16]}>
-                {themeOptions.map((theme) => (
-                  <Col span={8} key={theme.key}>
-                    <Card
-                      hoverable
-                      onClick={() => setCurrentTheme(theme.key)}
-                      style={{
-                        borderRadius: 'var(--zf-r-md)',
-                        border: currentTheme === theme.key ? `2px solid ${theme.color}` : `1px solid ${isDarkMode ? '#333' : '#e8e8e8'}`,
-                        backgroundColor: currentTheme === theme.key
-                          ? (isDarkMode ? `${theme.color}20` : `${theme.color}10`)
-                          : (isDarkMode ? '#1f1f1f' : 'transparent'),
-                        cursor: 'pointer',
-                        transition: 'all 0.3s ease'
-                      }}
-                      styles={{ body: { padding: 16, textAlign: 'center' } }}
-                    >
-                      <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                        <div style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: '50%',
-                          backgroundColor: theme.color,
-                          margin: '0 auto',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          boxShadow: currentTheme === theme.key ? `0 4px 12px ${theme.color}50` : 'none',
-                          transition: 'box-shadow 0.3s ease'
-                        }}>
-                          {currentTheme === theme.key && <CheckCircleFilled style={{ color: '#fff', fontSize: 20 }} />}
-                        </div>
-                        <Text strong style={{ color: currentTheme === theme.key ? theme.color : (isDarkMode ? '#ccc' : 'inherit') }}>
-                          {theme.name}
-                        </Text>
-                      </Space>
-                    </Card>
-                  </Col>
-                ))}
-              </Row>
-            </Space>
-          </Card>
-          </motion.div>
-        </Col>
-
-        {/* 深色模式设置 */}
-        <Col xs={24} lg={12}>
-          <motion.div whileHover={{ x: 4 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
-          <Card
-            title={
-              <Space>
-                {isDarkMode ? <MoonOutlined style={{ color: themeConfigs[currentTheme].primaryColor }} /> : <SunOutlined style={{ color: themeConfigs[currentTheme].primaryColor }} />}
-                <Title level={5} style={{ margin: 0 }}>显示模式</Title>
-              </Space>
-            }
-            style={{
-              borderRadius: 'var(--zf-r-lg)',
-              boxShadow: 'var(--zf-shadow-md)',
-              ...glassCardStyle(glassMode, isDarkMode)
-            }}
-          >
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
-              <Text type="secondary">切换浅色或深色模式</Text>
-              <Card
-                style={{
-                  borderRadius: 'var(--zf-r-md)',
-                  backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
-                  border: `2px solid ${themeConfigs[currentTheme].primaryColor}`,
-                  boxShadow: `0 4px 16px ${themeConfigs[currentTheme].primaryColor}15`
-                }}
-                styles={{ body: { padding: 24 } }}
-              >
-                <Row justify="space-between" align="middle">
-                  <Col>
-                    <Space direction="vertical" size="small">
-                      <Text strong style={{ fontSize: 16, color: isDarkMode ? '#e0e0e0' : '#333' }}>
-                        {isDarkMode ? '深色模式' : '浅色模式'}
-                      </Text>
-                      <Text style={{ color: isDarkMode ? '#999' : '#666' }}>
-                        {isDarkMode ? '适合夜间阅读，减少眼睛疲劳' : '适合日间阅读，清晰明亮'}
-                      </Text>
-                    </Space>
-                  </Col>
-                  <Col>
-                    <Switch
-                      checkedChildren={<MoonOutlined />}
-                      unCheckedChildren={<SunOutlined />}
-                      checked={isDarkMode}
-                      onChange={(checked) => {
-                        setIsDarkMode(checked);
-                        localStorage.setItem('zifeng_dark_mode', String(checked));
-                        localStorage.setItem('zifeng_manual_dark_override', 'true');
-                      }}
-                      size="large"
-                    />
-                  </Col>
-                </Row>
-              </Card>
-              <Card
-                style={{
-                  borderRadius: 'var(--zf-r-md)',
-                  backgroundColor: glassMode
-                    ? (isDarkMode ? 'rgba(30,30,30,0.6)' : 'rgba(240,240,240,0.6)')
-                    : (isDarkMode ? '#1a1a1a' : '#f5f5f5'),
-                  backdropFilter: glassMode ? 'blur(16px) saturate(1.2)' : 'none',
-                  WebkitBackdropFilter: glassMode ? 'blur(16px) saturate(1.2)' : 'none',
-                  border: glassMode
-                    ? `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'}`
-                    : `2px solid ${themeConfigs[currentTheme].primaryColor}40`,
-                  boxShadow: glassMode
-                    ? `0 4px 16px ${isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.06)'}`
-                    : 'none',
-                  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
-                }}
-                styles={{ body: { padding: 24 } }}
-              >
-                <Row justify="space-between" align="middle">
-                  <Col>
-                    <Space direction="vertical" size="small">
-                      <Text strong style={{ fontSize: 16, color: isDarkMode ? '#e0e0e0' : '#333' }}>
-                        毛玻璃风格
-                      </Text>
-                      <Text style={{ color: isDarkMode ? '#999' : '#666' }}>
-                        开启后全站呈现毛玻璃半透明质感，界面更具层次感
-                      </Text>
-                    </Space>
-                  </Col>
-                  <Col>
-                    <Switch
-                      checked={glassMode}
-                      onChange={(checked) => handleGlassModeToggle(checked)}
-                      size="large"
-                    />
-                  </Col>
-                </Row>
-              </Card>
-            </Space>
-          </Card>
-          </motion.div>
-        </Col>
-
-
-
-        {/* 阅读设置 */}
-        <Col xs={24}>
-          <motion.div whileHover={{ x: 4 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
-          <Card
-            title={
-              <Space>
-                <EyeOutlined style={{ color: themeConfigs[currentTheme].primaryColor }} />
-                <Title level={5} style={{ margin: 0 }}>阅读设置</Title>
-              </Space>
-            }
-            style={{
-              borderRadius: 'var(--zf-r-lg)',
-              boxShadow: 'var(--zf-shadow-md)',
-              ...glassCardStyle(glassMode, isDarkMode)
-            }}
-          >
-            <List
-              itemLayout="horizontal"
-              dataSource={readingSettings}
-              renderItem={(item) => (
-                <List.Item
-                  actions={[item.content]}
-                  style={{ padding: '16px 0' }}
-                >
-                  <List.Item.Meta
-                    avatar={
-                      <div style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: '50%',
-                        backgroundColor: `${themeConfigs[currentTheme].primaryColor}15`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: themeConfigs[currentTheme].primaryColor
-                      }}>
-                        {item.icon}
-                      </div>
-                    }
-                    title={<Text strong>{item.title}</Text>}
-                    description={<Text type="secondary">{item.description}</Text>}
-                  />
-                </List.Item>
-              )}
+      <div style={COL}>
+        {/* ============ 主题配色 ============ */}
+        <ZfGlassSurface level={2} style={{ padding: 'var(--zf-s6)' }}>
+          <div style={COL}>
+            <ZfSectionTitle
+              animated={false}
+              variant="line"
+              icon={<BgColorsOutlined />}
+              title="主题配色"
+              sub="色块取自该品牌的真实派生色阶，切换后渐变/光晕/描边/滚动条同时跟随"
+              extra={<span style={ROW_DESC}>共 {BRAND_OPTIONS.length} 套</span>}
             />
-          </Card>
-          </motion.div>
-        </Col>
+            <ZfGrid columns={5} gap="var(--zf-s2)">
+              {BRAND_OPTIONS.map((opt) => {
+                const selected = opt.brand === currentBrand;
+                return (
+                  <motion.button
+                    key={opt.key}
+                    type="button"
+                    /* 悬停/按下走 framer 的 whileHover/whileTap，不碰 DOM style */
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={variants.hoverLift.transition}
+                    /* data-brand 把这一枚色卡变成该品牌的局部作用域：
+                       否则五枚色块都会读到 html[data-brand] 的当前品牌，
+                       实测表现为「五个一模一样的色块」。 */
+                    data-brand={opt.brand}
+                    aria-pressed={selected}
+                    onClick={() => setCurrentTheme(opt.key)}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 'var(--zf-s2)',
+                      padding: 'var(--zf-s2)',
+                      minWidth: 0,
+                      cursor: 'pointer',
+                      borderRadius: 'var(--zf-r-md)',
+                      border: `1px solid ${
+                        selected ? 'rgb(var(--zf-brand-rgb-500) / 0.55)' : 'var(--zf-glass-border)'
+                      }`,
+                      background: selected ? 'var(--zf-tint-brand-10)' : 'var(--zf-glass-1)',
+                      transition:
+                        'border-color var(--zf-dur-fast) var(--zf-ease-out), background-color var(--zf-dur-fast) var(--zf-ease-out), transform var(--zf-dur-fast) var(--zf-ease-out)',
+                    }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        height: 28,
+                        borderRadius: 'var(--zf-r-sm)',
+                        background: 'var(--zf-grad-brand)',
+                        boxShadow: selected ? 'var(--zf-glow-brand)' : 'none',
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: 'var(--zf-on-accent)',
+                        fontSize: 'var(--zf-fs-xs)',
+                      }}
+                    >
+                      {selected ? <CheckOutlined /> : null}
+                    </span>
+                    <span
+                      className="zf-truncate"
+                      title={opt.name}
+                      style={{
+                        textAlign: 'center',
+                        fontSize: 'var(--zf-fs-2xs)',
+                        lineHeight: 'var(--zf-lh-snug)',
+                        color: selected ? 'var(--zf-on-tint)' : 'var(--zf-text-muted)',
+                        fontWeight: selected ? 'var(--zf-fw-strong)' : 'var(--zf-fw-normal)',
+                      }}
+                    >
+                      {opt.name}
+                    </span>
+                  </motion.button>
+                );
+              })}
+            </ZfGrid>
+          </div>
+        </ZfGlassSurface>
 
-        {/* 关于我们 */}
-        <Col xs={24}>
-          <motion.div whileHover={{ x: 4 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
-          <Card
-            style={{
-              borderRadius: 'var(--zf-r-lg)',
-              boxShadow: 'var(--zf-shadow-md)',
-              textAlign: 'center',
-              ...glassCardStyle(glassMode, isDarkMode)
-            }}
-          >
-            <Space direction="vertical" size="small">
-              <Text type="secondary">紫枫免费小说 v{version}</Text>
-              <Text type="secondary">为您提供优质的小说阅读体验</Text>
-            </Space>
-          </Card>
-          </motion.div>
-        </Col>
-      </Row>
-    </motion.div>
+        {/* ============ 显示模式 ============ */}
+        <ZfGlassSurface level={2} style={{ padding: 'var(--zf-s6)' }}>
+          <div style={COL}>
+            <ZfSectionTitle
+              animated={false}
+              variant="line"
+              icon={isDarkMode ? <MoonOutlined /> : <SunOutlined />}
+              title="显示模式"
+              sub="浅色与深色只换令牌值，玻璃身份与品牌描边都保留"
+            />
+            <SettingRow
+              icon={<DesktopOutlined />}
+              title={isDarkMode ? '深色模式' : '浅色模式'}
+              desc={isDarkMode ? '适合夜间阅读，减少眼睛疲劳' : '适合日间阅读，清晰明亮'}
+            >
+              <Switch
+                checkedChildren={<MoonOutlined />}
+                unCheckedChildren={<SunOutlined />}
+                checked={isDarkMode}
+                onChange={setIsDarkMode}
+                size="large"
+              />
+            </SettingRow>
+            <SettingRow
+              icon={<EyeOutlined />}
+              title="毛玻璃风格"
+              desc="开启后全站呈现毛玻璃半透明质感，界面更具层次感"
+            >
+              <Switch checked={glassMode} onChange={handleGlassModeToggle} size="large" />
+            </SettingRow>
+          </div>
+        </ZfGlassSurface>
+
+        {/* ============ 阅读设置 ============ */}
+        <ZfGlassSurface level={2} style={{ padding: 'var(--zf-s6)' }}>
+          <div style={COL}>
+            <ZfSectionTitle
+              animated={false}
+              variant="line"
+              icon={<FontSizeOutlined />}
+              title="阅读设置"
+              sub="全局字号会同时改变 html 基准，因此令牌一律用 px，不用 rem"
+            />
+            <SettingRow icon={<FontSizeOutlined />} title="字体大小" desc="调整网站全局字体大小">
+              <div style={{ flex: '1 1 200px', minWidth: 180, paddingInline: 'var(--zf-s2)' }}>
+                <Slider
+                  min={12}
+                  max={24}
+                  step={1}
+                  value={globalFontSize}
+                  onChange={setGlobalFontSize}
+                  marks={{ 12: '12', 14: '14', 18: '18', 24: '24' }}
+                  tooltip={{ formatter: (val) => `${val}px` }}
+                />
+              </div>
+            </SettingRow>
+            <SettingRow
+              icon={<ClockCircleOutlined />}
+              title="夜间模式自动切换"
+              desc="按设定时间段自动切换，手动开关会覆盖它"
+            >
+              <div style={ROW_CTRL}>
+                <Switch size="small" checked={autoNightEnabled} onChange={handleAutoNightToggle} />
+                {autoNightEnabled ? (
+                  <div style={{ ...ROW_CTRL, flexWrap: 'wrap' }}>
+                    <span
+                      aria-hidden="true"
+                      style={{ display: 'inline-flex', color: 'var(--zf-brand-500)' }}
+                    >
+                      <ClockCircleOutlined />
+                    </span>
+                    <Select
+                      size="small"
+                      value={nightStartTime}
+                      onChange={(val) => handleNightTimeChange('start', val)}
+                      options={timeOptions}
+                      style={{ width: 90 }}
+                    />
+                    <span style={ROW_DESC}>至</span>
+                    <Select
+                      size="small"
+                      value={nightEndTime}
+                      onChange={(val) => handleNightTimeChange('end', val)}
+                      options={timeOptions}
+                      style={{ width: 90 }}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </SettingRow>
+          </div>
+        </ZfGlassSurface>
+
+        {/* ============ 关于 ============ */}
+        <p style={{ ...ROW_DESC, textAlign: 'center' }}>
+          紫枫免费小说 v{version} · 为您提供优质的小说阅读体验
+        </p>
+      </div>
+    </ZfPageShell>
   );
 };
 

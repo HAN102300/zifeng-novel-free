@@ -1,6 +1,12 @@
-import React, { useState, useEffect, useRef, createContext } from 'react';
+import React, { useState, useEffect, createContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { ConfigProvider, theme, Layout, Menu, Button, Switch, Space, Dropdown, message } from 'antd';
+import { ConfigProvider, Layout, Menu, Button, Switch, Dropdown, message } from 'antd';
+import { buildAntdTheme } from '@zifeng/ui/antd/theme';
+import { zhCN } from '@zifeng/ui/antd/locales';
+import { motion } from 'framer-motion';
+import { variants } from '@zifeng/ui/motion';
+import { ZfErrorBoundary } from '@zifeng/ui/components';
+import { FxProvider } from '@zifeng/ui/motion/FxContext';
 import {
   DashboardOutlined,
   UserOutlined,
@@ -21,8 +27,7 @@ import {
   UnorderedListOutlined,
   CommentOutlined,
 } from '@ant-design/icons';
-import { motion } from 'framer-motion';
-import anime from 'animejs/lib/anime.es.js';
+import { BRAND_NAME, BRAND_SHORT, COPYRIGHT_YEAR, AVATAR_SQUARE } from './utils/ui';
 import Login from './pages/Login';
 import DashboardOverview from './pages/dashboard/Overview';
 import DashboardLogs from './pages/dashboard/Logs';
@@ -37,13 +42,12 @@ import FeedbackList from './pages/feedback/FeedbackList';
 
 const { Header, Sider, Content } = Layout;
 
-const ThemeContext = createContext();
-
-const themeConfigs = {
-  default: { primaryColor: '#667eea', name: '品牌紫' },
-  green: { primaryColor: '#52c41a', name: '清新绿' },
-  purple: { primaryColor: '#722ed1', name: '优雅紫' },
-};
+/* 只提供明暗开关。此前这里还挂着 themeConfigs / currentTheme / glassMode 三件套：
+   setCurrentTheme 传进 AdminLayout 后从没有调用点，currentThemeConfig 是死变量，
+   glassMode 恒为 false —— 一套完整的「换肤」管道其实一根线都没接上。
+   后台不是面向读者的产品，没有换肤诉求，而「两端品牌统一」恰恰要求后台不许换品牌，
+   故整块删除（详见 P3 报告）。页面仍需要 isDarkMode 来决定图表的 classic/classicDark。 */
+const ThemeContext = createContext({ isDarkMode: true, setIsDarkMode: () => {} });
 
 const menuItems = [
   {
@@ -79,11 +83,9 @@ const menuItems = [
   { key: '/admins', icon: <TeamOutlined />, label: '管理员管理' },
 ];
 
-const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme, collapsed, setCollapsed }) => {
+const AdminLayout = ({ isDarkMode, setIsDarkMode, collapsed, setCollapsed }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const contentRef = useRef(null);
-  const [fadeState, setFadeState] = useState('in');
 
   const getOpenKeys = () => {
     const path = location.pathname;
@@ -93,26 +95,15 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
     return [];
   };
 
-  const [openKeys, setOpenKeys] = useState(getOpenKeys);
-
-  useEffect(() => {
-    if (!collapsed) {
-      setOpenKeys(getOpenKeys());
-    }
-  }, [location.pathname, collapsed]);
-
-  useEffect(() => {
-    if (contentRef.current) {
-      anime({
-        targets: contentRef.current,
-        opacity: [0, 1],
-        translateY: [10, 0],
-        scale: [0.98, 1],
-        duration: 400,
-        easing: 'easeOutCubic',
-      });
-    }
-  }, [location.pathname]);
+  /* 展开项从当前路由派生，而不是用 effect 把路由同步回 state
+     （effect 里同步 setState 会多渲染一轮）。manualOpenKeys 只在它所属的那次
+     路由内有效：换路由（含 * 重定向）自动回到该路由应有的展开态，
+     折叠侧栏时在事件里清掉。 */
+  const [manualOpenKeys, setManualOpenKeys] = useState(null);
+  const openKeys =
+    manualOpenKeys && manualOpenKeys.path === location.pathname
+      ? manualOpenKeys.keys
+      : getOpenKeys();
 
   const adminInfo = (() => {
     try {
@@ -128,8 +119,6 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
     window.dispatchEvent(new Event('auth-change'));
     message.success('已退出登录');
   };
-
-  const currentThemeConfig = themeConfigs[currentTheme];
 
   const userMenuItems = [
     {
@@ -163,57 +152,58 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
           left: 0,
           top: 0,
           bottom: 0,
-          zIndex: 100,
-          background: isDarkMode
-            ? 'linear-gradient(180deg, #0a0a14 0%, #0d0d1a 100%)'
-            : 'linear-gradient(180deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%)',
-          boxShadow: isDarkMode
-            ? '2px 0 16px rgba(0,0,0,0.6)'
-            : '4px 0 16px rgba(15, 52, 96, 0.2)',
-          transition: 'all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1)',
+          zIndex: 'var(--zf-z-navbar)',
+          /* 原先写死一套靛紫渐变，和用户端的紫并不是同一个紫。
+             改为画布令牌后，侧栏随 data-theme 走，品牌装饰只保留顶端那一条渐变。 */
+          background: 'linear-gradient(180deg, var(--zf-canvas) 0%, var(--zf-canvas-2) 100%)',
+          boxShadow: 'var(--zf-shadow-2)',
+          transition: 'all var(--zf-dur-normal) var(--zf-ease-in-out)',
         }}
       >
-        <div style={{
-          height: 64,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-          overflow: 'hidden',
-          padding: '0 16px',
-        }}>
-          <div className="brand-pulse" style={{
-            width: 36,
-            height: 36,
-            borderRadius: 10,
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        <div
+          style={{
+            height: 'var(--zf-header-height)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#fff',
-            fontWeight: 'bold',
-            fontSize: 18,
-            flexShrink: 0,
-            boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
-          }}>
-            枫
+            borderBottom: '1px solid var(--zf-glass-border)',
+            overflow: 'hidden',
+            padding: '0 var(--zf-s4)',
+          }}
+        >
+          <div
+            className="brand-pulse"
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 'var(--zf-r-sm)',
+              background: 'var(--zf-grad-brand)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--zf-on-accent)',
+              fontWeight: 'var(--zf-fw-bold)',
+              fontSize: 'var(--zf-fs-lg)',
+              flexShrink: 0,
+              boxShadow: 'var(--zf-shadow-1)',
+            }}
+          >
+            {BRAND_SHORT.charAt(1)}
           </div>
           {!collapsed && (
             <motion.span
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
+              transition={{ duration: variants.pageSlide.animate.transition.duration }}
+              className="zf-grad-text"
               style={{
-                marginLeft: 12,
-                fontSize: 16,
-                fontWeight: 700,
+                marginLeft: 'var(--zf-s3)',
+                fontSize: 'var(--zf-fs-base)',
+                fontWeight: 'var(--zf-fw-bold)',
                 whiteSpace: 'nowrap',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
               }}
             >
-              紫枫管理后台
+              {BRAND_NAME}
             </motion.span>
           )}
         </div>
@@ -221,148 +211,117 @@ const AdminLayout = ({ isDarkMode, setIsDarkMode, currentTheme, setCurrentTheme,
           theme="dark"
           mode="inline"
           selectedKeys={[location.pathname]}
-          {...(collapsed ? {} : { openKeys, onOpenChange: (keys) => setOpenKeys(keys) })}
+          {...(collapsed ? {} : { openKeys, onOpenChange: (keys) => setManualOpenKeys({ path: location.pathname, keys }) })}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
-          style={{ borderRight: 'none', marginTop: 8, background: 'transparent', flex: 1 }}
+          style={{ borderRight: 'none', marginTop: 'var(--zf-s2)', background: 'transparent', flex: 1 }}
         />
         {!collapsed && (
-          <div className="brand-footer" style={{ flexShrink: 0 }}>
-            紫枫小说 © 2026
-          </div>
+          <div className="brand-footer">紫枫小说 © {COPYRIGHT_YEAR}</div>
         )}
       </Sider>
-      <Layout style={{ marginLeft: collapsed ? 72 : 220, transition: 'margin-left 0.2s ease' }}>
-        <Header className="admin-header" style={{
-          padding: '0 24px',
-          background: isDarkMode
-            ? 'linear-gradient(90deg, #0d0d1a 0%, #141414 100%)'
-            : 'linear-gradient(90deg, #f0f2ff 0%, #ffffff 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          height: 64,
-          position: 'sticky',
-          top: 0,
-          zIndex: 99,
-          boxShadow: isDarkMode
-            ? '0 2px 12px rgba(0,0,0,0.4)'
-            : '0 2px 12px rgba(102, 126, 234, 0.08)',
-          transition: 'all 0.3s ease',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+      <Layout style={{ marginLeft: collapsed ? 72 : 220, transition: 'margin-left var(--zf-dur-normal) var(--zf-ease-in-out)' }}>
+        <Header
+          className="admin-header"
+          style={{
+            padding: '0 var(--zf-s6)',
+            background: 'var(--zf-surface-1)',
+            borderBottom: '1px solid var(--zf-glass-border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            height: 'var(--zf-header-height)',
+            position: 'sticky',
+            top: 0,
+            zIndex: 'var(--zf-z-sticky)',
+            boxShadow: 'var(--zf-shadow-1)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--zf-s4)' }}>
             <Button
               type="text"
+              aria-label={collapsed ? '展开侧栏' : '收起侧栏'}
               icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              onClick={() => setCollapsed(!collapsed)}
-              style={{
-                fontSize: 16,
-                width: 40,
-                height: 40,
-                borderRadius: 8,
-              }}
+              /* 展开/收起时回到当前路由对应的展开态（原先由 effect 在 collapsed 变化后重算） */
+              onClick={() => { setManualOpenKeys(null); setCollapsed(!collapsed); }}
+              style={{ fontSize: 'var(--zf-fs-lg)', width: 40, height: 40, borderRadius: 'var(--zf-r-sm)' }}
             />
-            <span style={{
-              fontSize: 16,
-              fontWeight: 600,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}>
-              紫枫小说管理后台
+            <span className="zf-hide-md" style={{ fontSize: 'var(--zf-fs-base)', fontWeight: 'var(--zf-fw-strong)', color: 'var(--zf-text-secondary)' }}>
+              {BRAND_NAME}
             </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <Space size={8}>
-              {isDarkMode
-                ? <SunOutlined style={{ color: isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' }} />
-                : <MoonOutlined style={{ color: isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' }} />
-              }
-              <Switch
-                checked={isDarkMode}
-                onChange={setIsDarkMode}
-                size="small"
-              />
-            </Space>
-            <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenu }} placement="bottomRight">
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                cursor: 'pointer',
-                padding: '4px 12px',
-                borderRadius: 8,
-                transition: 'background 0.2s',
-              }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent';
-                }}
-              >
-                <div style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  fontSize: 14,
-                  fontWeight: 'bold',
-                }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--zf-s4)' }}>
+            {/* 原先是一个装饰性月亮/太阳图标 + 一个 Switch 并排，两个控件表达
+                同一件事。图标收进 Switch 自身，语义唯一且省掉一列宽度。 */}
+            <Switch
+              checked={isDarkMode}
+              onChange={setIsDarkMode}
+              size="small"
+              checkedChildren={<SunOutlined />}
+              unCheckedChildren={<MoonOutlined />}
+              aria-label="切换明暗模式"
+            />
+            <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenu }} placement="bottomRight" trigger={['click']}>
+              {/* 此前是裸 div + onMouseEnter 改 style：键盘不可达、hover 与 CSS transition 打架。
+                  改 button（原生可聚焦），hover 交给 index.css 的 .user-trigger。 */}
+              <button type="button" className="user-trigger" aria-label={`管理员菜单：${adminInfo.username || '未登录'}`}>
+                <span aria-hidden="true" style={AVATAR_SQUARE(32)}>
                   {adminInfo.username?.charAt(0)?.toUpperCase() || 'A'}
-                </div>
-                <span style={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: isDarkMode ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.85)',
-                }}>
+                </span>
+                <span style={{ fontSize: 'var(--zf-fs-base)', fontWeight: 'var(--zf-fw-strong)', color: 'var(--zf-text-secondary)' }}>
                   {adminInfo.username || '管理员'}
                 </span>
-              </div>
+              </button>
             </Dropdown>
           </div>
         </Header>
-        <Content className="admin-content" style={{
-          margin: 0,
-          padding: '24px',
-          height: 'calc(100vh - 64px)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          background: isDarkMode ? '#141414' : '#f5f6fa',
-        }}>
-          <div
-            ref={contentRef}
-            style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+        <Content
+          className="admin-content"
+          style={{
+            margin: 0,
+            padding: 'var(--zf-s6)',
+            height: `calc(100vh - var(--zf-header-height))`,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            background: 'var(--zf-canvas)',
+          }}
+        >
+          {/* 路由过渡：animejs → framer-motion（与用户端同一动画库）。
+              key 用 pathname，卸载即停，不需要 exit，避免切换时闪白帧。 */}
+          <motion.div
+            key={location.pathname}
+            variants={variants.pageSlide}
+            initial="initial"
+            animate="animate"
+            style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
           >
-            <Routes>
-              <Route path="/dashboard/overview" element={<DashboardOverview />} />
-              <Route path="/dashboard/logs" element={<DashboardLogs />} />
-              <Route path="/users" element={<UserManagement />} />
-              <Route path="/reading/bookshelf" element={<ReadingBookshelf />} />
-              <Route path="/reading/history" element={<ReadingHistory />} />
-              <Route path="/booksource/list" element={<BookSourceList />} />
-              <Route path="/booksource/import" element={<BookSourceImport />} />
-              <Route path="/booksource/stats" element={<BookSourceStats />} />
-              <Route path="/feedback" element={<FeedbackList />} />
-              <Route path="/admins" element={<AdminManagement />} />
-              <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />
-            </Routes>
-          </div>
+            {/* 后台此前完全没有错误边界：任一页抛错都会把整个壳子白屏，
+                管理员只能刷新或看控制台。key 用 pathname，切页即重置。 */}
+            <ZfErrorBoundary title="该页面出错了" description="其他页面仍可正常访问，重试或切换到别的菜单。">
+                <Routes>
+                  <Route path="/dashboard/overview" element={<DashboardOverview />} />
+                  <Route path="/dashboard/logs" element={<DashboardLogs />} />
+                  <Route path="/users" element={<UserManagement />} />
+                  <Route path="/reading/bookshelf" element={<ReadingBookshelf />} />
+                  <Route path="/reading/history" element={<ReadingHistory />} />
+                  <Route path="/booksource/list" element={<BookSourceList />} />
+                  <Route path="/booksource/import" element={<BookSourceImport />} />
+                  <Route path="/booksource/stats" element={<BookSourceStats />} />
+                  <Route path="/feedback" element={<FeedbackList />} />
+                  <Route path="/admins" element={<AdminManagement />} />
+                  <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />
+                </Routes>
+            </ZfErrorBoundary>
+          </motion.div>
         </Content>
       </Layout>
     </Layout>
   );
 };
 
+
 function App() {
-  const [currentTheme, setCurrentTheme] = useState(() => {
-    return localStorage.getItem('zifeng_admin_theme') || 'default';
-  });
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('zifeng_admin_dark') === 'true';
   });
@@ -372,11 +331,17 @@ function App() {
   });
 
   useEffect(() => {
-    localStorage.setItem('zifeng_admin_theme', currentTheme);
-  }, [currentTheme]);
-
-  useEffect(() => {
     localStorage.setItem('zifeng_admin_dark', String(isDarkMode));
+  }, [isDarkMode]);
+
+  /* 后台此前从不写 data-theme，导致它的暗色开关只切 antd 算法、
+     切不动 --zf-* 表面令牌（玻璃/描边/文本色仍停在深色默认值）。
+     品牌固定 violet，与用户端共用同一 token 源 —— 不给后台换肤入口是刻意的。 */
+  useEffect(() => {
+    const el = document.documentElement;
+    el.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+    el.setAttribute('data-brand', 'violet');
+    el.setAttribute('data-glass', 'off');
   }, [isDarkMode]);
 
   useEffect(() => {
@@ -391,52 +356,21 @@ function App() {
     };
   }, []);
 
-  const currentThemeConfig = themeConfigs[currentTheme];
-
   return (
     <Router basename="/admin">
+      {/* FxProvider 写 html[data-fx]，--zf-fx-loop / --zf-fx-shimmer 才会切到 paused。
+          没有它，index.css 里 brand-pulse 的 animation-play-state 与骨架屏微光
+          就永远拿不到 tier 0 的静止值，prefers-reduced-motion 也形同虚设。 */}
+      <FxProvider>
       <ConfigProvider
+        locale={zhCN}
         getPopupContainer={() => document.body}
-        theme={{
-          algorithm: isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
-          token: {
-            colorPrimary: currentThemeConfig.primaryColor,
-            borderRadius: 8,
-          },
-          components: {
-            Layout: {
-              headerBg: 'transparent',
-              siderBg: 'transparent',
-            },
-            Menu: {
-              darkItemBg: 'transparent',
-            },
-            Table: {
-              borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-              headerBorderRadius: 0,
-              cellPaddingBlock: 12,
-            },
-          },
-        }}
-        table={{
-          bordered: true,
-          size: 'middle',
-        }}
-        pagination={{
-          pageSize: 15,
-          showSizeChanger: true,
-          pageSizeOptions: ['15', '30', '50'],
-          showTotal: (total) => `共 ${total} 条记录`,
-        }}
+        /* 表格的 bordered/size、分页的档位与 showTotal 都改由 buildAntdTheme 的
+           components 段 + 各页 pagination 常量承担，不再在 ConfigProvider 上叠
+           一层全局 table/pagination 默认值 —— 那会和页内定义重复且互相遮蔽。 */
+        theme={buildAntdTheme({ mode: isDarkMode ? 'dark' : 'light', brand: 'violet' })}
       >
-        <ThemeContext.Provider value={{
-          themeConfigs,
-          currentTheme,
-          setCurrentTheme,
-          isDarkMode,
-          setIsDarkMode,
-          glassMode: false,
-        }}>
+        <ThemeContext.Provider value={{ isDarkMode, setIsDarkMode }}>
           <Routes>
             <Route path="/login" element={
               isAuthenticated ? <Navigate to="/dashboard/overview" replace /> : <Login />
@@ -446,8 +380,6 @@ function App() {
                 <AdminLayout
                   isDarkMode={isDarkMode}
                   setIsDarkMode={setIsDarkMode}
-                  currentTheme={currentTheme}
-                  setCurrentTheme={setCurrentTheme}
                   collapsed={collapsed}
                   setCollapsed={setCollapsed}
                 />
@@ -458,9 +390,10 @@ function App() {
           </Routes>
         </ThemeContext.Provider>
       </ConfigProvider>
+      </FxProvider>
     </Router>
   );
 }
 
-export { ThemeContext, themeConfigs };
+export { ThemeContext };
 export default App;

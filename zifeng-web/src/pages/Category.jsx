@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useContext, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -17,101 +17,197 @@ import {
   SmileOutlined,
   SafetyOutlined,
   StarOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
+import { NovelContext } from '../App';
+import { ZfPageShell, ZfGrid, ZfSectionTitle, ZfPill } from '@zifeng/ui/components';
+import { variants, EASE, DUR } from '@zifeng/ui/motion';
+import { useBreakpoint } from '@zifeng/ui/hooks';
 
 /* ============================================================
-   紫枫免费小说 · 分类页（Task 11 重构）
-   - 男生 / 女生 Tab（蓝渐变 / 品红渐变 + layoutId 滑动指示器）
-   - 分类 Banner：图标 84×84 圆角 24px，男蓝 / 女品红渐变
-   - 分类网格：cat-card 用 --card-color / --card-shadow，hover 上浮 + 装饰光斑放大
-   - 状态筛选 chips：active 紫色渐变
-   - 保留：sessionStorage channel/sort、useNavigate 跳转 CategoryDetail
-   参考：design/zifeng-pages-deep-dive.html .cat-tabs / .cat-banner / .cat-grid
+   紫枫免费小说 · 分类页（P2 迁移）
+   - 全站色彩失控最严重的一页收敛回品牌紫：tab、频道横幅、9 张分类卡的
+     图标底全部走 --zf-grad-brand，只靠图形区分，不再一人一个色相
+   - 两种「全部」胶囊统一为 ZfPill；白字一律走 --zf-on-accent / --zf-on-tint
+   - 分类卡：收紧高度、去掉右上角无意义装饰圆，改为「有真实在榜书才渲染」
+     的封面预览（数据取自 App 已拉取的六大榜单 NovelContext，不造假数据）
+   - 内联 style 标签块与 780/1024 魔数断点 → useBreakpoint()
    ============================================================ */
 
-const REVEAL_EASE = [0.16, 1, 0.3, 1];
-
-/* —— 男生频道分类 —— */
+/* —— 男生频道分类：图标只作区分，色相统一由品牌渐变承担 —— */
 const maleCategories = [
-  { name: '玄幻', categoryId: 'lejRej', icon: FireOutlined, desc: '修仙悟道，逆天改命', color: '#EF4444' },
-  { name: '武侠', categoryId: 'nel5aK', icon: ThunderboltOutlined, desc: '快意恩仇，仗剑天涯', color: '#F97316' },
-  { name: '都市', categoryId: 'mbk5ez', icon: BankOutlined, desc: '都市风云，纵横捭阖', color: '#3B82F6' },
-  { name: '仙侠', categoryId: 'vbmOeY', icon: CloudOutlined, desc: '仙道飘渺，御剑飞行', color: '#8B5CF6' },
-  { name: '军事', categoryId: 'penRe7', icon: AimOutlined, desc: '铁血军魂，保家卫国', color: '#10B981' },
-  { name: '历史', categoryId: 'xbojag', icon: HistoryOutlined, desc: '穿越古今，纵横天下', color: '#EC4899' },
-  { name: '游戏', categoryId: 'mep2bM', icon: CustomerServiceOutlined, desc: '虚拟世界，无限可能', color: '#06B6D4' },
-  { name: '科幻', categoryId: 'zbq2dp', icon: RocketOutlined, desc: '星辰大海，未来可期', color: '#2563EB' },
-  { name: '轻小说', categoryId: 'YerEdO', icon: ExperimentOutlined, desc: '轻松阅读，趣味横生', color: '#F59E0B' },
+  { name: '玄幻', categoryId: 'lejRej', icon: FireOutlined, desc: '修仙悟道，逆天改命' },
+  { name: '武侠', categoryId: 'nel5aK', icon: ThunderboltOutlined, desc: '快意恩仇，仗剑天涯' },
+  { name: '都市', categoryId: 'mbk5ez', icon: BankOutlined, desc: '都市风云，纵横捭阖' },
+  { name: '仙侠', categoryId: 'vbmOeY', icon: CloudOutlined, desc: '仙道飘渺，御剑飞行' },
+  { name: '军事', categoryId: 'penRe7', icon: AimOutlined, desc: '铁血军魂，保家卫国' },
+  { name: '历史', categoryId: 'xbojag', icon: HistoryOutlined, desc: '穿越古今，纵横天下' },
+  { name: '游戏', categoryId: 'mep2bM', icon: CustomerServiceOutlined, desc: '虚拟世界，无限可能' },
+  { name: '科幻', categoryId: 'zbq2dp', icon: RocketOutlined, desc: '星辰大海，未来可期' },
+  { name: '轻小说', categoryId: 'YerEdO', icon: ExperimentOutlined, desc: '轻松阅读，趣味横生' },
 ];
 
 /* —— 女生频道分类 —— */
 const femaleCategories = [
-  { name: '现代言情', categoryId: '9avmeG', icon: HeartOutlined, desc: '都市情缘，甜蜜爱恋', color: '#EC4899' },
-  { name: '古代言情', categoryId: 'DdwRb1', icon: CrownOutlined, desc: '宫闱情深，凤舞九天', color: '#EF4444' },
-  { name: '幻想言情', categoryId: '7ax9by', icon: BulbOutlined, desc: '奇幻世界，浪漫邂逅', color: '#8B5CF6' },
-  { name: '青春校园', categoryId: 'Pdy7aQ', icon: SmileOutlined, desc: '青春校园，懵懂心动', color: '#F97316' },
-  { name: '唯美纯爱', categoryId: 'kazYeJ', icon: StarOutlined, desc: '纯爱至上，温暖治愈', color: '#06B6D4' },
-  { name: '同人衍生', categoryId: '9aAOdv', icon: SafetyOutlined, desc: '同人创作，衍生无限', color: '#2563EB' },
+  { name: '现代言情', categoryId: '9avmeG', icon: HeartOutlined, desc: '都市情缘，甜蜜爱恋' },
+  { name: '古代言情', categoryId: 'DdwRb1', icon: CrownOutlined, desc: '宫闱情深，凤舞九天' },
+  { name: '幻想言情', categoryId: '7ax9by', icon: BulbOutlined, desc: '奇幻世界，浪漫邂逅' },
+  { name: '青春校园', categoryId: 'Pdy7aQ', icon: SmileOutlined, desc: '青春校园，懵懂心动' },
+  { name: '唯美纯爱', categoryId: 'kazYeJ', icon: StarOutlined, desc: '纯爱至上，温暖治愈' },
+  { name: '同人衍生', categoryId: '9aAOdv', icon: SafetyOutlined, desc: '同人创作，衍生无限' },
 ];
 
-/* —— 排序选项 —— */
-const sortOptions = [
+/* —— 状态筛选 —— */
+const SORT_OPTIONS = [
   { label: '全部', value: 1 },
   { label: '完结', value: 2 },
   { label: '连载', value: 3 },
 ];
 
-/* —— Tab 配置：男蓝渐变 / 女品红渐变 —— */
-const TAB_CONFIG = {
-  1: {
-    label: '男生频道',
-    tabBg: 'linear-gradient(135deg, #3B82F6, #1E40AF)',
-    tabGlow: '0 4px 14px rgba(59,130,246,.45)',
-    bannerBg: 'linear-gradient(135deg, rgba(59,130,246,.25), rgba(139,92,246,.15))',
-    iconBg: 'linear-gradient(135deg, #3B82F6, #1E40AF)',
-    iconGlow: '0 0 28px rgba(59,130,246,.45)',
-    bannerTitle: '男生频道',
-    bannerSubtitle: '玄幻武侠 · 都市仙侠 · 科幻游戏',
-    accent: '#3B82F6',
-  },
-  2: {
-    label: '女生频道',
-    tabBg: 'linear-gradient(135deg, var(--zf-accent-magenta), #BE123C)',
-    tabGlow: '0 4px 14px rgba(236,72,153,.45)',
-    bannerBg: 'linear-gradient(135deg, rgba(236,72,153,.22), rgba(245,158,11,.12))',
-    iconBg: 'linear-gradient(135deg, var(--zf-accent-magenta), #BE123C)',
-    iconGlow: '0 0 28px rgba(236,72,153,.45)',
-    bannerTitle: '女生频道',
-    bannerSubtitle: '现代言情 · 古代言情 · 青春校园',
-    accent: 'var(--zf-accent-magenta)',
-  },
+/* —— 频道文案：两档共用同一套品牌色，只剩文字不同 —— */
+const CHANNELS = {
+  1: { label: '男生频道', Icon: FireOutlined, subtitle: '玄幻武侠 · 都市仙侠 · 科幻游戏' },
+  2: { label: '女生频道', Icon: HeartOutlined, subtitle: '现代言情 · 古代言情 · 青春校园' },
+};
+
+const SORT_LABEL = { 1: '全部', 2: '完结', 3: '连载' };
+
+/* —— 卡片/胶囊共用版式 —— */
+const ICON_SQUARE = {
+  display: 'grid',
+  placeItems: 'center',
+  flexShrink: 0,
+  borderRadius: 'var(--zf-r-md)',
+  background: 'var(--zf-grad-brand)',
+  color: 'var(--zf-on-accent)',
+  boxShadow: 'var(--zf-glow-brand-soft)',
+};
+
+const ROW = { display: 'flex', alignItems: 'center', gap: 'var(--zf-s2)', minWidth: 0 };
+
+/* 分类卡外壳：高度由内容决定，不再有 40% 的黑色空腔与右上角装饰圆 */
+const CAT_CARD = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 'var(--zf-s3)',
+  padding: 'var(--zf-s4)',
+  borderRadius: 'var(--zf-r-lg)',
+  background: 'var(--zf-glass-1)',
+  border: '1px solid var(--zf-glass-border)',
+  boxShadow: 'var(--zf-shadow-1), var(--zf-glass-edge-top)',
+  cursor: 'pointer',
+  minWidth: 0,
+  textAlign: 'left',
+};
+
+const MUTED_XS = { fontSize: 'var(--zf-fs-xs)', color: 'var(--zf-text-muted)' };
+const GO_ICON = { marginLeft: 'auto', fontSize: 'var(--zf-fs-xs)', color: 'var(--zf-brand-500)' };
+const CAT_NAME = {
+  fontFamily: 'var(--zf-font-display)',
+  fontSize: 'var(--zf-fs-md)',
+  fontWeight: 700,
+  color: 'var(--zf-text-primary)',
+  lineHeight: 'var(--zf-lh-snug)',
+};
+
+/** 真实在榜书的迷你封面：无封面时退化为书名首字，不占位造假 */
+function MiniCover({ book }) {
+  return (
+    <span
+      title={book.name}
+      style={{
+        width: 26,
+        height: 35,
+        flexShrink: 0,
+        borderRadius: 'var(--zf-r-xs)',
+        overflow: 'hidden',
+        border: '1px solid var(--zf-glass-border)',
+        background: 'var(--zf-glass-2)',
+        display: 'grid',
+        placeItems: 'center',
+        fontSize: 'var(--zf-fs-2xs)',
+        color: 'var(--zf-text-faint)',
+      }}
+    >
+      {book.cover ? (
+        <img
+          src={book.cover}
+          alt=""
+          loading="lazy"
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      ) : (
+        String(book.name).slice(0, 1)
+      )}
+    </span>
+  );
+}
+
+/**
+ * 可点击胶囊：ZfPill 只渲染 span（共享层无 button 变体），
+ * 这里补 role/tabIndex/键盘，避免筛选器变成纯鼠标可操作。
+ */
+function FilterChip({ active, children, onClick }) {
+  return (
+    <ZfPill
+      tone={active ? 'solid' : 'neutral'}
+      size="md"
+      role="button"
+      tabIndex={0}
+      aria-pressed={active}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      style={{ cursor: 'pointer' }}
+    >
+      {children}
+    </ZfPill>
+  );
+}
+
+const readSaved = (key, fallback) => {
+  try {
+    const saved = sessionStorage.getItem(key);
+    return saved ? Number(saved) : fallback;
+  } catch {
+    return fallback;
+  }
 };
 
 const Category = () => {
   const navigate = useNavigate();
+  const { novels } = useContext(NovelContext);
+  const { up, isMobile } = useBreakpoint();
 
   /* —— 保留 sessionStorage 读写 —— */
-  const [channel, setChannel] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem('category_channel');
-      return saved ? Number(saved) : 1;
-    } catch {
-      return 1;
-    }
-  });
-  const [sort, setSort] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem('category_sort');
-      return saved ? Number(saved) : 1;
-    } catch {
-      return 1;
-    }
-  });
+  const [channel, setChannel] = useState(() => readSaved('category_channel', 1));
+  const [sort, setSort] = useState(() => readSaved('category_sort', 1));
 
   const categories = channel === 1 ? maleCategories : femaleCategories;
-  const tabCfg = TAB_CONFIG[channel] || TAB_CONFIG[1];
+  const cfg = CHANNELS[channel] || CHANNELS[1];
+  const ChannelIcon = cfg.Icon;
 
-  /* —— 保留原 handler —— */
+  /* —— 真实在榜封面：按分类名索引六大榜单已取到的书目，没有就不渲染 —— */
+  const booksByCategory = useMemo(() => {
+    const map = new Map();
+    Object.values(novels || {}).forEach((list) => {
+      (list || []).forEach((n) => {
+        if (!n?.category || !n?.name) return;
+        if (!map.has(n.category)) map.set(n.category, []);
+        const arr = map.get(n.category);
+        if (arr.some((x) => x.id === n.id)) return;
+        arr.push(n);
+      });
+    });
+    return map;
+  }, [novels]);
+
+  const cols = up('xl') ? 4 : up('md') ? 3 : 2;
+
   const handleSortChange = (value) => {
     setSort(value);
     sessionStorage.setItem('category_sort', String(value));
@@ -127,349 +223,177 @@ const Category = () => {
   };
 
   return (
-    <div style={{ padding: '0 0 40px 0' }}>
-      <style>{`
-        .cat-tabs{
-          position:relative;
-          display:inline-flex;
-          padding:4px;
-          border-radius:var(--zf-r-full);
-          background:var(--zf-glass-bg);
-          border:1px solid var(--zf-glass-border);
-          backdrop-filter:var(--zf-blur-light);
-          -webkit-backdrop-filter:var(--zf-blur-light);
-        }
-        .cat-tab{
-          position:relative;
-          z-index:2;
-          padding:9px 26px;
-          border:none;
-          background:transparent;
-          font-family:var(--zf-font-serif);
-          font-size:var(--zf-fs-md);
-          font-weight:700;
-          color:var(--zf-text-muted);
-          cursor:pointer;
-          border-radius:var(--zf-r-full);
-          transition:color var(--zf-dur-fast) var(--zf-ease-out);
-        }
-        .cat-tab.active{color:#fff}
-        .cat-grid{
-          display:grid;
-          grid-template-columns:repeat(4, 1fr);
-          gap:var(--zf-s4);
-        }
-        @media (max-width:1024px){.cat-grid{grid-template-columns:repeat(3, 1fr)}}
-        @media (max-width:780px){.cat-grid{grid-template-columns:repeat(2, 1fr)}}
-        .cat-card{
-          --card-color: ${tabCfg.accent};
-          --card-shadow: 0 8px 22px rgba(0,0,0,.25);
-          position:relative;
-          overflow:hidden;
-          padding:var(--zf-s6) var(--zf-s4);
-          border-radius:var(--zf-r-lg);
-          background:var(--zf-glass-bg);
-          border:1px solid var(--zf-glass-border);
-          backdrop-filter:var(--zf-blur-light);
-          -webkit-backdrop-filter:var(--zf-blur-light);
-          cursor:pointer;
-          text-align:center;
-          transition:transform var(--zf-dur-normal) var(--zf-ease-spring),
-                     box-shadow var(--zf-dur-normal) var(--zf-ease-out),
-                     border-color var(--zf-dur-normal) var(--zf-ease-out);
-        }
-        .cat-card:hover{
-          transform:translateY(-6px);
-          border-color:var(--card-color);
-          box-shadow:0 14px 32px rgba(0,0,0,.35), 0 0 22px color-mix(in srgb, var(--card-color) 30%, transparent);
-        }
-        .cat-card .cat-deco{
-          position:absolute;
-          top:-24px;
-          right:-24px;
-          width:80px;
-          height:80px;
-          border-radius:50%;
-          background:color-mix(in srgb, var(--card-color) 18%, transparent);
-          transition:transform var(--zf-dur-slow) var(--zf-ease-out), opacity var(--zf-dur-slow);
-          opacity:.5;
-          pointer-events:none;
-        }
-        .cat-card:hover .cat-deco{
-          transform:scale(1.6);
-          opacity:.85;
-        }
-        .cat-card .cat-icon-box{
-          width:56px;
-          height:56px;
-          border-radius:14px;
-          display:grid;
-          place-items:center;
-          margin:0 auto var(--zf-s3);
-          color:#fff;
-          font-size:24px;
-          background:linear-gradient(135deg, var(--card-color), color-mix(in srgb, var(--card-color) 60%, #000));
-          box-shadow:0 6px 14px color-mix(in srgb, var(--card-color) 35%, transparent);
-          transition:transform var(--zf-dur-normal) var(--zf-ease-spring);
-        }
-        .cat-card:hover .cat-icon-box{transform:scale(1.1) rotate(-3deg)}
-        .filter-chip{
-          padding:6px 16px;
-          border-radius:var(--zf-r-full);
-          border:1px solid var(--zf-glass-border);
-          background:var(--zf-glass-bg);
-          color:var(--zf-text-secondary);
-          font-size:var(--zf-fs-sm);
-          font-weight:600;
-          cursor:pointer;
-          transition:all var(--zf-dur-fast) var(--zf-ease-out);
-        }
-        .filter-chip:hover{color:var(--zf-text-primary); border-color:var(--zf-primary-400)}
-        .filter-chip.active{
-          color:#fff;
-          border-color:transparent;
-          background:linear-gradient(135deg, var(--zf-primary-600), var(--zf-primary-500));
-          box-shadow:0 4px 14px rgba(139,92,246,.4);
-        }
-      `}</style>
-
-      {/* ============== 男女 Tab ============== */}
-      <motion.div
-        initial={{ opacity: 0, y: -16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: REVEAL_EASE }}
-        style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--zf-s8)' }}
-      >
-        <div className="cat-tabs">
-          {[1, 2].map((value) => {
-            const isActive = channel === value;
-            const cfg = TAB_CONFIG[value];
-            return (
-              <button
-                key={value}
-                className={`cat-tab ${isActive ? 'active' : ''}`}
-                onClick={() => handleChannelChange(value)}
-              >
-                {isActive && (
-                  <motion.div
-                    layoutId="catTabIndicator"
-                    transition={{ duration: 0.45, ease: [0.34, 1.56, 0.64, 1] }}
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      zIndex: -1,
-                      borderRadius: 'var(--zf-r-full)',
-                      background: cfg.tabBg,
-                      boxShadow: cfg.tabGlow,
-                    }}
-                  />
-                )}
-                {cfg.label}
-              </button>
-            );
-          })}
-        </div>
-      </motion.div>
-
-      {/* ============== 分类 Banner ============== */}
-      <motion.section
-        key={`banner-${channel}`}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: REVEAL_EASE }}
-        style={{
-          padding: 'var(--zf-s10) var(--zf-s8)',
-          borderRadius: 'var(--zf-r-xl)',
-          background: tabCfg.bannerBg,
-          border: '1px solid var(--zf-glass-border-strong)',
-          backdropFilter: 'var(--zf-blur-glass)',
-          WebkitBackdropFilter: 'var(--zf-blur-glass)',
-          marginBottom: 'var(--zf-s6)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--zf-s6)',
-          overflow: 'hidden',
-          position: 'relative',
-        }}
-      >
-        {/* 装饰光斑 */}
-        <div
-          style={{
-            position: 'absolute',
-            top: -40,
-            right: -40,
-            width: 180,
-            height: 180,
-            borderRadius: '50%',
-            background: tabCfg.iconBg,
-            opacity: 0.12,
-            filter: 'blur(20px)',
-            pointerEvents: 'none',
-          }}
-        />
-        {/* 图标方块 84×84 圆角 24px */}
-        <div
-          style={{
-            width: 84,
-            height: 84,
-            borderRadius: 24,
-            display: 'grid',
-            placeItems: 'center',
-            color: '#fff',
-            fontSize: 38,
-            flexShrink: 0,
-            background: tabCfg.iconBg,
-            boxShadow: tabCfg.iconGlow,
-          }}
+    <ZfPageShell size="lg">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--zf-s6)' }}>
+        {/* ============== 频道 Tab：两档同一品牌渐变 ============== */}
+        <motion.div
+          variants={variants.fadeUp}
+          initial="initial"
+          animate="animate"
+          style={{ display: 'flex', justifyContent: 'center' }}
         >
-          {channel === 1 ? <FireOutlined /> : <HeartOutlined />}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h2
+          <div
+            role="tablist"
             style={{
-              fontFamily: 'var(--zf-font-serif)',
-              fontSize: 'var(--zf-fs-2xl)',
-              fontWeight: 900,
-              lineHeight: 1.1,
-              margin: 0,
-              color: 'var(--zf-text-primary)',
+              position: 'relative',
+              display: 'inline-flex',
+              padding: 'var(--zf-s1)',
+              gap: 'var(--zf-s1)',
+              borderRadius: 'var(--zf-r-full)',
+              background: 'var(--zf-glass-1)',
+              border: '1px solid var(--zf-glass-border)',
             }}
           >
-            {tabCfg.bannerTitle}
-          </h2>
-          <p
-            style={{
-              marginTop: 6,
-              color: 'var(--zf-text-secondary)',
-              fontSize: 'var(--zf-fs-sm)',
-              margin: '6px 0 0 0',
-            }}
-          >
-            {tabCfg.bannerSubtitle}
-          </p>
-        </div>
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '5px 14px',
-            borderRadius: 'var(--zf-r-full)',
-            fontSize: 'var(--zf-fs-xs)',
-            fontWeight: 600,
-            color: 'var(--zf-text-primary)',
-            background: 'var(--zf-glass-bg-strong)',
-            border: '1px solid var(--zf-glass-border-strong)',
-          }}
-        >
-          共 {categories.length} 个分类
-        </span>
-      </motion.section>
-
-      {/* ============== 状态筛选 chips ============== */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: REVEAL_EASE, delay: 0.1 }}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '0 4px',
-          marginBottom: 'var(--zf-s5)',
-        }}
-      >
-        <span
-          style={{
-            fontSize: 'var(--zf-fs-xs)',
-            fontWeight: 700,
-            color: 'var(--zf-text-faint)',
-            textTransform: 'uppercase',
-            letterSpacing: '.08em',
-          }}
-        >
-          状态筛选
-        </span>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {sortOptions.map((opt) => (
-            <button
-              key={opt.value}
-              className={`filter-chip ${sort === opt.value ? 'active' : ''}`}
-              onClick={() => handleSortChange(opt.value)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* ============== 分类网格 ============== */}
-      <div className="cat-grid">
-        <AnimatePresence mode="popLayout">
-          {categories.map((category, index) => {
-            const Icon = category.icon;
-            return (
-              <motion.div
-                key={category.categoryId}
-                layout
-                initial={{ opacity: 0, scale: 0.85 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.85 }}
-                transition={{ duration: 0.45, ease: REVEAL_EASE, delay: index * 0.05 }}
-                whileHover={{ y: -6 }}
-                whileTap={{ scale: 0.97 }}
-                className="cat-card"
-                onClick={() => handleCategoryClick(category)}
-              >
-                <div className="cat-deco" />
-                <div className="cat-icon-box">
-                  <Icon />
-                </div>
-                <div
+            {[1, 2].map((value) => {
+              const isActive = channel === value;
+              const item = CHANNELS[value];
+              return (
+                <motion.button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => handleChannelChange(value)}
+                  whileTap={{ scale: 0.97 }}
                   style={{
-                    fontFamily: 'var(--zf-font-serif)',
+                    position: 'relative',
+                    zIndex: 2,
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    padding: 'var(--zf-s2) var(--zf-s6)',
+                    borderRadius: 'var(--zf-r-full)',
+                    fontFamily: 'var(--zf-font-display)',
                     fontSize: 'var(--zf-fs-md)',
                     fontWeight: 700,
-                    color: 'var(--zf-text-primary)',
-                    marginBottom: 4,
+                    color: isActive ? 'var(--zf-on-accent)' : 'var(--zf-text-muted)',
+                    transition: `color var(--zf-dur-fast) var(--zf-ease-out)`,
                   }}
                 >
-                  {category.name}
-                </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: 'var(--zf-text-muted)',
-                    lineHeight: 1.4,
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                    minHeight: 30,
+                  {isActive ? (
+                    <motion.span
+                      layoutId="catTabIndicator"
+                      transition={{ duration: DUR.base / 1000, ease: EASE.glide }}
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        zIndex: -1,
+                        borderRadius: 'var(--zf-r-full)',
+                        background: 'var(--zf-grad-brand)',
+                        boxShadow: 'var(--zf-glow-brand)',
+                      }}
+                    />
+                  ) : null}
+                  {item.label}
+                </motion.button>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        {/* ============== 频道横幅：压缩到一行高度，只承担「我在哪个频道」 ============== */}
+        <ZfSectionTitle
+          animated={false}
+          variant="line"
+          title={cfg.label}
+          sub={cfg.subtitle}
+          icon={
+            <span aria-hidden="true" style={{ ...ICON_SQUARE, width: 30, height: 30, fontSize: 'var(--zf-fs-md)' }}>
+              <ChannelIcon />
+            </span>
+          }
+          extra={<ZfPill tone="brand">共 {categories.length} 个分类 · {SORT_LABEL[sort]}</ZfPill>}
+        />
+
+        {/* ============== 状态筛选 ============== */}
+        <div style={ROW}>
+          <span className="zf-label" style={{ fontSize: 'var(--zf-fs-xs)', color: 'var(--zf-text-faint)' }}>
+            状态筛选
+          </span>
+          <div style={{ ...ROW, flexWrap: 'wrap' }}>
+            {SORT_OPTIONS.map((opt) => (
+              <FilterChip key={opt.value} active={sort === opt.value} onClick={() => handleSortChange(opt.value)}>
+                {opt.label}
+              </FilterChip>
+            ))}
+          </div>
+        </div>
+
+        {/* ============== 分类网格 ============== */}
+        <ZfGrid columns={cols} gap="var(--zf-s4)">
+          <AnimatePresence mode="popLayout" initial={false}>
+            {categories.map((category) => {
+              const Icon = category.icon;
+              const inRank = (booksByCategory.get(category.name) || []).slice(0, 3);
+              return (
+                <motion.div
+                  key={category.categoryId}
+                  layout
+                  variants={variants.cardIn}
+                  initial="initial"
+                  animate="animate"
+                  exit={{ opacity: 0, scale: 0.94 }}
+                  exit={{ opacity: 0, scale: 0.94 }}
+                  whileHover={{ y: -6, boxShadow: 'var(--zf-shadow-3), var(--zf-glass-edge-top)' }}
+                  whileTap={{ scale: 0.98 }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${category.name} · ${cfg.label}`}
+                  onClick={() => handleCategoryClick(category)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleCategoryClick(category);
+                    }
                   }}
+                  style={CAT_CARD}
                 >
-                  {category.desc}
-                </div>
-                <div
-                  style={{
-                    marginTop: 8,
-                    display: 'inline-block',
-                    padding: '2px 10px',
-                    borderRadius: 'var(--zf-r-full)',
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: 'var(--card-color)',
-                    background: 'color-mix(in srgb, var(--card-color) 14%, transparent)',
-                  }}
-                >
-                  {sort === 1 ? '全部' : sort === 2 ? '完结' : '连载'}
-                </div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
+                  <div style={ROW}>
+                    <span
+                      aria-hidden="true"
+                      style={{ ...ICON_SQUARE, width: 36, height: 36, fontSize: 'var(--zf-fs-lg)' }}
+                    >
+                      <Icon />
+                    </span>
+                    <div style={{ minWidth: 0 }}>
+                      <div className="zf-truncate" style={CAT_NAME}>
+                        {category.name}
+                      </div>
+                      <div className="zf-caption">
+                        {SORT_LABEL[sort]}
+                        {inRank.length > 0 ? ` · 在榜 ${inRank.length} 本` : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="zf-clamp-2" style={MUTED_XS}>
+                    {category.desc}
+                  </div>
+
+                  {/* 真实在榜书封面：数据来自 App 已取到的六大榜单，没有就不渲染 */}
+                  <div style={{ ...ROW, justifyContent: 'flex-end' }}>
+                    {inRank.length > 0 ? (
+                      <div style={{ ...ROW, gap: 'var(--zf-s1)' }}>
+                        {inRank.map((b) => (
+                          <MiniCover key={b.id} book={b} />
+                        ))}
+                      </div>
+                    ) : null}
+                    <RightOutlined style={GO_ICON} />
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </ZfGrid>
+
+        {isMobile ? (
+          <p className="zf-caption" style={{ margin: 0 }}>
+            选择分类后进入榜单页，可按「全部 / 完结 / 连载」筛选。
+          </p>
+        ) : null}
       </div>
-    </div>
+    </ZfPageShell>
   );
 };
 

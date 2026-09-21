@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -13,120 +13,205 @@ import {
   AppstoreOutlined,
   TableOutlined,
 } from '@ant-design/icons';
-import BackButton from '../components/BackButton';
-import RankItem from '../components/RankItem';
-import NovelCard from '../components/NovelCard';
-import { getDefaultSource, saveNovelCache } from '../utils/novelConfig';
+import {
+  ZfPageShell,
+  ZfGrid,
+  ZfPageHeader,
+  ZfSectionTitle,
+  ZfPill,
+  ZfCoverCard,
+  ZfSkeleton,
+  ZfEmptyState,
+  ZfErrorState,
+} from '@zifeng/ui/components';
+import { variants, EASE, DUR } from '@zifeng/ui/motion';
+import { useBreakpoint } from '@zifeng/ui/hooks';
+import { hasScore, formatScore } from '@zifeng/ui/format';
 import { ThemeContext } from '../App';
+import { getDefaultSource, saveNovelCache } from '../utils/novelConfig';
 import axios from 'axios';
 
 /* ============================================================
-   紫枫免费小说 · 榜单详情页（Task 10 重构）
-   - 榜单头部：渐变背景 + 图标方块 72×72 + 标题 + 统计
-   - 左侧栏（200px sticky）：排序，active 紫色渐变 + 光晕
-   - 右侧列表：RankItem 渲染，序号金/银/铜，top3 在读脉冲
-   - 分页：自定义 Pager，紫色渐变 active
-   - 保留：/module/rank?type=* 数据获取、useParams；筛选状态改用 useState（避免返回键逐级回退）
-   参考：design/zifeng-pages-deep-dive.html .rank-detail-*
+   紫枫免费小说 · 榜单详情页（P2 迁移）
+   - 头部：ZfPageHeader（品牌渐变图标底 + 白字走 --zf-on-accent），
+     六种榜单只靠图形区分，不再各配一套色相与光晕
+   - 三视图（列表 / 网格 / 表格）全部落到同一套信息结构：
+     列表与表格用行式布局 + ZfPill rank（金银铜→中性），网格用 ZfCoverCard
+   - 骨架 → ZfSkeleton variant="row"；空态/错误态 → ZfEmptyState / ZfErrorState
+   - 内联 style 标签块、780 魔数、rgba 字面量全部清除；缓动走 EASE.out
+   - 保留：/module/rank?type=*&channel=1&page=* 取数、rankCache、
+           bookUrl 解析 + saveNovelCache + navigate、视图偏好 localStorage
    ============================================================ */
 
-const REVEAL_EASE = [0.16, 1, 0.3, 1];
-
 /* —— rankConfig：key 对应字符串路由，type 对应 API 数字 —— */
-const rankConfig = {
-  mustRead: { title: '必读榜', icon: 'trophy', subtitle: '精选好书推荐', type: 1 },
-  potential: { title: '潜力榜', icon: 'rise', subtitle: 'rising stars', type: 5 },
-  completed: { title: '完结榜', icon: 'check', subtitle: '已完结精品', type: 2 },
-  updated: { title: '更新榜', icon: 'clock', subtitle: '最近更新', type: 3 },
-  search: { title: '搜索榜', icon: 'fire', subtitle: '热搜排行', type: 4 },
-  comment: { title: '评论榜', icon: 'comment', subtitle: '热门讨论', type: 6 },
+const RANK_CONFIG = {
+  mustRead: { title: '必读榜', Icon: TrophyOutlined, subtitle: '精选好书推荐', type: 1 },
+  potential: { title: '潜力榜', Icon: RiseOutlined, subtitle: 'rising stars', type: 5 },
+  completed: { title: '完结榜', Icon: CheckCircleOutlined, subtitle: '已完结精品', type: 2 },
+  updated: { title: '更新榜', Icon: ClockCircleOutlined, subtitle: '最近更新', type: 3 },
+  search: { title: '搜索榜', Icon: FireOutlined, subtitle: '热搜排行', type: 4 },
+  comment: { title: '评论榜', Icon: CommentOutlined, subtitle: '热门讨论', type: 6 },
 };
 
-/* —— 数字 type 反查（Home.jsx 用 /rank/1..6 数字路由，rankConfig 键是字符串） —— */
-const rankConfigByType = Object.values(rankConfig).reduce((acc, cfg) => {
+/* —— 数字 type 反查（Home.jsx 用 /rank/1..6 数字路由） —— */
+const RANK_CONFIG_BY_TYPE = Object.values(RANK_CONFIG).reduce((acc, cfg) => {
   acc[cfg.type] = cfg;
   return acc;
 }, {});
 
-/* —— ICON_SQUARE 渐变映射（72×72 图标方块） —— */
-const ICON_SQUARE = {
-  fire: {
-    Icon: FireOutlined,
-    background: 'linear-gradient(135deg, var(--zf-accent-magenta), #BE123C)',
-    boxShadow: 'var(--zf-glow-magenta)',
-  },
-  trophy: {
-    Icon: TrophyOutlined,
-    background: 'linear-gradient(135deg, var(--zf-accent-amber), #B45309)',
-    boxShadow: '0 0 24px rgba(245,158,11,.45)',
-  },
-  rise: {
-    Icon: RiseOutlined,
-    background: 'linear-gradient(135deg, var(--zf-accent-cyan), #0E7490)',
-  },
-  check: {
-    Icon: CheckCircleOutlined,
-    background: 'linear-gradient(135deg, var(--zf-accent-emerald), #047857)',
-  },
-  clock: {
-    Icon: ClockCircleOutlined,
-    background: 'linear-gradient(135deg, #3B82F6, #1E40AF)',
-  },
-  comment: {
-    Icon: CommentOutlined,
-    background: 'linear-gradient(135deg, #A855F7, #6D28D9)',
-  },
-};
-
-/* —— 缓存机制 —— */
-const rankCache = new Map();
 const PAGE_SIZE = 15;
 const MAX_TOTAL = 75;
 
-/* —— 骨架占位块（基于 skel keyframe） —— */
-function Skel({ height, width = '100%', radius = 'var(--zf-r-md)' }) {
-  return (
-    <div
-      style={{
-        width,
-        height,
-        borderRadius: radius,
-        background:
-          'linear-gradient(90deg, var(--zf-glass-bg) 25%, var(--zf-glass-bg-strong) 50%, var(--zf-glass-bg) 75%)',
-        backgroundSize: '200% 100%',
-        animation: 'skel 1.4s ease-in-out infinite',
-      }}
-    />
-  );
-}
+/* —— 缓存机制 —— */
+const rankCache = new Map();
 
-function RankDetailSkeleton() {
+/* —— 视图切换器 —— */
+const VIEW_OPTIONS = [
+  { mode: 'list', Icon: UnorderedListOutlined, label: '列表' },
+  { mode: 'grid', Icon: AppstoreOutlined, label: '网格' },
+  { mode: 'table', Icon: TableOutlined, label: '表格' },
+];
+
+/* —— 复用版式（表格无 <style> 块，单元格样式收敛为常量） —— */
+const TH = {
+  textAlign: 'left',
+  padding: 'var(--zf-s2) var(--zf-s3)',
+  fontSize: 'var(--zf-fs-xs)',
+  fontWeight: 700,
+  color: 'var(--zf-text-faint)',
+  letterSpacing: 'var(--zf-ls-wide)',
+  borderBottom: '1px solid var(--zf-glass-border-strong)',
+  background: 'var(--zf-glass-1)',
+};
+
+const TD = {
+  padding: 'var(--zf-s2) var(--zf-s3)',
+  borderBottom: '1px solid var(--zf-glass-border)',
+  verticalAlign: 'middle',
+  color: 'var(--zf-text-secondary)',
+};
+
+const PAGER_BTN = {
+  minWidth: 36,
+  height: 36,
+  padding: '0 10px',
+  borderRadius: 'var(--zf-r-sm)',
+  border: '1px solid var(--zf-glass-border)',
+  background: 'var(--zf-glass-1)',
+  color: 'var(--zf-text-secondary)',
+  fontSize: 'var(--zf-fs-sm)',
+  fontWeight: 600,
+  cursor: 'pointer',
+  fontVariantNumeric: 'tabular-nums',
+  transition: 'background var(--zf-dur-fast) var(--zf-ease-out), color var(--zf-dur-fast) var(--zf-ease-out)',
+};
+
+const PAGER_BTN_ACTIVE = {
+  ...PAGER_BTN,
+  color: 'var(--zf-on-accent)',
+  border: '1px solid transparent',
+  background: 'var(--zf-grad-brand)',
+  boxShadow: 'var(--zf-glow-brand)',
+};
+
+/** 榜单行：列表与表格外壳共用，位次差异只落在徽章与描边亮度上 */
+function RankRow({ novel, onOpen, glass }) {
+  const top = novel.rank <= 3;
   return (
-    <div style={{ padding: '0 0 40px 0' }}>
-      <Skel height={120} radius="var(--zf-r-xl)" />
-      <div className="zf-rd-layout" style={{ marginTop: 'var(--zf-s6)' }}>
-        <div>
-          <Skel height={36} radius="var(--zf-r-sm)" />
-          <div style={{ marginTop: 8 }}>
-            <Skel height={36} radius="var(--zf-r-sm)" />
-          </div>
+    <motion.article
+      variants={variants.listRise}
+      initial="initial"
+      animate="animate"
+      whileHover={{ x: 4 }}
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(novel)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen(novel);
+        }
+      }}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--zf-s4)',
+        padding: 'var(--zf-s3) var(--zf-s4)',
+        borderRadius: 'var(--zf-r-lg)',
+        background: glass ? 'var(--zf-glass-1)' : 'var(--zf-surface-1)',
+        border: `1px solid ${top ? 'rgb(var(--zf-brand-rgb-500) / 0.3)' : 'var(--zf-glass-border)'}`,
+        boxShadow: top ? 'var(--zf-shadow-2), var(--zf-glass-edge-top)' : 'var(--zf-shadow-1)',
+        cursor: 'pointer',
+        minWidth: 0,
+      }}
+    >
+      <ZfPill rank={novel.rank} size="md" style={{ minWidth: 34, justifyContent: 'center', flexShrink: 0 }}>
+        {novel.rank}
+      </ZfPill>
+
+      <div
+        style={{
+          width: 44,
+          height: 59,
+          flexShrink: 0,
+          borderRadius: 'var(--zf-r-sm)',
+          overflow: 'hidden',
+          background: 'var(--zf-glass-2)',
+          display: 'grid',
+          placeItems: 'center',
+          fontSize: 'var(--zf-fs-xs)',
+          color: 'var(--zf-text-faint)',
+        }}
+      >
+        {novel.cover ? (
+          <img
+            src={novel.cover}
+            alt=""
+            loading="lazy"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        ) : (
+          String(novel.name || '').slice(0, 1)
+        )}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          className="zf-truncate"
+          style={{
+            fontFamily: 'var(--zf-font-display)',
+            fontSize: 'var(--zf-fs-md)',
+            fontWeight: 700,
+            color: 'var(--zf-text-primary)',
+            lineHeight: 'var(--zf-lh-snug)',
+          }}
+          title={novel.name}
+        >
+          {novel.name}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {[0, 1, 2, 3, 4].map((i) => (
-            <Skel key={i} height={88} radius="var(--zf-r-md)" />
-          ))}
+        <div className="zf-truncate" style={{ fontSize: 'var(--zf-fs-xs)', color: 'var(--zf-text-muted)' }}>
+          {novel.author}
+          {novel.category ? ` · ${novel.category}` : ''}
         </div>
       </div>
-    </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--zf-s2)', flexShrink: 0 }}>
+        {novel.rankInfo ? <ZfPill size="xs">{novel.rankInfo}</ZfPill> : null}
+        {hasScore(novel.score) ? (
+          <ZfPill size="xs" tone="warning">
+            {formatScore(novel.score)}
+          </ZfPill>
+        ) : null}
+      </div>
+    </motion.article>
   );
 }
 
-/* —— 自定义 Pager：紫色渐变 active 按钮 —— */
-function Pager({ current, total, pageSize, onChange }) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+/* —— 自定义 Pager：active 走品牌渐变 —— */
+function Pager({ current, total, onChange }) {
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   if (totalPages <= 1) return null;
 
-  /* 生成页码数组：当前页前后各 2 页，首尾强制显示 */
   const pages = [];
   const add = (p) => {
     if (p >= 1 && p <= totalPages && !pages.includes(p)) pages.push(p);
@@ -136,67 +221,34 @@ function Pager({ current, total, pageSize, onChange }) {
   add(totalPages);
   pages.sort((a, b) => a - b);
 
-  /* 插入省略号 */
   const withDots = [];
   pages.forEach((p, i) => {
     if (i > 0 && p - pages[i - 1] > 1) withDots.push('...');
     withDots.push(p);
   });
 
-  const btnBase = {
-    minWidth: 36,
-    height: 36,
-    padding: '0 10px',
-    borderRadius: 'var(--zf-r-sm)',
-    border: '1px solid var(--zf-glass-border)',
-    background: 'var(--zf-glass-bg)',
-    color: 'var(--zf-text-secondary)',
-    fontSize: 'var(--zf-fs-sm)',
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all var(--zf-dur-fast) var(--zf-ease-out)',
-  };
-
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 'var(--zf-s8)', flexWrap: 'wrap' }}>
-      <button
-        style={btnBase}
-        disabled={current <= 1}
-        onClick={() => onChange(current - 1)}
-      >
+    <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--zf-s2)', flexWrap: 'wrap' }}>
+      <button style={PAGER_BTN} disabled={current <= 1} onClick={() => onChange(current - 1)} aria-label="上一页">
         <LeftOutlined />
       </button>
       {withDots.map((p, i) =>
         p === '...' ? (
-          <span key={`dot-${i}`} style={{ padding: '0 4px', color: 'var(--zf-text-muted)' }}>
+          <span key={`dot-${i}`} className="zf-num" style={{ padding: '0 4px', color: 'var(--zf-text-muted)' }}>
             ...
           </span>
         ) : (
           <button
             key={p}
-            style={
-              p === current
-                ? {
-                    ...btnBase,
-                    color: '#fff',
-                    border: 'none',
-                    background:
-                      'linear-gradient(135deg, var(--zf-primary-600), var(--zf-primary-500))',
-                    boxShadow: '0 4px 14px rgba(139,92,246,.4)',
-                  }
-                : btnBase
-            }
+            aria-current={p === current ? 'page' : undefined}
+            style={p === current ? PAGER_BTN_ACTIVE : PAGER_BTN}
             onClick={() => onChange(p)}
           >
             {p}
           </button>
         )
       )}
-      <button
-        style={btnBase}
-        disabled={current >= totalPages}
-        onClick={() => onChange(current + 1)}
-      >
+      <button style={PAGER_BTN} disabled={current >= totalPages} onClick={() => onChange(current + 1)} aria-label="下一页">
         <LeftOutlined style={{ transform: 'rotate(180deg)' }} />
       </button>
     </div>
@@ -206,8 +258,8 @@ function Pager({ current, total, pageSize, onChange }) {
 const RankDetail = () => {
   const { rankType } = useParams();
   const navigate = useNavigate();
-  const { themeConfigs, currentTheme, isDarkMode, glassMode } = useContext(ThemeContext);
-  const primaryColor = themeConfigs[currentTheme].primaryColor;
+  const { glassMode } = useContext(ThemeContext);
+  const { isMobile, up } = useBreakpoint();
 
   const [novels, setNovels] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -218,8 +270,7 @@ const RankDetail = () => {
   /* —— 视图模式：list / grid / table，默认 table，localStorage 记忆 —— */
   const [viewMode, setViewMode] = useState(() => {
     try {
-      const saved = localStorage.getItem('rank_layout_mode');
-      return saved || 'table';
+      return localStorage.getItem('rank_layout_mode') || 'table';
     } catch {
       return 'table';
     }
@@ -235,10 +286,10 @@ const RankDetail = () => {
   };
 
   /* —— 安全 fallback：字符串键 OR 数字 type 反查 —— */
-  const config = rankConfig[rankType] || rankConfigByType[Number(rankType)];
+  const config = RANK_CONFIG[rankType] || RANK_CONFIG_BY_TYPE[Number(rankType)];
 
   /* —— 数据获取：保留 /module/rank 外部书源调用 —— */
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     if (!config) {
       setError('无效的榜单类型');
       setLoading(false);
@@ -246,7 +297,6 @@ const RankDetail = () => {
     }
 
     const cacheKey = `${rankType}_${currentPage}`;
-
     if (rankCache.has(cacheKey)) {
       const cached = rankCache.get(cacheKey);
       setNovels(cached.novels);
@@ -255,7 +305,7 @@ const RankDetail = () => {
       return;
     }
 
-    const fetchRankData = async () => {
+    const run = async () => {
       setLoading(true);
       try {
         const ds = getDefaultSource();
@@ -267,9 +317,8 @@ const RankDetail = () => {
           }
         })();
 
-        /* —— 严格保留默认 URL：channel=1，不加 isComplete（与 themes.js rankUrls 一致） —— */
-        let url = `${ds.bookSourceUrl}/module/rank?type=${config.type}&channel=1&page=${currentPage}`;
-
+        /* —— 严格保留默认 URL：channel=1，不加 isComplete —— */
+        const url = `${ds.bookSourceUrl}/module/rank?type=${config.type}&channel=1&page=${currentPage}`;
         const response = await axios.get(url, { headers });
 
         if (response.data && response.data.data) {
@@ -280,7 +329,6 @@ const RankDetail = () => {
               novel.categoryNames && novel.categoryNames.length > 0
                 ? novel.categoryNames[0].className
                 : '未知分类';
-            const rankInfo = novel.rankInfo || '';
             return {
               id: novel.novelId || index + 1,
               name: novel.novelName || '未知标题',
@@ -288,21 +336,16 @@ const RankDetail = () => {
               cover: novel.cover || '',
               category,
               score: novel.averageScore || 0,
-              rankInfo,
+              rankInfo: novel.rankInfo || '',
               rank,
-              /* RankItem 显示用：desc=作者·rankInfo，tags=[分类]，top3 在读脉冲 */
-              desc: rankInfo ? `${author} · ${rankInfo}` : author,
-              tags: [category],
-              reading: rank <= 3,
             };
           });
-
-          setNovels(data);
 
           let newTotal = MAX_TOTAL;
           if (data.length === 0) {
             newTotal = Math.min((currentPage - 1) * PAGE_SIZE, MAX_TOTAL);
           }
+          setNovels(data);
           setTotal(newTotal);
           rankCache.set(cacheKey, { novels: data, total: newTotal });
         } else {
@@ -319,8 +362,12 @@ const RankDetail = () => {
       }
     };
 
-    fetchRankData();
+    run();
   }, [rankType, currentPage, config]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   /* —— 点击跳转小说详情：完整保留 bookUrlTemplate 解析 + saveNovelCache + navigate —— */
   const handleClick = (novel) => {
@@ -342,409 +389,256 @@ const RankDetail = () => {
     navigate(`/novel/${novel.id}?${params.toString()}`);
   };
 
-  /* —— 错误态 —— */
-  if (error) {
-    return (
-      <div style={{ padding: '0 0 40px 0' }}>
-        <BackButton onClick={() => navigate(-1)} text="返回" style={{ marginBottom: 20 }} />
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          style={{
-            padding: 'var(--zf-s12)',
-            borderRadius: 'var(--zf-r-xl)',
-            background: 'var(--zf-glass-bg)',
-            border: '1px solid var(--zf-glass-border)',
-            textAlign: 'center',
-            color: 'var(--zf-accent-rose)',
-          }}
-        >
-          {error}
-        </motion.div>
-      </div>
-    );
-  }
+  const shell = (children) => (
+    <ZfPageShell size="lg">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--zf-s6)' }}>{children}</div>
+    </ZfPageShell>
+  );
 
   /* —— 无效榜单类型 —— */
   if (!config) {
-    return (
-      <div style={{ padding: '0 0 40px 0' }}>
-        <BackButton onClick={() => navigate(-1)} text="返回" style={{ marginBottom: 20 }} />
-        <div style={{ textAlign: 'center', padding: 60, color: 'var(--zf-text-muted)' }}>
-          无效的榜单类型
-        </div>
-      </div>
+    return shell(<ZfEmptyState title="无效的榜单类型" description="这条榜单地址可能已经变更。" />);
+  }
+
+  /* —— 错误态 —— */
+  if (error) {
+    return shell(
+      <ZfErrorState
+        title={error}
+        description="可以重试，或检查书源状态是否正常。"
+        action={
+          <div style={{ display: 'flex', gap: 'var(--zf-s2)' }}>
+            <button type="button" style={PAGER_BTN_ACTIVE} onClick={fetchData}>
+              重试
+            </button>
+            <button type="button" style={PAGER_BTN} onClick={() => navigate('/')}>
+              回到首页
+            </button>
+          </div>
+        }
+      />
     );
   }
 
-  /* —— 加载态：骨架屏（不用全屏 Spin） —— */
-  if (loading && novels.length === 0) {
-    return (
-      <div style={{ padding: '0 0 40px 0' }}>
-        <BackButton onClick={() => navigate(-1)} text="返回" style={{ marginBottom: 20 }} />
-        <RankDetailSkeleton />
-      </div>
-    );
-  }
+  const HeadIcon = config.Icon;
+  const cols = up('lg') ? 6 : isMobile ? 3 : 5;
+  /* 窄屏下表格横向溢出且信息价值低于列表，直接不呈现该档 */
+  const viewOptions = isMobile ? VIEW_OPTIONS.filter((v) => v.mode !== 'table') : VIEW_OPTIONS;
+  const activeMode = viewOptions.some((v) => v.mode === viewMode) ? viewMode : 'list';
 
-  const iconCfg = ICON_SQUARE[config.icon] || ICON_SQUARE.fire;
-  const Icon = iconCfg.Icon;
-
-  return (
-    <div style={{ padding: '0 0 40px 0' }}>
-      <style>{`
-        /* —— 网格视图 —— */
-        .zf-rd-grid{
-          display:grid;
-          grid-template-columns:repeat(auto-fill, minmax(160px, 1fr));
-          gap:var(--zf-s4);
-        }
-
-        /* —— 表格视图 —— */
-        .zf-rd-table{
-          width:100%;border-collapse:collapse;
-          font-size:var(--zf-fs-sm);
-        }
-        .zf-rd-table th{
-          text-align:left;padding:10px 12px;
-          font-size:var(--zf-fs-xs);font-weight:700;
-          color:var(--zf-text-faint);
-          text-transform:uppercase;letter-spacing:.06em;
-          border-bottom:1px solid var(--zf-glass-border-strong);
-          background:var(--zf-glass-bg);
-          position:sticky;top:0;backdrop-filter:blur(8px);
-          -webkit-backdrop-filter:blur(8px);
-        }
-        .zf-rd-table td{
-          padding:10px 12px;
-          border-bottom:1px solid var(--zf-glass-border);
-          vertical-align:middle;
-        }
-        .zf-rd-table tbody tr{transition:background var(--zf-dur-fast) var(--zf-ease-out)}
-        .zf-rd-table tbody tr:hover{background:var(--zf-glass-bg)}
-        .zf-rd-rank{
-          font-family:var(--zf-font-serif);font-weight:900;
-          font-size:var(--zf-fs-lg);
-          color:var(--zf-text-faint);width:50px;text-align:center;
-        }
-        /* top3 排名金色 */
-        .zf-rd-table tbody tr:nth-child(-n+3) .zf-rd-rank{
-          color:var(--zf-accent-amber);
-        }
-
-        /* —— 视图切换器按钮 hover（非 active） —— */
-        .zf-rd-view-btn:not(.active):hover{
-          background:var(--zf-glass-bg-strong);
-          color:var(--zf-text-primary);
-        }
-
-        /* —— 移动端响应式 —— */
-        @media (max-width:780px){
-          /* 隐藏表格视图按钮 */
-          .zf-rd-view-btn[data-mode="table"]{display:none!important}
-          /* 头部允许换行（切换器换到下方） */
-          .zf-rd-header{flex-wrap:wrap}
-        }
-      `}</style>
-
-      <BackButton onClick={() => navigate(-1)} text="返回" style={{ marginBottom: 20 }} />
-
-      {/* ============== 榜单头部 ============== */}
-      <motion.section
-        className="zf-rd-header"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, ease: REVEAL_EASE }}
-        style={{
-          padding: 'var(--zf-s10) var(--zf-s8)',
-          borderRadius: 'var(--zf-r-xl)',
-          background:
-            'linear-gradient(135deg, rgba(245,158,11,.18), rgba(236,72,153,.10))',
-          border: '1px solid var(--zf-glass-border-strong)',
-          backdropFilter: 'var(--zf-blur-glass)',
-          WebkitBackdropFilter: 'var(--zf-blur-glass)',
-          marginBottom: 'var(--zf-s8)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--zf-s6)',
-        }}
-      >
-        {/* 图标方块 72×72 */}
-        <div
+  const header = (
+    <ZfPageHeader
+      back="/"
+      icon={
+        <span
+          aria-hidden="true"
           style={{
-            width: 72,
-            height: 72,
-            borderRadius: 'var(--zf-r-lg)',
-            display: 'grid',
-            placeItems: 'center',
-            color: '#fff',
-            fontSize: 32,
-            flexShrink: 0,
-            background: iconCfg.background,
-            boxShadow: iconCfg.boxShadow,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 40,
+            height: 40,
+            borderRadius: 'var(--zf-r-md)',
+            background: 'var(--zf-grad-brand)',
+            color: 'var(--zf-on-accent)',
+            fontSize: 'var(--zf-fs-lg)',
+            boxShadow: 'var(--zf-glow-brand-soft)',
           }}
         >
-          <Icon />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h2
-            style={{
-              fontFamily: 'var(--zf-font-serif)',
-              fontSize: 'var(--zf-fs-2xl)',
-              fontWeight: 900,
-              lineHeight: 1.1,
-              margin: 0,
-              color: 'var(--zf-text-primary)',
-            }}
-          >
-            {config.title}
-          </h2>
+          <HeadIcon />
+        </span>
+      }
+      title={config.title}
+      subtitle={config.subtitle}
+      extra={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--zf-s3)', flexWrap: 'wrap' }}>
+          <ZfPill tone="brand">共 {total} 本</ZfPill>
           <div
+            role="group"
+            aria-label="视图切换"
             style={{
-              marginTop: 6,
               display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              flexWrap: 'wrap',
+              gap: 'var(--zf-s1)',
+              padding: 'var(--zf-s1)',
+              borderRadius: 'var(--zf-r-full)',
+              border: '1px solid var(--zf-glass-border)',
+              background: 'var(--zf-glass-1)',
             }}
           >
-            <span style={{ color: 'var(--zf-text-muted)', fontSize: 'var(--zf-fs-sm)' }}>
-              {config.subtitle}
-            </span>
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '3px 12px',
-                borderRadius: 'var(--zf-r-full)',
-                fontSize: 'var(--zf-fs-xs)',
-                fontWeight: 600,
-                color: 'var(--zf-primary-300)',
-                background: 'rgba(139,92,246,.18)',
-                border: '1px solid rgba(139,92,246,.30)',
-              }}
-            >
-              共 {total} 本
-            </span>
+            {viewOptions.map(({ mode, Icon, label }) => {
+              const isActive = activeMode === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => handleViewChange(mode)}
+                  title={label}
+                  aria-label={label}
+                  aria-pressed={isActive}
+                  style={{
+                    width: 32,
+                    height: 32,
+                    display: 'grid',
+                    placeItems: 'center',
+                    borderRadius: 'var(--zf-r-full)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: 'var(--zf-fs-md)',
+                    color: isActive ? 'var(--zf-on-accent)' : 'var(--zf-text-secondary)',
+                    background: isActive ? 'var(--zf-grad-brand)' : 'transparent',
+                    boxShadow: isActive ? 'var(--zf-glow-brand)' : 'none',
+                    transition: `background var(--zf-dur-fast) var(--zf-ease-out), color var(--zf-dur-fast) var(--zf-ease-out)`,
+                  }}
+                >
+                  <Icon />
+                </button>
+              );
+            })}
           </div>
         </div>
+      }
+    />
+  );
 
-        {/* —— 视图切换器：列表 / 网格 / 表格 —— */}
-        <div
-          className="zf-rd-view-switcher"
-          style={{
-            display: 'flex',
-            gap: 2,
-            padding: 3,
-            borderRadius: 'var(--zf-r-full)',
-            border: '1px solid var(--zf-glass-border)',
-            background: 'var(--zf-glass-bg)',
-            flexShrink: 0,
-          }}
+  /* —— 加载态：行式骨架，与列表视图同比例 —— */
+  if (loading && novels.length === 0) {
+    return shell(
+      <>
+        {header}
+        <ZfSkeleton variant="row" count={8} gap="var(--zf-s3)" />
+      </>
+    );
+  }
+
+  return shell(
+    <>
+      {header}
+
+      {novels.length === 0 ? (
+        <ZfEmptyState
+          icon={<TrophyOutlined />}
+          title="本榜暂无数据"
+          description="这个页码上暂时没有书目，换一页或稍后再看看。"
+        />
+      ) : (
+        <motion.div
+          key={activeMode}
+          variants={variants.fadeIn}
+          initial="initial"
+          animate="animate"
+          transition={{ duration: DUR.fast / 1000, ease: EASE.out }}
         >
-          {[
-            { mode: 'list', Icon: UnorderedListOutlined, label: '列表' },
-            { mode: 'grid', Icon: AppstoreOutlined, label: '网格' },
-            { mode: 'table', Icon: TableOutlined, label: '表格' },
-          ].map(({ mode, Icon, label }) => {
-            const isActive = viewMode === mode;
-            return (
-              <button
-                key={mode}
-                data-mode={mode}
-                className={`zf-rd-view-btn ${isActive ? 'active' : ''}`}
-                onClick={() => handleViewChange(mode)}
-                title={label}
-                aria-label={label}
-                style={{
-                  width: 36,
-                  height: 36,
-                  display: 'grid',
-                  placeItems: 'center',
-                  borderRadius: 'var(--zf-r-full)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: 16,
-                  color: isActive ? '#fff' : 'var(--zf-text-secondary)',
-                  background: isActive
-                    ? 'linear-gradient(135deg, var(--zf-primary-600), var(--zf-primary-500))'
-                    : 'transparent',
-                  boxShadow: isActive ? '0 4px 14px rgba(139,92,246,.4)' : 'none',
-                  transition: 'all var(--zf-dur-fast) var(--zf-ease-out)',
-                }}
-              >
-                <Icon />
-              </button>
-            );
-          })}
-        </div>
-      </motion.section>
+          {activeMode === 'list' ? (
+            <ZfGrid columns={1} gap="var(--zf-s3)">
+              {novels.map((novel, idx) => (
+                <RankRow key={novel.id || idx} novel={novel} glass={glassMode} onOpen={handleClick} />
+              ))}
+            </ZfGrid>
+          ) : null}
 
-      {/* ============== 主体：三种视图条件渲染 ============== */}
-      <div>
-        {novels.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            style={{
-              padding: 'var(--zf-s12)',
-              borderRadius: 'var(--zf-r-xl)',
-              background: 'var(--zf-glass-bg)',
-              border: '1px solid var(--zf-glass-border)',
-              textAlign: 'center',
-              color: 'var(--zf-text-muted)',
-            }}
-          >
-            暂无榜单数据
-          </motion.div>
-        ) : (
-          <motion.div
-            key={viewMode}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            {/* —— 列表视图 —— */}
-            {viewMode === 'list' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--zf-s3)' }}>
-                {novels.map((novel, idx) => (
-                  <motion.div
-                    key={novel.id || idx}
-                    initial={{ opacity: 0, x: -16 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true, margin: '-30px' }}
-                    transition={{ duration: 0.5, ease: REVEAL_EASE, delay: idx * 0.04 }}
-                  >
-                    <RankItem
-                      rank={novel.rank}
-                      novel={novel}
+          {activeMode === 'grid' ? (
+            <ZfGrid columns={cols} gap="var(--zf-s4)">
+              {novels.map((novel, idx) => (
+                <ZfCoverCard
+                  key={novel.id || idx}
+                  novel={novel}
+                  rank={novel.rank}
+                  size="md"
+                  glass={glassMode}
+                  onOpen={handleClick}
+                />
+              ))}
+            </ZfGrid>
+          ) : null}
+
+          {activeMode === 'table' ? (
+            <div
+              style={{
+                overflowX: 'auto',
+                borderRadius: 'var(--zf-r-lg)',
+                border: '1px solid var(--zf-glass-border)',
+                background: 'var(--zf-glass-1)',
+              }}
+            >
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--zf-fs-sm)' }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...TH, width: 64, textAlign: 'center' }}>排名</th>
+                    <th style={{ ...TH, width: 56 }}>封面</th>
+                    <th style={TH}>书名 / 作者</th>
+                    <th style={TH}>分类</th>
+                    <th style={TH}>上榜信息</th>
+                    <th style={{ ...TH, textAlign: 'right' }}>评分</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {novels.map((novel, idx) => (
+                    <motion.tr
+                      key={novel.id || idx}
+                      variants={variants.listRise}
+                      initial="initial"
+                      animate="animate"
                       onClick={() => handleClick(novel)}
-                    />
-                  </motion.div>
-                ))}
-              </div>
-            )}
-
-            {/* —— 网格视图 —— */}
-            {viewMode === 'grid' && (
-              <div className="zf-rd-grid">
-                {novels.map((novel, idx) => (
-                  <motion.div
-                    key={novel.id || idx}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, margin: '-30px' }}
-                    transition={{ duration: 0.5, ease: REVEAL_EASE, delay: idx * 0.04 }}
-                  >
-                    <NovelCard
-                      novel={{
-                        id: novel.id,
-                        name: novel.name,
-                        author: novel.author,
-                        cover: novel.cover,
-                        category: novel.category,
-                        score: novel.score,
-                        rank: novel.rank,
-                      }}
-                      index={idx}
-                      color={primaryColor}
-                      glassMode={glassMode}
-                      isDarkMode={isDarkMode}
-                      onClick={() => handleClick(novel)}
-                    />
-                  </motion.div>
-                ))}
-              </div>
-            )}
-
-            {/* —— 表格视图（默认） —— */}
-            {viewMode === 'table' && (
-              <div
-                style={{
-                  overflowX: 'auto',
-                  borderRadius: 'var(--zf-r-lg)',
-                  border: '1px solid var(--zf-glass-border)',
-                }}
-              >
-                <table className="zf-rd-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 50, textAlign: 'center' }}>排名</th>
-                      <th>封面</th>
-                      <th>书名 / 作者</th>
-                      <th>分类</th>
-                      <th>评分</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {novels.map((novel, idx) => (
-                      <motion.tr
-                        key={novel.id || idx}
-                        initial={{ opacity: 0, x: -10 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: true, margin: '-20px' }}
-                        transition={{ duration: 0.4, ease: REVEAL_EASE, delay: idx * 0.02 }}
-                        onClick={() => handleClick(novel)}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <td className="zf-rd-rank">{novel.rank}</td>
-                        <td>
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <td style={{ ...TD, textAlign: 'center' }}>
+                        <ZfPill rank={novel.rank} size="xs" style={{ minWidth: 24, justifyContent: 'center' }}>
+                          {novel.rank}
+                        </ZfPill>
+                      </td>
+                      <td style={TD}>
+                        {novel.cover ? (
                           <img
                             src={novel.cover}
                             alt=""
-                            width={40}
-                            height={56}
+                            loading="lazy"
                             style={{
+                              width: 40,
+                              height: 53,
                               borderRadius: 'var(--zf-r-sm)',
                               objectFit: 'cover',
-                              background: 'var(--zf-glass-bg)',
                               display: 'block',
-                            }}
-                            onError={(e) => {
-                              e.target.style.opacity = 0.3;
+                              background: 'var(--zf-glass-2)',
                             }}
                           />
-                        </td>
-                        <td>
-                          <div style={{ fontWeight: 700, color: 'var(--zf-text-primary)' }}>
-                            {novel.name}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 'var(--zf-fs-xs)',
-                              color: 'var(--zf-text-muted)',
-                              marginTop: 2,
-                            }}
-                          >
-                            {novel.author}
-                          </div>
-                        </td>
-                        <td style={{ color: 'var(--zf-text-secondary)' }}>{novel.category}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--zf-accent-amber)' }}>
-                          {novel.score ? Number(novel.score).toFixed(1) : '—'}
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </motion.div>
-        )}
+                        ) : (
+                          <span style={{ width: 40, height: 53, display: 'block', borderRadius: 'var(--zf-r-sm)', background: 'var(--zf-glass-2)' }} />
+                        )}
+                      </td>
+                      <td style={TD}>
+                        <div style={{ fontWeight: 700, color: 'var(--zf-text-primary)' }}>{novel.name}</div>
+                        <div style={{ fontSize: 'var(--zf-fs-xs)', color: 'var(--zf-text-muted)' }}>{novel.author}</div>
+                      </td>
+                      <td style={TD}>{novel.category}</td>
+                      <td style={TD}>{novel.rankInfo || '—'}</td>
+                      <td style={{ ...TD, textAlign: 'right' }} className="zf-num">
+                        {hasScore(novel.score) ? formatScore(novel.score, { suffix: '' }) : '—'}
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </motion.div>
+      )}
 
-        {/* —— 分页 —— */}
-        <Pager
-          current={currentPage}
-          total={total}
-          pageSize={PAGE_SIZE}
-          onChange={(page) => {
-            setCurrentPage(page);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-        />
-      </div>
-    </div>
+      <ZfSectionTitle
+        animated={false}
+        variant="bare"
+        title={`第 ${currentPage} 页 · 共 ${Math.max(1, Math.ceil(total / PAGE_SIZE))} 页`}
+        sub="榜单每页 15 本，翻到空页即到底"
+      />
+
+      <Pager
+        current={currentPage}
+        total={total}
+        onChange={(page) => {
+          setCurrentPage(page);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
+    </>
   );
 };
 

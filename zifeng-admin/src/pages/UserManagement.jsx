@@ -1,40 +1,37 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
-import { Table, Input, Avatar, Tag, Space, Switch, message, Spin, Popconfirm } from 'antd';
-import { UserOutlined, SearchOutlined, StopOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Table, Input, Avatar, Tag, Space, Switch, message, Popconfirm } from 'antd';
+import { SearchOutlined, StopOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { ZfPageHeader, ZfEmptyState } from '@zifeng/ui/components';
 import { getUsers, banUser, unbanUser } from '../utils/adminApi';
-import { fadeInUp } from '../utils/animations';
-import { ThemeContext } from '../App';
+import { TABLE_SHELL, tableScrollY, PAGE_HEADROOM, LOCAL_PAGINATION, AVATAR_SQUARE } from '../utils/ui';
 
 const UserManagement = () => {
-  const { isDarkMode } = useContext(ThemeContext);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [keyword, setKeyword] = useState('');
   const [searching, setSearching] = useState(false);
   const [togglingIds, setTogglingIds] = useState(new Set());
-  const tableRef = useRef(null);
 
-  useEffect(() => {
-    if (tableRef.current) {
-      fadeInUp(tableRef.current);
-    }
-  }, [users]);
+  /* 取数包在异步 run() 里（与 zifeng-web 的 RankDetail 同形）：effect 的同步路径上
+     不产生任何状态更新。loading 的首屏值由 useState(true) 给出，不再在取数开头置位；
+     搜索走 handleSearch 自己的 searching。 */
+  const fetchUsers = useCallback((kw = '') => {
+    const run = async () => {
+      try {
+        const res = await getUsers(kw);
+        setUsers(res.data?.data || []);
+      } catch {
+        message.error('获取用户列表失败');
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+  }, []);
 
   useEffect(() => {
     fetchUsers();
-  }, []);
-
-  const fetchUsers = async (kw = '') => {
-    setLoading(true);
-    try {
-      const res = await getUsers(kw);
-      setUsers(res.data?.data || []);
-    } catch {
-      message.error('获取用户列表失败');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [fetchUsers]);
 
   const handleSearch = async (value) => {
     setSearching(true);
@@ -82,31 +79,38 @@ const UserManagement = () => {
       dataIndex: 'avatar',
       key: 'avatar',
       width: 64,
-      render: (avatar) => (
-        <Avatar
-          src={avatar}
-          size={36}
-          icon={<UserOutlined />}
-          style={{
-            backgroundColor: '#1890ff',
-            flexShrink: 0,
-          }}
-        />
-      ),
+      /* 此前固定一个蓝色底，而管理员列表用的是品牌渐变首字母 ——
+         同类元素两种画法，且那个蓝与全站紫无关。统一走 AVATAR_SQUARE。 */
+      render: (avatar, record) => {
+        const initial = (record.username || '?').charAt(0).toUpperCase();
+        return avatar ? (
+          <Avatar
+            src={avatar}
+            alt={record.username || '用户头像'}
+            size={36}
+            shape="square"
+            style={{ borderRadius: 'var(--zf-r-sm)', flexShrink: 0 }}
+          />
+        ) : (
+          <span aria-hidden="true" style={AVATAR_SQUARE(36)}>
+            {initial}
+          </span>
+        );
+      },
     },
     {
       title: '用户名',
       dataIndex: 'username',
       key: 'username',
       width: 140,
-      render: (text) => <span style={{ fontWeight: 500 }}>{text}</span>,
+      render: (text) => <span style={{ fontWeight: 'var(--zf-fw-strong)' }}>{text}</span>,
     },
     {
       title: '邮箱',
       dataIndex: 'email',
       key: 'email',
       width: 220,
-      render: (text) => <span style={{ color: isDarkMode ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)' }}>{text || '-'}</span>,
+      render: (text) => <span style={{ color: 'var(--zf-text-secondary)' }}>{text || '-'}</span>,
     },
     {
       title: '状态',
@@ -166,42 +170,40 @@ const UserManagement = () => {
   ];
 
   return (
-    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-        flexWrap: 'wrap',
-        gap: 12,
-        flexShrink: 0,
-      }}>
-        <h2 className="page-title">用户管理</h2>
-        <Input.Search
-          placeholder="搜索用户名或邮箱"
-          allowClear
-          enterButton={<><SearchOutlined /> 搜索</>}
-          size="middle"
-          loading={searching}
-          onSearch={handleSearch}
-          style={{ width: 300, maxWidth: '100%' }}
-        />
-      </div>
+    <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <ZfPageHeader
+        title="用户管理"
+        extra={
+          <Input.Search
+            placeholder="搜索用户名或邮箱"
+            allowClear
+            enterButton={<><SearchOutlined /> 搜索</>}
+            size="middle"
+            loading={searching}
+            onSearch={handleSearch}
+            style={{ width: 300, maxWidth: '100%' }}
+          />
+        }
+        style={{ marginBottom: 'var(--zf-s4)', flexShrink: 0 }}
+      />
 
-      <div ref={tableRef} style={{
-        borderRadius: 12,
-        flex: 1,
-        boxShadow: isDarkMode
-          ? '0 2px 12px rgba(0,0,0,0.3)'
-          : '0 2px 12px rgba(0,0,0,0.06)',
-      }}>
+      <div style={TABLE_SHELL}>
         <Table
           dataSource={users}
           columns={columns}
           rowKey="id"
           loading={loading}
-          style={{ background: isDarkMode ? '#141414' : '#fff', borderRadius: 12, overflow: 'hidden' }}
-          scroll={{ y: 'calc(100vh - 64px - 48px - 55px - 32px)' }}
+          scroll={{ y: tableScrollY(PAGE_HEADROOM.plain) }}
+          locale={{
+            emptyText: (
+              <ZfEmptyState
+                compact
+                title={keyword ? `没有匹配「${keyword}」的用户` : '还没有注册用户'}
+                description={keyword ? '换个用户名或邮箱片段试试。' : '用户端注册后会出现在这里。'}
+              />
+            ),
+          }}
+          pagination={LOCAL_PAGINATION}
         />
       </div>
     </div>

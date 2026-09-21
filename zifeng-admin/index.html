@@ -2,9 +2,25 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="紫枫小说管理后台 - 书源、用户、阅读数据与反馈管理" />
+    <meta name="theme-color" content="#8B5CF6" />
     <title>紫枫小说管理后台</title>
+    <!-- tokens.css 的 :root 默认深色；后台暗色开关此前不写 data-theme，
+         浅色用户会先闪一帧深色。首帧前写入避免 FOUC。 -->
+    <script>
+      (function () {
+        try {
+          var dark = localStorage.getItem('zifeng_admin_dark') === 'true';
+          var el = document.documentElement;
+          el.setAttribute('data-theme', dark ? 'dark' : 'light');
+          el.setAttribute('data-brand', 'violet');
+          el.setAttribute('data-glass', 'off');
+          el.style.background = dark ? '#0B0814' : '#F3F0FB';
+        } catch (err) { /* 隐私模式禁用 localStorage 时静默降级 */ }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

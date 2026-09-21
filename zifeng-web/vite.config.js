@@ -1,13 +1,23 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { fileURLToPath } from "node:url";
+
+const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      "@zifeng/ui": fileURLToPath(new URL("../zifeng-ui", import.meta.url)),
+    },
+    // 仓库根存在遗留 node_modules，共享层若不去重会加载出两份 react → Invalid hook call
+    dedupe: ["react", "react-dom", "antd", "@ant-design/icons", "framer-motion"],
+  },
   server: {
     port: 5173,
-    host: ['0.0.0.0'],
-    allowedHosts: [],
     host: true,
+    allowedHosts: [],
+    fs: { allow: [repoRoot] },
     proxy: {
       // Parser API（解析服务，端口 3001）
       "/api/search": { target: "http://localhost:3001", changeOrigin: true },

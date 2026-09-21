@@ -9,7 +9,41 @@
     <title>紫枫免费小说 - 在线免费小说阅读</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+    <!-- 异步加载 Web 字体：原先这个 <link> 是同步的，fonts.googleapis.com 在国内
+         被墙或慢时会阻塞首次渲染（CSS 里已有 PingFang/YaHei/宋体兜底，所以只要
+         不阻塞就能立刻出字）。加载失败也只是退回系统字体，不再白屏。 -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" media="print" onload="this.media='all'">
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap">
+    </noscript>
+    <!-- 首帧前写入主题，避免 tokens.css 的 :root 默认深色让浅色用户闪一下黑屏 -->
+    <script>
+      (function () {
+        try {
+          var el = document.documentElement;
+          var dark = localStorage.getItem('zifeng_dark_mode') === 'true';
+          var manual = localStorage.getItem('zifeng_manual_dark_override') === 'true';
+          if (!manual) {
+            var auto = localStorage.getItem('zifeng_auto_night_mode');
+            dark = false;
+            if (auto) {
+              var c = JSON.parse(auto);
+              if (c.enabled) {
+                var now = new Date();
+                var mins = now.getHours() * 60 + now.getMinutes();
+                var s = (c.startTime || '0:0').split(':').map(Number);
+                var e = (c.endTime || '0:0').split(':').map(Number);
+                var sm = s[0] * 60 + s[1];
+                var em = e[0] * 60 + e[1];
+                dark = sm > em ? (mins >= sm || mins < em) : (mins >= sm && mins < em);
+              }
+            }
+          }
+          el.setAttribute('data-theme', dark ? 'dark' : 'light');
+          el.style.background = dark ? '#0B0814' : '#F3F0FB';
+        } catch (err) { /* 隐私模式禁用 localStorage 时静默降级到默认深色 */ }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

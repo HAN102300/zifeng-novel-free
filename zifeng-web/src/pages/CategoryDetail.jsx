@@ -1,25 +1,23 @@
-import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FireOutlined, HeartOutlined, LeftOutlined } from '@ant-design/icons';
-import BackButton from '../components/BackButton';
-import NovelCard from '../components/NovelCard';
+import { LeftOutlined, AppstoreOutlined } from '@ant-design/icons';
+import { ZfPageShell, ZfGrid, ZfPageHeader, ZfPill, ZfCoverCard, ZfSkeletonGrid, ZfEmptyState } from '@zifeng/ui/components';
+import { variants } from '@zifeng/ui/motion';
 import { ThemeContext } from '../App';
 import { getDefaultSource, saveNovelCache } from '../utils/novelConfig';
+import { useBreakpoint } from '@zifeng/ui/hooks';
 import axios from 'axios';
 
 /* ============================================================
-   紫枫免费小说 · 分类详情页（Task 11 重构）
-   - 分类头部：渐变背景 + 图标 + categoryName + 统计
-   - NovelCard 网格（不设 rank，干净网格）
-   - 自定义 Pager：紫色渐变 active
-   - 骨架加载态（不用全屏 Spin）
-   - 保留：useParams、外部书源 /novel?sort=1&page=*&categoryId=*&isComplete=*
-           categoryCache、onClick bookUrl 解析 + saveNovelCache + navigate
-   参考：design/zifeng-pages-deep-dive.html .cat-detail-*
+   紫枫免费小说 · 分类详情页（P2 迁移）
+   - 容器 ZfPageShell size="lg"、页头 ZfPageHeader（含返回）、
+     网格 ZfCoverCard、骨架 ZfSkeletonGrid、空态 ZfEmptyState
+   - 频道蓝/品红渐变头部 → 品牌紫（页头不再自带渐变底，色相交给标题图标）
+   - 内联 style 标签块与 780 魔数断点 → useBreakpoint()
+   - 保留：useParams、外部书源 /novel?sort=1&page=*&categoryId=*&isComplete=*、
+           categoryCache、页码 localStorage、bookUrl 解析 + saveNovelCache + navigate
    ============================================================ */
-
-const REVEAL_EASE = [0.16, 1, 0.3, 1];
 
 const categoryCache = new Map();
 const getCacheKey = (categoryId, sort, page) =>
@@ -58,44 +56,30 @@ function parseHeaders(headerStr) {
   }
 }
 
-/* —— 骨架占位块 —— */
-function Skel({ height, width = '100%', radius = 'var(--zf-r-md)' }) {
-  return (
-    <div
-      style={{
-        width,
-        height,
-        borderRadius: radius,
-        background:
-          'linear-gradient(90deg, var(--zf-glass-bg) 25%, var(--zf-glass-bg-strong) 50%, var(--zf-glass-bg) 75%)',
-        backgroundSize: '200% 100%',
-        animation: 'skel 1.4s ease-in-out infinite',
-      }}
-    />
-  );
-}
+/* —— 分页器：active 走品牌渐变底 + --zf-on-accent 文字 —— */
+const PAGE_BTN = {
+  minWidth: 36,
+  height: 36,
+  padding: '0 10px',
+  borderRadius: 'var(--zf-r-sm)',
+  border: '1px solid var(--zf-glass-border)',
+  background: 'var(--zf-glass-1)',
+  color: 'var(--zf-text-secondary)',
+  fontSize: 'var(--zf-fs-sm)',
+  fontWeight: 600,
+  cursor: 'pointer',
+  fontVariantNumeric: 'tabular-nums',
+  transition: 'background var(--zf-dur-fast) var(--zf-ease-out), color var(--zf-dur-fast) var(--zf-ease-out)',
+};
 
-function CategoryDetailSkeleton() {
-  return (
-    <div style={{ padding: '0 0 40px 0' }}>
-      <Skel height={120} radius="var(--zf-r-xl)" />
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-          gap: 'var(--zf-s4)',
-          marginTop: 'var(--zf-s6)',
-        }}
-      >
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <Skel key={i} height={290} radius="var(--zf-r-md)" />
-        ))}
-      </div>
-    </div>
-  );
-}
+const PAGE_BTN_ACTIVE = {
+  ...PAGE_BTN,
+  color: 'var(--zf-on-accent)',
+  border: '1px solid transparent',
+  background: 'var(--zf-grad-brand)',
+  boxShadow: 'var(--zf-glow-brand)',
+};
 
-/* —— 自定义 Pager：紫色渐变 active —— */
 function Pager({ current, total, pageSize, onChange }) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   if (totalPages <= 1) return null;
@@ -115,52 +99,28 @@ function Pager({ current, total, pageSize, onChange }) {
     withDots.push(p);
   });
 
-  const btnBase = {
-    minWidth: 36,
-    height: 36,
-    padding: '0 10px',
-    borderRadius: 'var(--zf-r-sm)',
-    border: '1px solid var(--zf-glass-border)',
-    background: 'var(--zf-glass-bg)',
-    color: 'var(--zf-text-secondary)',
-    fontSize: 'var(--zf-fs-sm)',
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all var(--zf-dur-fast) var(--zf-ease-out)',
-  };
-
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 'var(--zf-s8)', flexWrap: 'wrap' }}>
-      <button style={btnBase} disabled={current <= 1} onClick={() => onChange(current - 1)}>
+    <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--zf-s2)', flexWrap: 'wrap' }}>
+      <button style={PAGE_BTN} disabled={current <= 1} onClick={() => onChange(current - 1)} aria-label="上一页">
         <LeftOutlined />
       </button>
       {withDots.map((p, i) =>
         p === '...' ? (
-          <span key={`dot-${i}`} style={{ padding: '0 4px', color: 'var(--zf-text-muted)' }}>
+          <span key={`dot-${i}`} className="zf-num" style={{ padding: '0 4px', color: 'var(--zf-text-muted)' }}>
             ...
           </span>
         ) : (
           <button
             key={p}
-            style={
-              p === current
-                ? {
-                    ...btnBase,
-                    color: '#fff',
-                    border: 'none',
-                    background:
-                      'linear-gradient(135deg, var(--zf-primary-600), var(--zf-primary-500))',
-                    boxShadow: '0 4px 14px rgba(139,92,246,.4)',
-                  }
-                : btnBase
-            }
+            aria-current={p === current ? 'page' : undefined}
+            style={p === current ? PAGE_BTN_ACTIVE : PAGE_BTN}
             onClick={() => onChange(p)}
           >
             {p}
           </button>
         )
       )}
-      <button style={btnBase} disabled={current >= totalPages} onClick={() => onChange(current + 1)}>
+      <button style={PAGE_BTN} disabled={current >= totalPages} onClick={() => onChange(current + 1)} aria-label="下一页">
         <LeftOutlined style={{ transform: 'rotate(180deg)' }} />
       </button>
     </div>
@@ -170,10 +130,11 @@ function Pager({ current, total, pageSize, onChange }) {
 const CategoryDetail = () => {
   const { channel, sort, categoryId, categoryName } = useParams();
   const navigate = useNavigate();
-  const { themeConfigs, currentTheme, isDarkMode, glassMode } = useContext(ThemeContext);
-  const primaryColor = themeConfigs[currentTheme].primaryColor;
+  const { glassMode } = useContext(ThemeContext);
+  const { up, isMobile } = useBreakpoint();
 
   const sortNum = Number(sort);
+  const channelNum = Number(channel);
 
   const [novels, setNovels] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -183,7 +144,6 @@ const CategoryDetail = () => {
 
   const fetchingRef = useRef(false);
   const isInitialMount = useRef(true);
-  const channelNum = Number(channel);
 
   /* —— 保留原 fetchCategoryData 逻辑 —— */
   const fetchCategoryData = useCallback(
@@ -270,7 +230,7 @@ const CategoryDetail = () => {
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
-      return; // 首次挂载时跳过重置，使用 sessionStorage 中保存的页码
+      return; // 首次挂载时跳过重置，使用 localStorage 中保存的页码
     }
     setCurrentPage(1);
     setMaxKnownPage(1);
@@ -299,183 +259,79 @@ const CategoryDetail = () => {
     navigate(`/novel/${novel.id}?${params.toString()}`);
   };
 
-  /* —— 头部配置：男生蓝 / 女生品红 —— */
-  const isFemale = channelNum === 2;
-  const headIconBg = isFemale
-    ? 'linear-gradient(135deg, var(--zf-accent-magenta), #BE123C)'
-    : 'linear-gradient(135deg, #3B82F6, #1E40AF)';
-  const headGlow = isFemale
-    ? '0 0 28px rgba(236,72,153,.45)'
-    : '0 0 28px rgba(59,130,246,.45)';
-  const headBannerBg = isFemale
-    ? 'linear-gradient(135deg, rgba(236,72,153,.22), rgba(245,158,11,.12))'
-    : 'linear-gradient(135deg, rgba(59,130,246,.22), rgba(139,92,246,.12))';
   const sortLabel = sortNum === 2 ? '完结' : sortNum === 3 ? '连载' : '全部';
+  const cols = up('lg') ? 5 : isMobile ? 2 : 4;
 
-  /* —— 加载态：骨架屏 —— */
+  /* 注意：ZfPageShell 的 header 插槽落在容器之外（全宽出血），
+     这里要让页头与内容同宽，所以直接作为 children 首元素。 */
+  const header = (
+    <ZfPageHeader
+      back="/category"
+      icon={<AppstoreOutlined />}
+      title={decodeURIComponent(categoryName || '')}
+      subtitle={`${channelNum === 2 ? '女生频道' : '男生频道'} · ${sortLabel} · 共 ${total || 0} 册`}
+      extra={total > 0 ? <ZfPill tone="brand">第 {currentPage} 页</ZfPill> : null}
+    />
+  );
+
+  /* —— 加载态：与 ZfCoverCard 同比例的骨架网格，避免加载完成时跳动 —— */
   if (loading && novels.length === 0) {
     return (
-      <div style={{ padding: '0 0 40px 0' }}>
-        <BackButton onClick={() => navigate('/category')} text="返回分类" style={{ marginBottom: 20 }} />
-        <CategoryDetailSkeleton />
-      </div>
+      <ZfPageShell size="lg">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--zf-s6)' }}>
+          {header}
+          <ZfSkeletonGrid count={isMobile ? 4 : 10} />
+        </div>
+      </ZfPageShell>
     );
   }
 
   return (
-    <div style={{ padding: '0 0 40px 0' }}>
-      <style>{`
-        .zf-cd-grid{
-          display:grid;
-          grid-template-columns:repeat(auto-fill, minmax(160px, 1fr));
-          gap:var(--zf-s4);
-        }
-      `}</style>
+    <ZfPageShell size="lg">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--zf-s8)' }}>
+        {header}
 
-      <BackButton onClick={() => navigate('/category')} text="返回分类" style={{ marginBottom: 20 }} />
+        {novels.length === 0 ? (
+          <ZfEmptyState
+            icon={<AppstoreOutlined />}
+            title="这个分类下暂时没有书"
+            description="换个分类或调整「全部 / 完结 / 连载」筛选再试试。"
+            action={
+              <button style={PAGE_BTN_ACTIVE} onClick={() => navigate('/category')}>
+                返回分类
+              </button>
+            }
+          />
+        ) : (
+          <motion.div variants={variants.fadeUp} initial="initial" animate="animate">
+            <ZfGrid columns={cols} gap="var(--zf-s4)">
+              {novels.map((novel, idx) => (
+                <ZfCoverCard
+                  key={novel.id || idx}
+                  novel={novel}
+                  size="md"
+                  glass={glassMode}
+                  onOpen={handleClick}
+                />
+              ))}
+            </ZfGrid>
+          </motion.div>
+        )}
 
-      {/* ============== 分类头部 ============== */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, ease: REVEAL_EASE }}
-        style={{
-          padding: 'var(--zf-s10) var(--zf-s8)',
-          borderRadius: 'var(--zf-r-xl)',
-          background: headBannerBg,
-          border: '1px solid var(--zf-glass-border-strong)',
-          backdropFilter: 'var(--zf-blur-glass)',
-          WebkitBackdropFilter: 'var(--zf-blur-glass)',
-          marginBottom: 'var(--zf-s8)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--zf-s6)',
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        {/* 装饰光斑 */}
-        <div
-          style={{
-            position: 'absolute',
-            top: -50,
-            right: -50,
-            width: 200,
-            height: 200,
-            borderRadius: '50%',
-            background: headIconBg,
-            opacity: 0.12,
-            filter: 'blur(24px)',
-            pointerEvents: 'none',
-          }}
-        />
-        {/* 图标方块 72×72 */}
-        <div
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: 'var(--zf-r-lg)',
-            display: 'grid',
-            placeItems: 'center',
-            color: '#fff',
-            fontSize: 32,
-            flexShrink: 0,
-            background: headIconBg,
-            boxShadow: headGlow,
-          }}
-        >
-          {isFemale ? <HeartOutlined /> : <FireOutlined />}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h2
-            style={{
-              fontFamily: 'var(--zf-font-serif)',
-              fontSize: 'var(--zf-fs-2xl)',
-              fontWeight: 900,
-              lineHeight: 1.1,
-              margin: 0,
-              color: 'var(--zf-text-primary)',
+        {total > 0 && novels.length > 0 ? (
+          <Pager
+            current={currentPage}
+            total={total}
+            pageSize={PAGE_SIZE}
+            onChange={(page) => {
+              setCurrentPage(page);
+              savePage(categoryId, sortNum, page);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-          >
-            {decodeURIComponent(categoryName || '')}
-          </h2>
-          <div
-            style={{
-              marginTop: 6,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              flexWrap: 'wrap',
-            }}
-          >
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '3px 12px',
-                borderRadius: 'var(--zf-r-full)',
-                fontSize: 'var(--zf-fs-xs)',
-                fontWeight: 600,
-                color: 'var(--zf-primary-300)',
-                background: 'rgba(139,92,246,.18)',
-                border: '1px solid rgba(139,92,246,.30)',
-              }}
-            >
-              共 {total} 册
-            </span>
-            <span style={{ color: 'var(--zf-text-muted)', fontSize: 'var(--zf-fs-sm)' }}>
-              {isFemale ? '女生频道' : '男生频道'} · {sortLabel}
-            </span>
-          </div>
-        </div>
-      </motion.section>
-
-      {/* ============== NovelCard 网格 ============== */}
-      {novels.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          style={{
-            padding: 'var(--zf-s12)',
-            borderRadius: 'var(--zf-r-xl)',
-            background: 'var(--zf-glass-bg)',
-            border: '1px solid var(--zf-glass-border)',
-            textAlign: 'center',
-            color: 'var(--zf-text-muted)',
-          }}
-        >
-          暂无小说数据，换个分类或状态试试
-        </motion.div>
-      ) : (
-        <div className="zf-cd-grid">
-          {novels.map((novel, idx) => (
-            <NovelCard
-              key={novel.id || idx}
-              novel={novel}
-              index={idx}
-              color={primaryColor}
-              glassMode={glassMode}
-              isDarkMode={isDarkMode}
-              onClick={() => handleClick(novel)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* ============== 分页 ============== */}
-      {total > 0 && (
-        <Pager
-          current={currentPage}
-          total={total}
-          pageSize={PAGE_SIZE}
-          onChange={(page) => {
-            setCurrentPage(page);
-            savePage(categoryId, sortNum, page);
-          }}
-        />
-      )}
-    </div>
+          />
+        ) : null}
+      </div>
+    </ZfPageShell>
   );
 };
 

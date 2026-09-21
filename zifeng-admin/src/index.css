@@ -1,148 +1,40 @@
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
-  --brand-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --brand-color: #667eea;
-  --brand-purple: #764ba2;
-  --brand-shadow: rgba(102, 126, 234, 0.15);
-  --brand-shadow-hover: rgba(102, 126, 234, 0.25);
+/* ============================================================
+   管理后台 · 页面级样式
+   设计令牌（--zf-*）与 antd 组件级主题由 @zifeng/ui 提供，两端共用。
+   这里只留「令牌与 ConfigProvider 都表达不了」的三件事：
+     1. 应用外壳（100vh 定高 + 侧栏固定 + 表体自滚动）的骨架规则
+     2. 侧栏选中项的 3px 标记条（Menu 无对应 ComponentToken）
+     3. 少数双 class 提权即可解决的悬停/抬升
+   create-vite 脚手架残留、55 处颜色字面量、36 处强制提权均已清理；
+   原先自带的那套靛紫渐变改引用 var(--zf-grad-brand)，与用户端共用同一个紫。
+   ============================================================ */
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+/* ---------- 应用外壳 ---------- */
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 255, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+/* Layout 自己声明了 height:100vh + overflow:hidden，侧栏 fixed、Content 内滚动，
+   文档流本身不产生滚动条；body/#root 的 overflow:hidden 是「第二道锁」，
+   防止 fixed 侧栏在极端缩放比例下把 html 撑出滚动条而出现双滚动条。保留。 */
+html,
+body,
+#root {
+  height: 100%;
 }
 
 body {
-  margin: 0;
   overflow: hidden;
-  height: 100vh;
 }
 
 #root {
-  width: 100%;
-  height: 100vh;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
   overflow: hidden;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
-}
-
-/* Modal 响应式样式 */
-@media (max-width: 576px) {
-  .ant-modal {
-    max-width: calc(100vw - 32px) !important;
-    margin: 16px auto !important;
-  }
-  
-  .ant-modal-content {
-    padding: 16px !important;
-  }
-  
-  .ant-modal-body {
-    padding: 12px 0 !important;
-  }
-  
-  .ant-modal-header {
-    padding: 0 0 12px 0 !important;
-  }
-}
-
-@media (min-width: 577px) and (max-width: 768px) {
-  .ant-modal {
-    max-width: calc(100vw - 48px) !important;
-  }
-  
-  .ant-modal-content {
-    padding: 20px !important;
-  }
-}
+/* ---------- 表格自滚动 ----------
+   表格要填满 Content 剩余高度：外层 flex 链 + 表体自身滚动。
+   overflow 那一条必须带 !important —— @rc-component/table 给
+   .ant-table-body 写的是**行内** overflow-y:scroll，只有 important
+   才压得住（antd 的 max-height 行内值仍生效，所以不会失去高度约束）。 */
 
 .ant-table-wrapper {
   display: flex;
@@ -150,30 +42,21 @@ code {
   height: 100%;
 }
 
-.ant-table-wrapper .ant-spin-nested-loading {
-  flex: 1;
-  overflow: visible;
-  display: flex;
-  flex-direction: column;
-}
-
+.ant-table-wrapper .ant-spin-nested-loading,
 .ant-table-wrapper .ant-spin-container {
   flex: 1;
-  overflow: visible;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
-.ant-table-wrapper .ant-table {
-  flex: 1;
-  overflow: hidden;
-}
-
+.ant-table-wrapper .ant-table,
 .ant-table-wrapper .ant-table-container {
   flex: 1;
-  overflow: hidden;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .ant-table-wrapper .ant-table-body {
@@ -181,32 +64,36 @@ code {
   overflow: auto !important;
 }
 
-.ant-table-wrapper .ant-table-pagination {
+/* 三 class 提权（0,3,0）压过 antd 的 .ant-table-pagination.ant-pagination（0,2,0），
+   所以分页这条不再需要强制提权。 */
+.ant-table-wrapper .ant-table-pagination.ant-pagination {
   flex-shrink: 0;
-  padding: 8px 16px !important;
-  margin: 0 !important;
+  margin: 0;
+  padding: var(--zf-s2) var(--zf-s4);
   position: sticky;
   bottom: 0;
-  background: inherit;
-  z-index: 10;
-  overflow: visible;
+  background: var(--zf-surface-1);
+  z-index: 1;
 }
 
-/* ===== Global Navigation Styles ===== */
+/* ---------- 侧栏 ---------- */
 
 .admin-sider {
   position: relative;
 }
 
+/* 全站唯一保留的渐变装饰条：侧栏顶端 3px。
+   原先顶栏 2px 下划线、内容区 1px 细线、每个页标题前的小竖条都是同一层含义，
+   四处渐变叠在一起读起来像 bug，已收敛为这一处。 */
 .admin-sider::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
-  z-index: 10;
+  height: var(--zf-bw-thick);
+  background: var(--zf-grad-brand);
+  z-index: 1;
 }
 
 .admin-sider .ant-layout-sider-children {
@@ -214,27 +101,19 @@ code {
   flex-direction: column;
 }
 
-.admin-sider .ant-menu-dark {
-  background: transparent !important;
-}
-
+/* Menu 的背景/圆角/间距/悬停色已由 buildAntdTheme 的 components.Menu 承接，
+   这里只补它没有 token 的两件事：悬停位移与选中标记条。 */
 .admin-sider .ant-menu-dark .ant-menu-item,
 .admin-sider .ant-menu-dark .ant-menu-submenu-title {
-  transition: all 0.25s cubic-bezier(0.645, 0.045, 0.355, 1) !important;
-  border-radius: 8px !important;
-  margin: 2px 8px !important;
-  width: calc(100% - 16px) !important;
+  position: relative;
+  transition: transform var(--zf-dur-fast) var(--zf-ease-out),
+    background-color var(--zf-dur-fast) var(--zf-ease-out);
 }
 
 .admin-sider .ant-menu-dark .ant-menu-item:hover,
 .admin-sider .ant-menu-dark .ant-menu-submenu-title:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: var(--zf-tint-brand-08);
   transform: translateX(2px);
-}
-
-.admin-sider .ant-menu-dark .ant-menu-item-selected {
-  background: linear-gradient(90deg, rgba(102, 126, 234, 0.25) 0%, rgba(118, 75, 162, 0.15) 100%) !important;
-  position: relative;
 }
 
 .admin-sider .ant-menu-dark .ant-menu-item-selected::before {
@@ -243,226 +122,135 @@ code {
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  width: 3px;
+  width: var(--zf-bw-thick);
   height: 60%;
-  border-radius: 0 3px 3px 0;
-  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+  border-radius: 0 var(--zf-bw-thick) var(--zf-bw-thick) 0;
+  /* 选中态用纯色，不再叠第二层渐变 */
+  background: var(--zf-brand-500);
 }
 
-.admin-sider .ant-menu-dark .ant-menu-submenu-arrow {
-  transition: transform 0.25s ease !important;
-}
-
-.admin-sider .ant-menu-dark .ant-menu-submenu .ant-menu-item {
-  padding-left: 48px !important;
-}
-
-.admin-sider.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-item,
-.admin-sider.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-submenu-title {
-  margin: 2px 4px !important;
-  width: calc(100% - 8px) !important;
-  padding: 0 calc(50% - 12px) !important;
-  transform: none !important;
-}
-
+/* 折叠态不做位移，否则图标会偏出居中盒 */
 .admin-sider.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-item:hover {
-  transform: none !important;
+  transform: none;
 }
 
-.admin-header {
-  position: relative;
+/* 折叠后的浮层子菜单：共享层的 Menu token 覆写了 darkItemColor 却没有 darkPopupBg，
+   浅色模式下会变成「深底 + 深字」。在 zifeng-ui 补 token 之前先在此兜住。 */
+.ant-menu-dark.ant-menu-submenu-popup {
+  background: var(--zf-surface-3);
 }
 
-.admin-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
-  opacity: 0.5;
-  transition: opacity 0.3s ease;
+/* ---------- 顶栏 ---------- */
+
+/* 原先是裸 div + onMouseEnter 逐帧改 style.background；改为可聚焦 button + :hover */
+.user-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--zf-s2);
+  padding: var(--zf-s1) var(--zf-s3);
+  border-radius: var(--zf-r-sm);
+  color: inherit;
+  transition: background-color var(--zf-dur-fast) var(--zf-ease-out);
 }
 
-.admin-header:hover::after {
-  opacity: 0.8;
+.user-trigger:hover {
+  background: var(--zf-tint-brand-08);
 }
 
-.admin-content {
-  position: relative;
+/* ---------- 卡片悬停抬升 ----------
+   此前由 animejs 逐帧写 translateY + boxShadow，而 antd Card 自己带
+   transition: box-shadow —— 两套时钟互相打架，鼠标移出后阴影常常停在半路。
+   交回 CSS，一条 transition 说清楚。 */
+.card-lift {
+  transition: transform var(--zf-dur-fast) var(--zf-ease-out),
+    box-shadow var(--zf-dur-fast) var(--zf-ease-out),
+    border-color var(--zf-dur-fast) var(--zf-ease-out);
 }
 
-.admin-content::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(102, 126, 234, 0.08) 50%, transparent 100%);
-  pointer-events: none;
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--zf-shadow-2), var(--zf-glass-edge-top);
+  border-color: var(--zf-glass-border-strong);
 }
 
-/* Fix: pagination Select dropdown z-index stacking context */
-.ant-table-pagination .ant-select-dropdown {
-  z-index: 1060 !important;
+/* ---------- 第三方件的常驻动画必须挂 fx 总闸 ----------
+   antd 的 .anticon-spin::before 是 infinite，tier 0 静止化时也要能停。
+   双 class 提权（0,2,0 > antd 的 0,1,0），无需强制提权。 */
+.anticon.anticon-spin::before {
+  animation-play-state: var(--zf-fx-loop, running);
 }
 
-/* ===== Brand & Page Title Styles ===== */
-
-.page-title {
-  margin: 0 !important;
-  font-size: 20px !important;
-  font-weight: 600 !important;
-  position: relative;
-  padding-left: 12px !important;
-}
-
-.page-title::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 4px;
-  height: 20px;
-  border-radius: 2px;
-  background: var(--brand-gradient);
-}
-
-/* ===== Stat Card Brand Border ===== */
-
-.stat-card-brand {
-  position: relative;
+/* ---------- 登录页验证码片 ----------
+   服务端返回的就是白底位图，深色模式下必然是一块白。与其让它「漏」出卡片，
+   不如明确做成一枚白底纸片：品牌描边 + 圆角 + 与输入框等高（align-self: stretch
+   继承左侧 Input 的高度，此前两边各写一个 46px 才导致高度对不齐）。 */
+.captcha-chip {
+  align-self: stretch;
+  flex-shrink: 0;
+  width: 116px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   overflow: hidden;
+  border-radius: var(--zf-r-sm);
+  border: 1px solid var(--zf-glass-border-strong);
+  background: var(--zf-on-accent);
+  cursor: pointer;
+  transition: border-color var(--zf-dur-fast) var(--zf-ease-out),
+    box-shadow var(--zf-dur-fast) var(--zf-ease-out),
+    opacity var(--zf-dur-fast) var(--zf-ease-out);
 }
 
-.stat-card-brand::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--brand-gradient);
-  z-index: 1;
+.captcha-chip:hover:not(:disabled),
+.captcha-chip:focus-visible:not(:disabled) {
+  border-color: var(--zf-brand-500);
+  box-shadow: var(--zf-ring-brand);
 }
 
-/* ===== Table Zebra Striping ===== */
-
-.ant-table-tbody > tr:nth-child(even) > td {
-  background: rgba(102, 126, 234, 0.02) !important;
+.captcha-chip:disabled {
+  opacity: 0.6;
+  cursor: progress;
 }
 
-.ant-table-tbody > tr:nth-child(even):hover > td {
-  background: rgba(102, 126, 234, 0.06) !important;
+.captcha-chip img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
-/* ===== Custom Scrollbar ===== */
-
-.ant-table-body::-webkit-scrollbar,
-.ant-layout-sider::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+.captcha-chip__hint {
+  font-size: var(--zf-fs-xs);
+  font-weight: var(--zf-fw-strong);
+  color: var(--zf-brand-800);
 }
 
-.ant-table-body::-webkit-scrollbar-track,
-.ant-layout-sider::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.ant-table-body::-webkit-scrollbar-thumb,
-.ant-layout-sider::-webkit-scrollbar-thumb {
-  background: rgba(102, 126, 234, 0.3);
-  border-radius: 3px;
-}
-
-.ant-table-body::-webkit-scrollbar-thumb:hover,
-.ant-layout-sider::-webkit-scrollbar-thumb:hover {
-  background: rgba(102, 126, 234, 0.5);
-}
-
-/* ===== Fade In Page Animation ===== */
-
-@keyframes fadeInPage {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.fade-in-page {
-  animation: fadeInPage 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
-}
-
-/* ===== Brand Pulse Animation ===== */
+/* ---------- 品牌呼吸光晕（侧栏 / 登录页 logo） ---------- */
 
 @keyframes brandPulse {
-  0%, 100% { box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); }
-  50% { box-shadow: 0 4px 20px rgba(102, 126, 234, 0.5); }
+  0%, 100% { box-shadow: 0 4px 12px rgb(var(--zf-brand-rgb-500) / 0.3); }
+  50% { box-shadow: 0 4px 20px rgb(var(--zf-brand-rgb-500) / 0.5); }
 }
 
 .brand-pulse {
   animation: brandPulse 4s ease-in-out infinite;
+  animation-play-state: var(--zf-fx-loop, running);
 }
-
-/* ===== Admin Card Unified Style ===== */
-
-.admin-card {
-  border-radius: 12px !important;
-  border: none !important;
-  transition: box-shadow 0.3s ease, transform 0.3s ease;
-}
-
-/* ===== Brand Divider ===== */
-
-.brand-divider {
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(102, 126, 234, 0.3) 50%, transparent 100%);
-  margin: 16px 0;
-}
-
-/* ===== Table Brand Header ===== */
-
-.table-brand-header .ant-table-thead > tr > th {
-  background: linear-gradient(180deg, rgba(102, 126, 234, 0.04) 0%, rgba(118, 75, 162, 0.02) 100%) !important;
-  border-bottom: 2px solid rgba(102, 126, 234, 0.2) !important;
-  font-weight: 600 !important;
-}
-
-/* ===== Slide In Left Animation ===== */
-
-@keyframes slideInLeft {
-  from { opacity: 0; transform: translateX(-20px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-/* ===== Shimmer Animation ===== */
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-.brand-shimmer {
-  background: linear-gradient(
-    90deg,
-    rgba(102, 126, 234, 0.1) 0%,
-    rgba(102, 126, 234, 0.3) 50%,
-    rgba(102, 126, 234, 0.1) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 3s ease-in-out infinite;
-}
-
-/* ===== Brand Footer ===== */
 
 .brand-footer {
-  padding: 12px 16px;
+  padding: var(--zf-s3) var(--zf-s4);
   text-align: center;
-  font-size: 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  opacity: 0.7;
+  font-size: var(--zf-fs-xs);
+  color: var(--zf-text-faint);
+  letter-spacing: var(--zf-ls-wide);
 }
+
+/* 以下此前存在但全仓库零引用或已被令牌/组件取代，删除记录：
+   .page-title / .page-title::before（→ ZfPageHeader）
+   .stat-card-brand / ::before（→ ZfStatCard）
+   .admin-card / .table-brand-header / .brand-divider / .brand-shimmer
+   .fade-in-page / @keyframes fadeInPage / slideInLeft / shimmer
+   表格外壳的 box-shadow 三元式（→ utils/ui.js 的 TABLE_SHELL）
+   .ant-modal 两组响应式覆写（→ antd 自身 + 各页 styles.body）
+   斑马纹与 ::-webkit-scrollbar 自定义（→ reset.css 已按品牌 rgb 全局提供） */

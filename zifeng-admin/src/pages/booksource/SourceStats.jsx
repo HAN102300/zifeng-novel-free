@@ -1,248 +1,174 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { Row, Col, Card, Spin, message, Typography } from 'antd';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
+import { Typography, message } from 'antd';
 import { Pie, Column } from '@ant-design/charts';
 import {
-  DatabaseOutlined, CheckCircleOutlined, CloseCircleOutlined,
-  SearchOutlined, ReadOutlined, CompassOutlined,
+  DatabaseOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
 } from '@ant-design/icons';
+import { ZfPageHeader, ZfStatCard, ZfGrid, ZfEmptyState } from '@zifeng/ui/components';
+import { useBreakpoint } from '@zifeng/ui/hooks';
+import {
+  donutConfig,
+  columnConfig,
+  chartSize,
+  splitByMagnitude,
+} from '@zifeng/ui/charts/preset';
 import { getAdminSourceStats } from '../../utils/adminApi';
-import { staggerFadeIn, cardHover, cardLeave } from '../../utils/animations';
 import { ThemeContext } from '../../App';
+import ChartCard from '../../components/ChartCard';
 
 const { Text } = Typography;
 
+const SummaryGrid = ({ stats, loading }) => (
+  <ZfGrid min={200} gap="var(--zf-s4)">
+    <ZfStatCard
+      label="总书源数"
+      icon={<DatabaseOutlined />}
+      value={Number(stats?.total || 0).toLocaleString()}
+      loading={loading}
+    />
+    <ZfStatCard
+      label="已启用"
+      icon={<CheckCircleOutlined />}
+      tone="success"
+      value={Number(stats?.enabled || 0).toLocaleString()}
+      loading={loading}
+    />
+    <ZfStatCard
+      label="已禁用"
+      icon={<CloseCircleOutlined />}
+      tone="error"
+      value={Number(Math.max((stats?.total || 0) - (stats?.enabled || 0), 0)).toLocaleString()}
+      loading={loading}
+    />
+  </ZfGrid>
+);
+
 const SourceStats = () => {
   const { isDarkMode } = useContext(ThemeContext);
+  const { isDesktop } = useBreakpoint();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
-  const statsRef = React.useRef(null);
+
+  /* 取数包在异步 run() 里（与 zifeng-web 的 RankDetail 同形）：effect 的同步路径上
+     不产生任何状态更新。loading 的首屏值由 useState(true) 给出，不再在取数开头置位 */
+  const fetchData = useCallback(() => {
+    const run = async () => {
+      try {
+        const res = await getAdminSourceStats();
+        setStats(res.data?.data || {});
+      } catch {
+        message.error('获取统计数据失败');
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+  }, []);
 
   useEffect(() => {
-    if (statsRef.current) staggerFadeIn(statsRef.current.children, 80);
-  }, [stats]);
+    fetchData();
+  }, [fetchData]);
 
-  useEffect(() => { fetchData(); }, []);
+  const n = (key) => Number(stats?.[key] || 0);
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const res = await getAdminSourceStats();
-      setStats(res.data?.data || {});
-    } catch { message.error('获取统计数据失败'); }
-    finally { setLoading(false); }
-  };
-
-  if (loading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}><Spin size="large" /></div>;
-  }
-
-  const total = stats?.total || 0;
-  const enabled = stats?.enabled || 0;
-  const disabled = total - enabled;
-  const hasLogin = stats?.hasLogin || 0;
-  const hasJs = stats?.hasJs || 0;
-  const hasExplore = stats?.hasExplore || 0;
-  const hasSearch = stats?.hasSearch || 0;
-  const hasContent = stats?.hasContent || 0;
-  const hasExploreUrl = stats?.hasExploreUrl || 0;
-  const typeText = stats?.typeText || 0;
-  const typeWeb = stats?.typeWeb || 0;
-  const typeComic = stats?.typeComic || 0;
-  const typeAudio = stats?.typeAudio || 0;
-  const hasCookie = stats?.hasCookie || 0;
-
-  const cardStyle = {
-    borderRadius: 12,
-    border: 'none',
-    boxShadow: isDarkMode ? '0 2px 12px rgba(0,0,0,0.3)' : '0 2px 12px rgba(0,0,0,0.06)',
-    overflow: 'hidden',
-  };
-
-  const summaryCards = [
-    { title: '总书源数', value: total, icon: <DatabaseOutlined />, color: '#667eea', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
-    { title: '已启用', value: enabled, icon: <CheckCircleOutlined />, color: '#52c41a', gradient: 'linear-gradient(135deg, #52c41a 0%, #389e0d 100%)' },
-    { title: '已禁用', value: disabled, icon: <CloseCircleOutlined />, color: '#ff4d4f', gradient: 'linear-gradient(135deg, #ff4d4f 0%, #cf1322 100%)' },
-  ];
-
-  // 启用状态分布
   const enablePieData = [
-    { type: '已启用', value: enabled },
-    { type: '已禁用', value: disabled },
-  ];
+    { type: '已启用', value: n('enabled') },
+    { type: '已禁用', value: Math.max(n('total') - n('enabled'), 0) },
+  ].filter((d) => d.value > 0);
 
-  // 书源类型分布
   const typePieData = [
-    { type: '文本(API)', value: typeText },
-    { type: '网页', value: typeWeb },
-    { type: '漫画', value: typeComic },
-    { type: '音频', value: typeAudio },
-  ].filter(d => d.value > 0);
+    { type: '文本(API)', value: n('typeText') },
+    { type: '网页', value: n('typeWeb') },
+    { type: '漫画', value: n('typeComic') },
+    { type: '音频', value: n('typeAudio') },
+  ].filter((d) => d.value > 0);
 
-  // 功能特性统计
   const featureBarData = [
-    { feature: '含搜索', value: hasSearch },
-    { feature: '含正文', value: hasContent },
-    { feature: '含发现', value: hasExploreUrl },
-    { feature: '含登录', value: hasLogin },
-    { feature: '含发现规则', value: hasExplore },
-    { feature: '含JS脚本', value: hasJs },
-    { feature: '含Cookie', value: hasCookie },
+    { feature: '含搜索', value: n('hasSearch') },
+    { feature: '含正文', value: n('hasContent') },
+    { feature: '含发现', value: n('hasExploreUrl') },
+    { feature: '含登录', value: n('hasLogin') },
+    { feature: '含发现规则', value: n('hasExplore') },
+    { feature: '含JS脚本', value: n('hasJs') },
+    { feature: '含Cookie', value: n('hasCookie') },
   ];
 
-  const chartLabelStyle = {
-    fontWeight: 500,
-    fill: isDarkMode ? '#fff' : '#333',
-    fontSize: 12,
-  };
+  const mode = isDarkMode ? 'dark' : 'light';
 
-  const enablePieConfig = {
-    data: enablePieData,
+  /* 功能特性这组是同口径的书源计数，数量级可比 —— 所以它才是真正适合画柱图的那张。
+     用同一个 splitByMagnitude 做护栏：一旦某项（例如「含JS脚本」）与其他项拉开 20× 以上，
+     柱子会集体贴底变成 0，此时退回 KPI 卡读数，而不是画一根误导人的图。 */
+  const featureMagnitude = splitByMagnitude(featureBarData, { valueOf: (d) => d.value });
+  const featureComparable = featureMagnitude.kpi.length === 0;
+
+  const mkDonut = (data) => ({
+    ...donutConfig({ mode, height: chartSize.standard }),
+    data,
     angleField: 'value',
     colorField: 'type',
-    color: ['#52c41a', '#ff4d4f'],
-    radius: 0.8,
-    innerRadius: 0.5,
     label: {
-      text: (d) => `${d.type}: ${d.value}`,
-      position: 'spider',
+      ...donutConfig({ mode }).label,
+      text: (d) => `${d.type}: ${Number(d.value).toLocaleString()}`,
       connector: true,
-      style: chartLabelStyle,
-      layout: [
-        { type: 'hide-overlap' },
-        { type: 'limit-in-canvas', margin: 10 },
-      ],
+      layout: [{ type: 'hide-overlap' }, { type: 'limit-in-canvas', margin: 10 }],
     },
-    legend: {
-      color: { position: 'bottom', itemMarker: 'circle' },
-    },
-    tooltip: (d) => ({ name: d.type, value: d.value.toLocaleString() }),
-    interaction: { elementHighlight: true },
-    theme: isDarkMode ? 'classicDark' : 'classic',
-    animation: { appear: { animation: 'fade-in', duration: 600 } },
-  };
+    tooltip: (d) => ({ name: d.type, value: Number(d.value).toLocaleString() }),
+  });
 
-  const typePieConfig = {
-    data: typePieData,
-    angleField: 'value',
-    colorField: 'type',
-    color: ['#667eea', '#fa8c16', '#eb2f96', '#13c2c2'],
-    radius: 0.8,
-    innerRadius: 0.5,
-    label: {
-      text: (d) => `${d.type}: ${d.value}`,
-      position: 'spider',
-      connector: true,
-      style: chartLabelStyle,
-      layout: [
-        { type: 'hide-overlap' },
-        { type: 'limit-in-canvas', margin: 10 },
-      ],
-    },
-    legend: {
-      color: { position: 'bottom', itemMarker: 'circle' },
-    },
-    tooltip: (d) => ({ name: d.type, value: d.value.toLocaleString() }),
-    interaction: { elementHighlight: true },
-    theme: isDarkMode ? 'classicDark' : 'classic',
-    animation: { appear: { animation: 'fade-in', duration: 600 } },
-  };
-
-  const featureBarConfig = {
+  const featureBarCfg = {
+    ...columnConfig({ mode, height: chartSize.featured }),
     data: featureBarData,
     xField: 'feature',
     yField: 'value',
     colorField: 'feature',
-    color: ['#667eea', '#52c41a', '#fa8c16', '#ff4d4f', '#722ed1', '#13c2c2', '#eb2f96'],
-    columnWidthRatio: 0.4,
-    label: {
-      text: (d) => d.value.toLocaleString(),
-      position: 'top',
-      style: {
-        fill: isDarkMode ? '#fff' : '#333',
-        fontSize: 13,
-        fontWeight: 600,
-        textBaseline: 'bottom',
-        dy: -4,
-      },
-    },
-    axis: {
-      x: {
-        label: {
-          style: {
-            fill: isDarkMode ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)',
-            fontSize: 13,
-          },
-          offset: 14,
-        },
-      },
-      y: {
-        label: {
-          style: {
-            fill: isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)',
-          },
-        },
-      },
-    },
-    style: {
-      radius: 6,
-      minWidth: 36,
-      maxWidth: 72,
-    },
-    scale: {
-      y: { nice: true, domainMin: 0 },
-    },
-    tooltip: (d) => ({ name: d.feature, value: d.value.toLocaleString() }),
-    interaction: {
-      elementHighlight: true,
-    },
-    theme: isDarkMode ? 'classicDark' : 'classic',
-    animation: { appear: { animation: 'fade-in', duration: 600 } },
+    label: { text: (d) => Number(d.value).toLocaleString(), position: 'top', dy: -4 },
+    tooltip: (d) => ({ name: d.feature, value: Number(d.value).toLocaleString() }),
   };
 
-  const brandDot = <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }} />;
-  const cardTitle = (text) => (
-    <span style={{ fontWeight: 600, fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-      {brandDot}{text}
-    </span>
-  );
+  const donutGrid = {
+    display: 'grid',
+    gridTemplateColumns: isDesktop ? 'minmax(0, 1fr) minmax(0, 1fr)' : 'minmax(0, 1fr)',
+    gap: 'var(--zf-s4)',
+  };
+
+  const pieBody = (data, cfg) =>
+    data.length === 0 ? (
+      <ZfEmptyState compact icon="◍" title="暂无数据" description="当前书源集合里没有命中该项。" />
+    ) : (
+      <Pie {...cfg} />
+    );
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-      <h2 className="page-title" style={{ marginBottom: 16 }}>书源统计</h2>
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }} ref={statsRef}>
-        {summaryCards.map((item) => (
-          <Col xs={24} sm={12} md={8} key={item.title}>
-            <Card className="stat-card-brand" style={cardStyle} styles={{ body: { padding: '20px 24px' } }} onMouseEnter={(e) => cardHover(e.currentTarget, isDarkMode)} onMouseLeave={(e) => cardLeave(e.currentTarget, isDarkMode)}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <div style={{ width: 48, height: 48, borderRadius: 12, background: item.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: '#fff', flexShrink: 0, boxShadow: `0 4px 12px ${item.color}40` }}>{item.icon}</div>
-                <div>
-                  <Text style={{ fontSize: 13, color: isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)', display: 'block' }}>{item.title}</Text>
-                  <Text style={{ fontSize: 28, fontWeight: 700, color: item.color }}>{item.value.toLocaleString()}</Text>
-                </div>
-              </div>
-            </Card>
-          </Col>
-        ))}
-      </Row>
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={24} md={12}>
-          <Card title={cardTitle('启用状态分布')} style={cardStyle} styles={{ body: { padding: '16px 16px 24px' } }} onMouseEnter={(e) => cardHover(e.currentTarget, isDarkMode)} onMouseLeave={(e) => cardLeave(e.currentTarget, isDarkMode)}>
-            <Pie {...enablePieConfig} height={300} />
-          </Card>
-        </Col>
-        <Col xs={24} md={12}>
-          <Card title={cardTitle('书源类型分布')} style={cardStyle} styles={{ body: { padding: '16px 16px 24px' } }} onMouseEnter={(e) => cardHover(e.currentTarget, isDarkMode)} onMouseLeave={(e) => cardLeave(e.currentTarget, isDarkMode)}>
-            <Pie {...typePieConfig} height={300} />
-          </Card>
-        </Col>
-      </Row>
-      <Row gutter={[16, 16]}>
-        <Col span={24}>
-          <Card title={cardTitle('功能特性统计')} style={cardStyle} styles={{ body: { padding: '16px 24px 24px' } }} onMouseEnter={(e) => cardHover(e.currentTarget, isDarkMode)} onMouseLeave={(e) => cardLeave(e.currentTarget, isDarkMode)}>
-            <Column {...featureBarConfig} height={320} />
-          </Card>
-        </Col>
-      </Row>
+    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+      <ZfPageHeader title="书源统计" subtitle="书源启用状态、类型与功能覆盖度" />
+
+      <div style={{ marginTop: 'var(--zf-s5)' }}>
+        <SummaryGrid stats={stats} loading={loading} />
+      </div>
+
+      <div style={{ ...donutGrid, marginTop: 'var(--zf-s4)' }}>
+        <ChartCard title="启用状态分布">{pieBody(enablePieData, mkDonut(enablePieData))}</ChartCard>
+        <ChartCard title="书源类型分布">{pieBody(typePieData, mkDonut(typePieData))}</ChartCard>
+      </div>
+
+      <ChartCard title="功能特性统计" style={{ marginTop: 'var(--zf-s4)' }}>
+        {featureBarData.length === 0 ? (
+          <Text style={{ color: 'var(--zf-text-muted)', fontSize: 'var(--zf-fs-sm)' }}>
+            暂无书源，无法统计功能覆盖度
+          </Text>
+        ) : featureComparable ? (
+          <Column {...featureBarCfg} />
+        ) : (
+          /* 数量级悬殊时不画同轴柱图，直接用 KPI 卡读数 */
+          <ZfGrid min={140} gap="var(--zf-s3)">
+            {featureBarData.map((f) => (
+              <ZfStatCard key={f.feature} label={f.feature} value={Number(f.value).toLocaleString()} />
+            ))}
+          </ZfGrid>
+        )}
+      </ChartCard>
     </div>
   );
 };

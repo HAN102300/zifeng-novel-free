@@ -173,7 +173,9 @@ function parseSourceRules(source) {
     if (typeof parsed[field] === 'string' && parsed[field]) {
       try {
         parsed[field] = JSON.parse(parsed[field]);
-      } catch {}
+      } catch {
+        // 不是合法 JSON 时保留原始字符串 —— 书源规则本来就允许裸规则串
+      }
     }
   }
   return parsed;
