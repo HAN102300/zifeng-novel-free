@@ -110,7 +110,20 @@ services:
       - parser
     restart: unless-stopped
 
+  # 服务状态监控（Uptime Kuma）
+  # 独立启动：docker compose up -d uptime-kuma
+  # 访问：http://localhost:3002（host 端口避开 parser 的 3001）
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: zifeng-uptime-kuma
+    ports:
+      - "${KUMA_PORT:-3002}:3001"
+    volumes:
+      - kuma_data:/app/data
+    restart: unless-stopped
+
 volumes:
   mysql_data:
   redis_data:
   nginx_ssl_certs:
+  kuma_data:
