@@ -10,8 +10,17 @@ export default defineConfig({
     alias: {
       "@zifeng/ui": fileURLToPath(new URL("../zifeng-ui", import.meta.url)),
     },
-    // 仓库根存在遗留 node_modules，共享层若不去重会加载出两份 react → Invalid hook call
-    dedupe: ["react", "react-dom", "antd", "@ant-design/icons", "framer-motion"],
+    // 仓库根存在遗留 node_modules，共享层若不去重会加载出两份 react/react-router
+    // （表现为 ZfPageHeader 的 useNavigate 找不到 Router 上下文，页面整树崩溃）
+    dedupe: [
+      "react",
+      "react-dom",
+      "react-router-dom",
+      "react-router",
+      "antd",
+      "@ant-design/icons",
+      "framer-motion",
+    ],
   },
   server: {
     port: 5173,
