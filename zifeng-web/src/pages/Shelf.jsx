@@ -19,6 +19,7 @@ import {
   removeFromBookshelf,
   getReadingHistory,
   deleteReadingHistory,
+  proxyImageUrl,
 } from '../utils/apiClient';
 import { simpleHash } from '../utils/novelConfig';
 import {
@@ -227,7 +228,7 @@ const Shelf = () => {
               id: item.bookUrl,
               name: item.bookName,
               author: item.author,
-              cover: item.coverUrl,
+              cover: proxyImageUrl(item.coverUrl),
               summary: item.summary,
               lastChapter: item.lastChapter,
               sourceUrl: item.sourceUrl,
@@ -243,7 +244,7 @@ const Shelf = () => {
             id: item.bookUrl,
             name: item.bookName,
             author: item.author,
-            cover: item.coverUrl,
+            cover: proxyImageUrl(item.coverUrl),
             summary: item.summary,
             lastChapter: item.lastChapter,
             sourceUrl: item.sourceUrl,
