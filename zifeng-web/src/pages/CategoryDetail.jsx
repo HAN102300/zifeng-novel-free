@@ -6,6 +6,7 @@ import { ZfPageShell, ZfGrid, ZfPageHeader, ZfPill, ZfCoverCard, ZfSkeletonGrid,
 import { variants } from '@zifeng/ui/motion';
 import { ThemeContext } from '../App';
 import { getDefaultSource, saveNovelCache } from '../utils/novelConfig';
+import { proxyImageUrl } from '../utils/apiClient';
 import { useBreakpoint } from '@zifeng/ui/hooks';
 import axios from 'axios';
 
@@ -170,7 +171,13 @@ const CategoryDetail = () => {
           url += '&isComplete=0';
         }
 
-        const response = await axios.get(url, { headers: parseHeaders(ds.header) });
+        const response = await axios.get('/api/proxy', {
+          params: {
+            url,
+            headers: JSON.stringify(parseHeaders(ds.header)),
+          },
+          timeout: 15000,
+        });
 
         if (response.data && response.data.code === 200 && response.data.data) {
           const rawData = response.data.data;
@@ -178,7 +185,7 @@ const CategoryDetail = () => {
             id: novel.novelId || index + 1,
             name: novel.novelName || '未知标题',
             author: novel.authorName || '未知作者',
-            cover: novel.cover || '',
+            cover: proxyImageUrl(novel.cover || ''),
             category:
               novel.categoryNames && novel.categoryNames.length > 0
                 ? novel.categoryNames[0].className

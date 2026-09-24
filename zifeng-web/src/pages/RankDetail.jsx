@@ -29,6 +29,7 @@ import { useBreakpoint } from '@zifeng/ui/hooks';
 import { hasScore, formatScore } from '@zifeng/ui/format';
 import { ThemeContext } from '../App';
 import { getDefaultSource, saveNovelCache } from '../utils/novelConfig';
+import { proxyImageUrl } from '../utils/apiClient';
 import axios from 'axios';
 
 /* ============================================================
@@ -319,7 +320,14 @@ const RankDetail = () => {
 
         /* —— 严格保留默认 URL：channel=1，不加 isComplete —— */
         const url = `${ds.bookSourceUrl}/module/rank?type=${config.type}&channel=1&page=${currentPage}`;
-        const response = await axios.get(url, { headers });
+        // 通过后端 /api/proxy 代理调用外部书源 API，避免浏览器跨域与混合内容拦截
+        const response = await axios.get('/api/proxy', {
+          params: {
+            url,
+            headers: JSON.stringify(headers),
+          },
+          timeout: 15000,
+        });
 
         if (response.data && response.data.data) {
           const data = response.data.data.map((novel, index) => {
@@ -333,7 +341,7 @@ const RankDetail = () => {
               id: novel.novelId || index + 1,
               name: novel.novelName || '未知标题',
               author,
-              cover: novel.cover || '',
+              cover: proxyImageUrl(novel.cover || ''),
               category,
               score: novel.averageScore || 0,
               rankInfo: novel.rankInfo || '',
