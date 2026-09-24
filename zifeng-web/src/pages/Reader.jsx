@@ -364,7 +364,8 @@ const SKELETON_STAGE_STYLE = { ...STAGE_STYLE, ...ARTICLE_STYLE };
 const FLOATER_STYLE = {
   position: 'fixed',
   right: 'var(--zf-s6)',
-  top: '50%',
+  /* 悬浮于反馈按钮（right:24, bottom:80, 高48）上方，避免遮挡正文 */
+  bottom: 140,
   zIndex: 'var(--zf-z-navbar)',
   display: 'flex',
   flexDirection: 'column',
@@ -501,11 +502,11 @@ const CHAPTER_MOTION = {
   exit: { opacity: 0, x: -40, transition: { duration: DUR.fast / 1000, ease: EASE.inOut } },
 };
 
-/** 浮标居中靠 motion 的 y 百分比完成 —— 不能再写 CSS transform，会被 motion 覆盖 */
+/** 浮标位于右下角（bottom 定位）—— 入场动画用 motion 的 y 偏移完成，不写 CSS transform */
 const FLOATER_MOTION = {
-  initial: { opacity: 0, y: '-42%', scale: 0.82 },
-  animate: { opacity: 1, y: '-50%', scale: 1, transition: { duration: DUR.normal / 1000, ease: EASE.out } },
-  exit: { opacity: 0, y: '-42%', scale: 0.82, transition: { duration: DUR.fast / 1000 } },
+  initial: { opacity: 0, y: 16, scale: 0.82 },
+  animate: { opacity: 1, y: 0, scale: 1, transition: { duration: DUR.normal / 1000, ease: EASE.out } },
+  exit: { opacity: 0, y: 16, scale: 0.82, transition: { duration: DUR.fast / 1000 } },
 };
 
 /* ============================================================
