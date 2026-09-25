@@ -112,12 +112,13 @@ services:
 
   # 服务状态监控（Uptime Kuma）
   # 独立启动：docker compose up -d uptime-kuma
-  # 访问：http://localhost:3002（host 端口避开 parser 的 3001）
+  # 访问：http://localhost:3080
+  # host 端口用 3080：3001 是 parser，3002 是 zifeng-admin 的 dev 端口
   uptime-kuma:
     image: louislam/uptime-kuma:1
     container_name: zifeng-uptime-kuma
     ports:
-      - "${KUMA_PORT:-3002}:3001"
+      - "${KUMA_PORT:-3080}:3001"
     volumes:
       - kuma_data:/app/data
     restart: unless-stopped

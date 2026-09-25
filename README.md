@@ -367,6 +367,7 @@ zifeng-novel-free/
 | `zifeng-parser` | `3001` | 书源解析引擎 |
 | MySQL | `3306` | 数据库 `zifeng_novel` |
 | Redis | `6379` | 缓存与会话 |
+| Uptime Kuma | `3080` | 服务状态监控（可选，`docker compose up -d uptime-kuma`） |
 
 开发模式下两个前端各自通过 Vite `proxy` 转发 `/api/*`：解析类接口走 `3001`，业务接口走 `8080`，**无需 Nginx 即可直接开发**。
 
